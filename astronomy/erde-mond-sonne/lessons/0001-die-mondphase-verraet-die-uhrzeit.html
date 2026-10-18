@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lektion 1 – Die Mondphase verrät die Uhrzeit</title>
+<link rel="stylesheet" href="../assets/kurs.css">
+</head>
+<body>
+<main>
+
+<p class="kopf">Erde, Mond und Sonne · Lektion 1</p>
+<h1>Die Mondphase verrät die Uhrzeit</h1>
+<p class="vorspann">Nach dieser Lektion schaust du auf die Form des Mondes und weißt, wann er auf- und untergeht – und umgekehrt: Du weißt, wann du gar nicht erst nach ihm suchen brauchst.</p>
+
+<h2>Erst raten, dann lernen</h2>
+<p>Beantworte diese eine Frage, bevor du weiterliest. Falsch raten ist ausdrücklich erwünscht – es macht die Erklärung danach einprägsamer.</p>
+
+<div class="quiz">
+  <p class="frage">Warum sehen wir den Mond mal als Sichel, mal als volle Scheibe?</p>
+  <div class="optionen">
+    <button>Der Erdschatten verdeckt einen Teil davon</button>
+    <button>Der Mond dreht uns Dunkles zu</button>
+    <button data-richtig>Wir sehen seine Tagseite unterschiedlich schräg</button>
+  </div>
+  <p class="erklaerung">Der Erdschatten ist der häufigste Denkfehler. Er trifft den Mond nur bei einer Mondfinsternis – ein seltenes Ereignis. Die Phasen entstehen ganz ohne Schatten der Erde.</p>
+</div>
+
+<h2>Ein Ball, eine Lampe</h2>
+<p>Der Mond leuchtet nicht selbst. Die Sonne beleuchtet immer genau eine Hälfte der Mondkugel – so wie auf der Erde immer eine Hälfte Tag hat. Was sich im Lauf eines Monats ändert, ist nur, <em>wie viel von dieser hellen Hälfte zu uns zeigt</em>, während der Mond die Erde umkreist.<sup class="q"><a href="#q1">1</a></sup></p>
+
+<p class="merke">Der Mond ist immer halb beleuchtet. Die <a href="../reference/glossar.html#phase">Phase</a> ist kein Schatten, sondern unser Blickwinkel auf seine Tagseite.</p>
+
+<p>Ein voller Durchlauf von Neumond zu Neumond dauert im Mittel 29,53 Tage.<sup class="q"><a href="#q2">2</a></sup> Probier es aus: Zieh den Mond um die Erde und beobachte rechts, was du von der Erde aus siehst.</p>
+
+<div class="mond-sim" data-mond-sim data-start="45"></div>
+
+<p class="klein">Die Abstände und Größen sind nicht maßstäblich. Die Uhrzeiten sind eine Faustregel in „Sonnenzeit“ (12 Uhr = Sonne steht im Süden); während der Sommerzeit eine Stunde dazuzählen.</p>
+
+<h2>Warum daraus eine Uhr wird</h2>
+<p>Schau im Bild auf die vier Wörter rund um die Erde. Die Erde dreht sich einmal am Tag, und du fährst dabei durch <em>Mittag → Sonnenuntergang → Mitternacht → Sonnenaufgang</em>. Der Mond steht für dich am höchsten, wenn du genau unter ihm durchfährst.</p>
+<p>Deshalb gehört zu jeder Phase eine feste Tageszeit:<sup class="q"><a href="#q1">1</a>, <a href="#q3">3</a></sup></p>
+
+<table>
+  <tr><th></th><th>Phase</th><th>Aufgang</th><th>Höchststand</th><th>Untergang</th></tr>
+  <tr><td><svg data-mondphase="0"></svg></td><td>Neumond</td><td>morgens</td><td>mittags</td><td>abends</td></tr>
+  <tr><td><svg data-mondphase="90"></svg></td><td>Erstes Viertel</td><td>mittags</td><td>abends</td><td>um Mitternacht</td></tr>
+  <tr><td><svg data-mondphase="180"></svg></td><td>Vollmond</td><td>abends</td><td>um Mitternacht</td><td>morgens</td></tr>
+  <tr><td><svg data-mondphase="270"></svg></td><td>Letztes Viertel</td><td>um Mitternacht</td><td>morgens</td><td>mittags</td></tr>
+</table>
+
+<p>Drei Faustregeln reichen, um den Rest abzuleiten:</p>
+<div class="kasten">
+  <p><strong>1. Der Vollmond ist das Gegenteil der Sonne.</strong> Er geht auf, wenn sie untergeht, und steht um Mitternacht im Süden.</p>
+  <p><strong>2. Jeden Tag etwa 50 Minuten später.</strong> Auf- und Untergang verschieben sich von Tag zu Tag um durchschnittlich rund 50 Minuten.<sup class="q"><a href="#q3">3</a></sup></p>
+  <p><strong>3. Rechts hell = zunehmend, links hell = abnehmend.</strong> Gilt bei uns auf der Nordhalbkugel; auf der Südhalbkugel ist es umgekehrt.<sup class="q"><a href="#q3">3</a></sup> Zunehmend heißt: Abendmond. Abnehmend heißt: Morgenmond.</p>
+</div>
+
+<p class="klein">Ehrlichkeitshalber: Die Tabelle ist ein Mittelwert. Je nach Jahreszeit bleibt der Mond deutlich länger oder kürzer über dem Horizont als zwölf Stunden – genau wie die Sonne im Sommer und Winter. Warum, klären wir in einer späteren Lektion. Für „abends oder morgens?“ reicht die Faustregel immer.</p>
+
+<h2>Jetzt du</h2>
+<p>Nicht in der Tabelle nachschauen. Stell dir die Draufsicht vor, entscheide dich, dann klick.</p>
+<p class="quiz-stand" data-quiz-stand></p>
+
+<div class="quiz">
+  <p class="frage">Kurz nach Sonnenuntergang hängt eine schmale Sichel tief im Westen. Was gilt?</p>
+  <div class="optionen">
+    <button data-richtig>Rechts hell, also zunehmend</button>
+    <button>Links hell, also abnehmend</button>
+    <button>Rechts hell, also abnehmend</button>
+  </div>
+  <p class="erklaerung">Die helle Seite zeigt immer zur Sonne, und die ist gerade rechts unten im Westen verschwunden. Ein Mond, der der Sonne am Abend hinterherläuft, ist ein zunehmender.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Bei Sonnenuntergang steht ein Halbmond hoch im Süden. Wann geht er unter?</p>
+  <div class="optionen">
+    <button>Gegen Sonnenaufgang</button>
+    <button>Gegen Mittag</button>
+    <button data-richtig>Gegen Mitternacht</button>
+  </div>
+  <p class="erklaerung">Höchststand am Abend heißt erstes Viertel. Vom Höchststand bis zum Untergang dauert es rund sechs Stunden.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Morgens um sieben siehst du einen Halbmond hoch im Süden. Welche Phase ist das?</p>
+  <div class="optionen">
+    <button>Erstes Viertel, zunehmend</button>
+    <button data-richtig>Letztes Viertel, abnehmend</button>
+    <button>Vollmond, gerade aufgegangen</button>
+  </div>
+  <p class="erklaerung">Wer morgens am höchsten steht, ist um Mitternacht aufgegangen: letztes Viertel. Seine linke Seite ist hell – sie zeigt zur Sonne, die gerade im Osten aufgeht.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Kann man den Vollmond mittags um zwölf am Himmel sehen?</p>
+  <div class="optionen">
+    <button>Ja, nur sehr blass</button>
+    <button data-richtig>Nein, er ist untergegangen</button>
+    <button>Ja, aber nur sommers</button>
+  </div>
+  <p class="erklaerung">Der Vollmond steht der Sonne genau gegenüber. Steht sie mittags im Süden, ist er unter deinen Füßen auf der anderen Seite der Erde. Tagsüber sichtbar sind dagegen die Halbmonde – sehr gut sogar.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Heute geht der Mond um 20:00 Uhr auf. Und morgen?</p>
+  <div class="optionen">
+    <button>Etwa um 19:10 Uhr</button>
+    <button>Wieder um 20:00 Uhr</button>
+    <button data-richtig>Etwa um 20:50 Uhr</button>
+  </div>
+  <p class="erklaerung">Der Mond ist in einem Tag ein Stück auf seiner Bahn weitergewandert; die Erde muss sich rund 50 Minuten länger drehen, bis du ihn wieder einholst.</p>
+</div>
+
+<h2>Draußen prüfen</h2>
+<div class="kasten">
+  <h3>Deine Aufgabe für die nächsten zwei Wochen</h3>
+  <p>Der Zeitpunkt ist günstig: Am 10. Oktober 2026 ist Neumond – ein neuer Zyklus beginnt gerade. Erstes Viertel ist am 18. Oktober, Vollmond am 26. Oktober.<sup class="q"><a href="#q4">4</a></sup> Auf- und Untergangszeiten für deinen Ort findest du im <a href="https://www.timeanddate.de/mond/phasen/">Mondkalender von timeanddate.de</a>.</p>
+  <p><strong>Vorher aufschreiben:</strong> An welchem Abend wirst du die Sichel zum ersten Mal sehen, in welcher Himmelsrichtung, und welche Seite ist hell? Um welche Uhrzeit steht der Mond am 18. Oktober im Süden? Wann geht er am 26. auf?</p>
+  <p><strong>Dann nachsehen:</strong> Geh an drei, vier klaren Abenden zur selben Uhrzeit raus. Merk dir, wo der Mond steht und wie dick er ist. Er wandert von Abend zu Abend ein gutes Stück nach links (Osten) und wird voller.</p>
+</div>
+
+<h2>Zum Weiterlesen</h2>
+<p>Die beste einzelne Quelle zu dieser Lektion ist die Seite <a href="https://science.nasa.gov/moon/moon-phases/">„Moon Phases“ der NASA</a> (englisch, mit Animationen aus echten Sondendaten). Auf Deutsch und mit Zeiten für deinen Ort: <a href="https://www.timeanddate.de/mond/phasen/">timeanddate.de</a>.</p>
+<p>Zum Nachschlagen: <a href="../reference/mondphasen-spickzettel.html">Spickzettel Mondphasen</a> · <a href="../reference/glossar.html">Glossar</a></p>
+
+<div class="kasten">
+  <p><strong>Etwas unklar?</strong> Frag deinen Lehrer – also Claude, im Terminal. Zum Beispiel: „Warum sehe ich den Halbmond tagsüber, den Vollmond aber nie?“ oder „Warum heißt es Viertel, wenn man eine Hälfte sieht?“ Sag mir auch dein Quiz-Ergebnis, dann passe ich die nächste Lektion an.</p>
+</div>
+
+<h2>Quellen</h2>
+<ol class="quellen">
+  <li id="q1">NASA Science: <a href="https://science.nasa.gov/moon/moon-phases/">Moon Phases</a> – Ursache der Phasen, Auf- und Untergang je Phase.</li>
+  <li id="q2">NASA Eclipse Web Site (F. Espenak): <a href="https://eclipse.gsfc.nasa.gov/help/moonorbit.html">Eclipses and the Moon's Orbit</a> – synodischer Monat 29,53059 Tage (Mittelwert).</li>
+  <li id="q3">Wikipedia: <a href="https://de.wikipedia.org/wiki/Mondphase">Mondphase</a> – Tabelle Auf-/Untergang, ca. 50 Minuten tägliche Verschiebung, Merkregeln und deren Gültigkeit auf der Nordhalbkugel.</li>
+  <li id="q4">timeanddate.de: <a href="https://www.timeanddate.de/mond/phasen/">Mondkalender 2026</a> – Phasentermine Oktober 2026 (Ortszeit Berlin).</li>
+</ol>
+
+<nav class="fuss">
+  <a href="../index.html">← Kursübersicht</a>
+  <a href="0002-du-stehst-auf-einem-karussell.html">Lektion 2: Du stehst auf einem Karussell →</a>
+</nav>
+
+</main>
+<script src="../assets/mond-sim.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

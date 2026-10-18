@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spickzettel – Mondphasen</title>
+<link rel="stylesheet" href="../assets/kurs.css">
+</head>
+<body>
+<main class="breit">
+
+<p class="kopf">Erde, Mond und Sonne · Referenz</p>
+<h1>Spickzettel Mondphasen</h1>
+<p class="vorspann">Phase ablesen, Tageszeit wissen. Gültig für die Nordhalbkugel, Zeiten als Faustregel in Sonnenzeit (Sommerzeit: +1 Stunde).</p>
+
+<table>
+  <tr><th></th><th>Phase</th><th class="zahl">Tag</th><th class="zahl">Winkel zur Sonne</th><th>Aufgang</th><th>Im Süden</th><th>Untergang</th><th>Zu sehen</th></tr>
+  <tr><td><svg data-mondphase="0"></svg></td><td>Neumond</td><td class="zahl">0</td><td class="zahl">0°</td><td>6 Uhr</td><td>12 Uhr</td><td>18 Uhr</td><td>gar nicht</td></tr>
+  <tr><td><svg data-mondphase="45"></svg></td><td>Zunehmende Sichel</td><td class="zahl">≈ 4</td><td class="zahl">45°</td><td>9 Uhr</td><td>15 Uhr</td><td>21 Uhr</td><td>abends im Westen</td></tr>
+  <tr><td><svg data-mondphase="90"></svg></td><td>Erstes Viertel</td><td class="zahl">≈ 7</td><td class="zahl">90°</td><td>12 Uhr</td><td>18 Uhr</td><td>0 Uhr</td><td>nachmittags, erste Nachthälfte</td></tr>
+  <tr><td><svg data-mondphase="135"></svg></td><td>Zunehmender Dreiviertelmond</td><td class="zahl">≈ 11</td><td class="zahl">135°</td><td>15 Uhr</td><td>21 Uhr</td><td>3 Uhr</td><td>abends bis nach Mitternacht</td></tr>
+  <tr><td><svg data-mondphase="180"></svg></td><td>Vollmond</td><td class="zahl">≈ 15</td><td class="zahl">180°</td><td>18 Uhr</td><td>0 Uhr</td><td>6 Uhr</td><td>die ganze Nacht</td></tr>
+  <tr><td><svg data-mondphase="225"></svg></td><td>Abnehmender Dreiviertelmond</td><td class="zahl">≈ 18</td><td class="zahl">225°</td><td>21 Uhr</td><td>3 Uhr</td><td>9 Uhr</td><td>später Abend bis Vormittag</td></tr>
+  <tr><td><svg data-mondphase="270"></svg></td><td>Letztes Viertel</td><td class="zahl">≈ 22</td><td class="zahl">270°</td><td>0 Uhr</td><td>6 Uhr</td><td>12 Uhr</td><td>zweite Nachthälfte, vormittags</td></tr>
+  <tr><td><svg data-mondphase="315"></svg></td><td>Abnehmende Sichel</td><td class="zahl">≈ 26</td><td class="zahl">315°</td><td>3 Uhr</td><td>9 Uhr</td><td>15 Uhr</td><td>frühmorgens im Osten</td></tr>
+</table>
+
+<h2>Faustregeln</h2>
+<div class="kasten">
+  <p><strong>Immer halb beleuchtet.</strong> Die Phase ist unser Blickwinkel auf die Tagseite des Mondes – nicht der Erdschatten.</p>
+  <p><strong>Die helle Seite zeigt zur Sonne.</strong> Rechts hell = zunehmend = Abendmond. Links hell = abnehmend = Morgenmond.</p>
+  <p><strong>Vollmond = Gegenteil der Sonne.</strong> Aufgang bei Sonnenuntergang, um Mitternacht im Süden.</p>
+  <p><strong>Jeden Tag rund 50 Minuten später.</strong> Auf- und Untergang verschieben sich täglich um durchschnittlich etwa 50 Minuten.</p>
+  <p><strong>Winkel in Stunden:</strong> Die Erde dreht sich 15° pro Stunde. Steht der Mond 90° hinter der Sonne, kommt er 6 Stunden nach ihr.</p>
+  <p><strong>13° pro Tag nach Osten.</strong> So weit wandert der Mond täglich vor den Sternen; gegenüber der Sonne sind es etwa 12° – daher die 50 Minuten.</p>
+  <p><strong>Rechnen:</strong> Der Mond hinkt der Sonne pro Tag im Zyklus um etwa 50 Minuten hinterher. Höchststand ≈ 12 Uhr + (Tag × 50 min); Aufgang rund sechs Stunden davor, Untergang rund sechs danach.</p>
+</div>
+
+<h2>Zahlen</h2>
+<table>
+  <tr><th>Größe</th><th class="zahl">Wert</th><th>Bedeutung</th></tr>
+  <tr><td>Synodischer Monat</td><td class="zahl">29,53 Tage</td><td>Neumond bis Neumond (Phasenzyklus)</td></tr>
+  <tr><td>Siderischer Monat</td><td class="zahl">27,32 Tage</td><td>ein Umlauf um die Erde, gemessen an den Sternen</td></tr>
+  <tr><td>Mittlere Entfernung</td><td class="zahl">384 399 km</td><td>Erde–Mond</td></tr>
+</table>
+<p class="klein">Quellen: <a href="https://science.nasa.gov/moon/moon-phases/">NASA Science, Moon Phases</a> · <a href="https://eclipse.gsfc.nasa.gov/help/moonorbit.html">NASA Eclipse Web Site, Eclipses and the Moon's Orbit</a> · <a href="https://de.wikipedia.org/wiki/Mondphase">Wikipedia, Mondphase</a>. Die Uhrzeiten sind Mittelwerte; je nach Jahreszeit weichen Auf- und Untergang deutlich ab.</p>
+
+<nav class="fuss">
+  <a href="../index.html">← Kursübersicht</a>
+  <a href="glossar.html">Glossar</a>
+  <a href="../lessons/0001-die-mondphase-verraet-die-uhrzeit.html">Lektion 1</a>
+</nav>
+
+</main>
+<script src="../assets/mond-sim.js"></script>
+</body>
+</html>

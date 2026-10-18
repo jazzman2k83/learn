@@ -1,0 +1,181 @@
+/* Gemeinsames Stylesheet für alle Lektionen und Referenzblätter.
+   Leitbild: Tufte – ruhige Serifenschrift, schmale Textspalte, wenig Farbe. */
+
+:root {
+  --papier: #fbf9f3;
+  --tinte: #1d1c1a;
+  --tinte-leise: #6b675f;
+  --linie: #d9d4c7;
+  --flaeche: #f1ede2;
+  --akzent: #a6501c;
+  --richtig: #2f6b3a;
+  --falsch: #a12d2d;
+  --himmel-nacht: #1b2238;
+  --himmel-tag: #cfe0ee;
+  --mond-hell: #f3ecd2;
+  --mond-dunkel: #3a3a40;
+  --erde: #3d6fa3;
+  --sonne: #e2a52b;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: "Gill Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier: #17171a;
+    --tinte: #e9e5da;
+    --tinte-leise: #9d988c;
+    --linie: #3a3936;
+    --flaeche: #222226;
+    --akzent: #e0915a;
+    --richtig: #7cc48a;
+    --falsch: #e58a8a;
+    --himmel-nacht: #0d1120;
+    --himmel-tag: #4f6f8c;
+    --mond-dunkel: #2b2b31;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 19px; }
+
+body {
+  margin: 0;
+  padding: 3rem 1rem 5rem;
+  background: var(--papier);
+  color: var(--tinte);
+  font-family: var(--serif);
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+}
+
+main { max-width: 36rem; margin: 0 auto; }
+main.breit { max-width: 48rem; }
+
+.kopf {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinte-leise);
+  margin: 0 0 0.6rem;
+}
+
+h1 { font-size: 2.1rem; font-weight: 400; line-height: 1.15; margin: 0 0 0.6rem; }
+h2 { font-size: 1.3rem; font-weight: 400; font-style: italic; margin: 2.8rem 0 0.6rem; }
+h3 { font-size: 1rem; font-weight: 600; margin: 1.6rem 0 0.3rem; }
+
+.vorspann { font-size: 1.12rem; color: var(--tinte-leise); margin: 0 0 2rem; }
+
+p { margin: 0 0 1rem; }
+a { color: var(--akzent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+strong { font-weight: 600; }
+hr { border: 0; border-top: 1px solid var(--linie); margin: 2.5rem 0; }
+
+sup.q a { font-family: var(--sans); font-size: 0.7em; text-decoration: none; padding: 0 0.1em; }
+
+.merke {
+  border-left: 3px solid var(--akzent);
+  padding: 0.2rem 0 0.2rem 1rem;
+  margin: 1.5rem 0;
+  font-size: 1.08rem;
+}
+
+.kasten {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: 4px;
+  padding: 1rem 1.2rem;
+  margin: 1.5rem 0;
+}
+.kasten > :last-child { margin-bottom: 0; }
+.kasten h3 { margin-top: 0; }
+
+.klein { font-size: 0.85rem; color: var(--tinte-leise); }
+
+table { border-collapse: collapse; width: 100%; margin: 1.2rem 0; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.4rem 0.6rem 0.4rem 0; border-bottom: 1px solid var(--linie); vertical-align: middle; }
+th { font-family: var(--sans); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinte-leise); font-weight: 500; }
+td.zahl, th.zahl { text-align: right; white-space: nowrap; padding-right: 1.2rem; font-variant-numeric: tabular-nums; }
+
+dl.glossar dt { font-weight: 600; margin-top: 1rem; }
+dl.glossar dd { margin: 0.1rem 0 0; }
+dl.glossar dd .klein { display: block; }
+
+ol.quellen { font-size: 0.85rem; color: var(--tinte-leise); padding-left: 1.3rem; }
+ol.quellen li { margin-bottom: 0.35rem; }
+
+nav.fuss {
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  font-family: var(--sans); font-size: 0.8rem;
+  border-top: 1px solid var(--linie); margin-top: 3rem; padding-top: 1rem;
+}
+
+/* ---------- Quiz (assets/quiz.js) ---------- */
+
+.quiz { margin: 1.6rem 0; padding-top: 1rem; border-top: 1px solid var(--linie); }
+.quiz .frage { font-weight: 600; margin-bottom: 0.6rem; }
+.quiz .optionen { display: grid; gap: 0.4rem; }
+.quiz button {
+  font: inherit; font-size: 0.95rem; text-align: left; color: var(--tinte);
+  background: transparent; border: 1px solid var(--linie); border-radius: 4px;
+  padding: 0.5rem 0.8rem; cursor: pointer;
+}
+.quiz button:hover:not(:disabled) { border-color: var(--akzent); }
+.quiz button:disabled { cursor: default; opacity: 0.75; }
+.quiz button.richtig { border-color: var(--richtig); color: var(--richtig); opacity: 1; font-weight: 600; }
+.quiz button.falsch { border-color: var(--falsch); color: var(--falsch); opacity: 1; text-decoration: line-through; }
+.quiz .erklaerung { display: none; margin: 0.7rem 0 0; font-size: 0.92rem; }
+.quiz.beantwortet .erklaerung { display: block; }
+.quiz-stand { font-family: var(--sans); font-size: 0.85rem; color: var(--tinte-leise); }
+
+/* ---------- Mond-Simulator (assets/mond-sim.js) ---------- */
+
+.mond-sim { margin: 1.5rem 0; }
+.mond-sim svg { width: 100%; height: auto; display: block; touch-action: none; }
+.mond-sim .weltraum { fill: var(--himmel-nacht); }
+.mond-sim text { font-family: var(--sans); font-size: 12px; fill: #c9cbd6; }
+.mond-sim text.titel { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; fill: #8f93a6; }
+.mond-sim .bahn { fill: none; stroke: #5a607a; stroke-dasharray: 2 5; }
+.mond-sim .blick { stroke: #8f93a6; stroke-dasharray: 4 4; }
+.mond-sim .strahl { stroke: var(--sonne); stroke-width: 1.5; }
+.mond-sim .strahl-spitze { fill: var(--sonne); }
+.mond-sim .dunkel { fill: var(--mond-dunkel); }
+.mond-sim .hell { fill: var(--mond-hell); }
+.mond-sim .erde-nacht { fill: #1f3552; }
+.mond-sim .erde-tag { fill: var(--erde); }
+.mond-sim .greifer { fill: transparent; cursor: grab; }
+.mond-sim .rand { fill: none; stroke: #5a607a; }
+
+.mond-sim .regler { display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0 0.4rem; font-family: var(--sans); font-size: 0.8rem; }
+.mond-sim input[type=range] { flex: 1; accent-color: var(--akzent); }
+.mond-sim .regler button { font: inherit; background: transparent; color: var(--tinte); border: 1px solid var(--linie); border-radius: 4px; padding: 0.25rem 0.7rem; cursor: pointer; }
+
+.mond-sim .werte { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 0.2rem 1rem; margin: 0.6rem 0; }
+.mond-sim .werte div { border-top: 1px solid var(--linie); padding-top: 0.3rem; }
+.mond-sim .werte span { display: block; font-family: var(--sans); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinte-leise); }
+.mond-sim .werte b { font-weight: 400; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.mond-sim .sichtbar { font-style: italic; margin: 0.4rem 0 0.8rem; }
+
+.tagesband { position: relative; height: 1.5rem; border-radius: 3px; overflow: hidden;
+  background: linear-gradient(to right, var(--himmel-nacht) 0 23%, var(--himmel-tag) 27% 73%, var(--himmel-nacht) 77% 100%); }
+.tagesband i { position: absolute; top: 25%; height: 50%; background: var(--mond-hell); border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+.tagesskala { display: flex; justify-content: space-between; font-family: var(--sans); font-size: 0.65rem; color: var(--tinte-leise); margin-top: 0.2rem; }
+
+/* Kleine Phasenbildchen: <svg data-mondphase="90"> */
+svg[data-mondphase] { width: 2.2rem; height: 2.2rem; vertical-align: middle; }
+svg[data-mondphase] .dunkel { fill: var(--mond-dunkel); }
+svg[data-mondphase] .hell { fill: var(--mond-hell); }
+svg[data-mondphase] .rand { fill: none; stroke: var(--tinte-leise); stroke-width: 0.6; }
+
+@media print {
+  html { font-size: 11pt; }
+  body { background: #fff; color: #000; padding: 0; }
+  main, main.breit { max-width: none; }
+  a { color: inherit; text-decoration: none; }
+  nav.fuss, .nicht-drucken, .mond-sim .regler { display: none; }
+  .kasten, .quiz, tr { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

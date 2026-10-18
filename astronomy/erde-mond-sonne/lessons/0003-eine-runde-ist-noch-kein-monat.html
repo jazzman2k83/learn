@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lektion 3 – Eine Runde ist noch kein Monat</title>
+<link rel="stylesheet" href="../assets/kurs.css">
+</head>
+<body>
+<main>
+
+<p class="kopf">Erde, Mond und Sonne · Lektion 3</p>
+<h1>Eine Runde ist noch kein Monat</h1>
+<p class="vorspann">Der Mond braucht 27,3 Tage für eine Runde um die Erde – aber 29,5 Tage von Neumond zu Neumond. Nach dieser Lektion weißt du, wo die zwei Tage bleiben, und woher die „50 Minuten später“ aus Lektion 1 kommen.</p>
+
+<h2>Kurz aufwärmen</h2>
+<p>Zwei Fragen zu den letzten Lektionen. Die Regel dazu: Die Erde dreht sich 15° pro Stunde. Steht der Mond 90° hinter der Sonne, kommt er 6 Stunden nach ihr.</p>
+<p class="quiz-stand" data-quiz-stand></p>
+
+<div class="quiz">
+  <p class="frage">Eine zunehmende Sichel steht 45° hinter der Sonne. Die Sonne geht um 6 Uhr auf. Wann geht die Sichel auf?</p>
+  <div class="optionen">
+    <button>Gegen 15 Uhr</button>
+    <button data-richtig>Gegen 9 Uhr</button>
+    <button>Gegen 3 Uhr</button>
+  </div>
+  <p class="erklaerung">45° ÷ 15° pro Stunde = 3 Stunden. Die Sichel kommt drei Stunden nach der Sonne über den Horizont – am hellen Vormittag, weshalb man sie erst abends bemerkt.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Der Vollmond steht 180° von der Sonne entfernt. Wie viel später als die Sonne geht er auf?</p>
+  <div class="optionen">
+    <button>Sechs Stunden später</button>
+    <button>Achtzehn Stunden später</button>
+    <button data-richtig>Zwölf Stunden später</button>
+  </div>
+  <p class="erklaerung">180° ÷ 15° = 12 Stunden. Sonne um 6 Uhr, Vollmond um 18 Uhr – das war dein Experiment 2 in <a href="0002-du-stehst-auf-einem-karussell.html">Lektion 2</a>.</p>
+</div>
+
+<h2>Das Rätsel</h2>
+<p>Gemessen an den Sternen umrundet der Mond die Erde einmal in 27,32 Tagen. Von Neumond zu Neumond vergehen aber im Mittel 29,53 Tage.<sup class="q"><a href="#q1">1</a></sup> Beide Zahlen stimmen. Wie kann das sein?</p>
+<p>Bisher haben wir so getan, als stünde die Erde still. Tut sie nicht: Während der Mond um die Erde läuft, wandert die Erde selbst um die Sonne.<sup class="q"><a href="#q2">2</a></sup> Eine Runde in einem Jahr – das ist knapp 1° pro Tag.</p>
+
+<p class="merke">Neumond heißt: Der Mond steht zwischen Erde und Sonne. Wenn die Erde weiterwandert, verschiebt sich diese Stelle – und der Mond muss ihr hinterherlaufen.</p>
+
+<h2>Sieh es dir an</h2>
+<p>Unten startet alles bei einem Neumond. Die weiße gestrichelte Linie zeigt von der Erde zu einem sehr fernen Stern – ihre Richtung ändert sich nie. Die gelbe Linie zeigt zur Sonne.</p>
+
+<div class="mond-sim" data-umlauf-sim data-tag="0"></div>
+<p class="klein">Winkel und Zeiten sind echt, Abstände und Größen nicht: In Wirklichkeit ist die Sonne rund 400-mal so weit weg wie der Mond.</p>
+
+<div class="kasten">
+  <h3>Drei Experimente am Simulator – der Reihe nach</h3>
+  <p><strong>Experiment 1.</strong> Drück „Tag 0“. Der Mond steht zwischen Erde und Sonne, die weiße und die gelbe Linie liegen übereinander: Stern und Sonne stehen in derselben Richtung.</p>
+  <p><strong>Experiment 2.</strong> Drück „Tag 27,3“. Der Mond liegt wieder auf der weißen Linie – eine volle Runde, er steht wieder vor demselben Stern. Aber die gelbe Linie hat sich weggedreht, weil die Erde ein Stück weitergewandert ist. Schau links oben: Welche Phase siehst du?</p>
+  <p><strong>Experiment 3.</strong> Schieb den Regler langsam weiter, bis der Mond auf der gelben Linie liegt. Lies die Tage ab.</p>
+</div>
+
+<h2>Die Rechnung dahinter</h2>
+<p>In 27,3 Tagen wandert die Erde etwa 27° um die Sonne. Diese 27° muss der Mond zusätzlich schaffen. Er läuft rund 13° pro Tag, braucht dafür also gut zwei Tage – macht zusammen 29,5.</p>
+<table>
+  <tr><th>Wer</th><th class="zahl">Runde dauert</th><th class="zahl">pro Tag</th></tr>
+  <tr><td>Mond um die Erde (gegen die Sterne)</td><td class="zahl">27,32 Tage</td><td class="zahl">≈ 13°</td></tr>
+  <tr><td>Erde um die Sonne</td><td class="zahl">365,25 Tage</td><td class="zahl">≈ 1°</td></tr>
+  <tr><td>Mond gegenüber der Sonne</td><td class="zahl">29,53 Tage</td><td class="zahl">≈ 12°</td></tr>
+</table>
+<p class="klein">Tageswerte: eigene Rechnung, 360° geteilt durch die jeweilige Dauer.</p>
+
+<p>Die beiden Monate haben Namen. Du musst sie nicht auswendig können, aber du wirst ihnen begegnen:</p>
+<p><strong><a href="../reference/glossar.html#siderischer-monat">Siderischer Monat</a></strong> – 27,32 Tage, eine Runde gemessen an den Sternen.<br>
+<strong><a href="../reference/glossar.html#synodischer-monat">Synodischer Monat</a></strong> – 29,53 Tage, ein Phasenzyklus, gemessen an der Sonne. Das ist der Monat, den du am Himmel siehst.</p>
+
+<h2>Daher kommen die 50 Minuten</h2>
+<p>In Lektion 1 hieß es: Der Mond geht jeden Tag rund 50 Minuten später auf. Jetzt kannst du das selbst ausrechnen. Gegenüber der Sonne rückt der Mond pro Tag etwa 12° weiter. Die Erde dreht sich 15° pro Stunde – für 12° braucht sie also knapp 50 Minuten. So lange musst du dich jeden Tag länger drehen, bis du den Mond wieder einholst.</p>
+
+<p class="merke">13° pro Tag vor den Sternen, 12° pro Tag gegenüber der Sonne, 50 Minuten später pro Tag: drei Zahlen für dieselbe Bewegung.</p>
+
+<p>Diese 13° kannst du sehen. Der Mond wandert vor dem Sternenhintergrund Tag für Tag nach Osten, also nach links, wenn du nach Süden schaust – das ist seine eigene, langsame Bewegung, entgegen dem täglichen Zug von Ost nach West durch die Erddrehung.</p>
+
+<h2>Jetzt du</h2>
+
+<div class="quiz">
+  <p class="frage">Warum dauert der Phasenzyklus länger als eine Runde des Mondes um die Erde?</p>
+  <div class="optionen">
+    <button>Der Mond wird unterwegs langsamer</button>
+    <button data-richtig>Die Erde wandert inzwischen weiter</button>
+    <button>Die Erde dreht sich dagegen</button>
+  </div>
+  <p class="erklaerung">Weil die Erde um die Sonne weiterzieht, liegt die Stelle „zwischen Erde und Sonne“ nach einer Runde woanders. Die Drehung der Erde um sich selbst spielt dabei keine Rolle.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Start bei Neumond. Welche Phase siehst du nach genau 27,3 Tagen?</p>
+  <div class="optionen">
+    <button data-richtig>Schmale abnehmende Sichel</button>
+    <button>Wieder genau Neumond</button>
+    <button>Schmale zunehmende Sichel</button>
+  </div>
+  <p class="erklaerung">Der Mond hat seine Runde beendet, aber die Sonnenrichtung noch nicht wieder erreicht. Kurz vor Neumond ist die Sichel schmal und abnehmend – morgens im Osten.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Heute Abend steht der Mond dicht neben einem hellen Stern. Wo steht er morgen zur selben Uhrzeit?</p>
+  <div class="optionen">
+    <button>Ein Stück weiter westlich</button>
+    <button>Wieder neben demselben Stern</button>
+    <button data-richtig>Ein Stück weiter östlich</button>
+  </div>
+  <p class="erklaerung">Rund 13° weiter östlich, also links vom Stern. Der Stern selbst steht zur selben Uhrzeit fast an derselben Stelle wie gestern.</p>
+</div>
+
+<div class="quiz">
+  <p class="frage">Warum geht der Mond jeden Tag rund 50 Minuten später auf?</p>
+  <div class="optionen">
+    <button>Die Erde dreht langsamer</button>
+    <button data-richtig>Der Mond ist weitergewandert</button>
+    <button>Die Tage werden kürzer</button>
+  </div>
+  <p class="erklaerung">Er ist in 24 Stunden etwa 12° von der Sonne weggerückt. Diese 12° muss die Erde zusätzlich drehen: 12° ÷ 15° pro Stunde ≈ 50 Minuten.</p>
+</div>
+
+<h2>Draußen prüfen</h2>
+<div class="kasten">
+  <h3>Zwei Abende, ein Stern</h3>
+  <p>Der Mond ist gerade ein paar Tage alt und steht abends als zunehmende Sichel im Südwesten; erstes Viertel ist am 18. Oktober.<sup class="q"><a href="#q3">3</a></sup> Such dir an einem klaren Abend einen hellen Stern oder Planeten in seiner Nähe und merk dir, wie beide zueinander stehen – ein Handyfoto reicht.</p>
+  <p>Schau am nächsten Abend zur selben Uhrzeit wieder hin. <strong>Vorher aufschreiben:</strong> Auf welcher Seite des Sterns steht der Mond dann, und ungefähr wie weit ist er gewandert?</p>
+  <h3>Nachrechnen mit echten Daten</h3>
+  <p>Neumond war am 10. Oktober um 17:50 Uhr, der nächste ist am 9. November um 8:02 Uhr.<sup class="q"><a href="#q3">3</a></sup> Dazwischen liegt die Umstellung auf Winterzeit, also eine Stunde mehr. Wie viele Tage sind das? Du wirst nicht genau auf 29,53 kommen – einzelne Zyklen schwanken zwischen 29,26 und 29,80 Tagen.<sup class="q"><a href="#q1">1</a></sup> Warum, kommt in der Lektion über die Ellipsenbahn.</p>
+</div>
+
+<h2>Zum Weiterlesen</h2>
+<p>Die Zahlen dieser Lektion stehen bei Fred Espenak auf der NASA Eclipse Web Site: <a href="https://eclipse.gsfc.nasa.gov/help/moonorbit.html">„Eclipses and the Moon's Orbit“</a> (englisch). Kurz und für Einsteiger erklärt es <a href="https://starchild.gsfc.nasa.gov/docs/StarChild/questions/question32.html">NASA StarChild: „What is the orbital period of the Moon?“</a></p>
+<p>Zum Nachschlagen: <a href="../reference/mondphasen-spickzettel.html">Spickzettel Mondphasen</a> · <a href="../reference/glossar.html">Glossar</a></p>
+
+<div class="kasten">
+  <p><strong>Etwas unklar?</strong> Frag mich im Terminal. Besonders hilfreich: Sag mir, was du in Experiment 2 links oben als Phase gesehen hast und ob dich das überrascht hat.</p>
+</div>
+
+<h2>Quellen</h2>
+<ol class="quellen">
+  <li id="q1">NASA Eclipse Web Site (F. Espenak): <a href="https://eclipse.gsfc.nasa.gov/help/moonorbit.html">Eclipses and the Moon's Orbit</a> – siderischer Monat 27,32166 Tage, synodischer Monat 29,53059 Tage (Mittelwerte), Schwankung 29,26 bis 29,80 Tage.</li>
+  <li id="q2">NASA StarChild: <a href="https://starchild.gsfc.nasa.gov/docs/StarChild/questions/question32.html">What is the orbital period of the Moon?</a> – der Phasenzyklus ist länger, weil die Erde sich inzwischen auf ihrer Bahn weiterbewegt.</li>
+  <li id="q3">timeanddate.de: <a href="https://www.timeanddate.de/mond/phasen/">Mondkalender 2026</a> – Phasentermine Oktober und November 2026 (Ortszeit Berlin).</li>
+</ol>
+
+<nav class="fuss">
+  <a href="0002-du-stehst-auf-einem-karussell.html">← Lektion 2</a>
+  <a href="../index.html">Kursübersicht</a>
+  <span>Nächste Lektion: Immer dieselbe Seite (folgt)</span>
+</nav>
+
+</main>
+<script src="../assets/mond-sim.js"></script>
+<script src="../assets/umlauf-sim.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
