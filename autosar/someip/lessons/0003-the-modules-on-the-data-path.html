@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The modules on the data path · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The modules on the data path</h1>
+<p class="lede">In the Classic Platform no single module "is" <span class="term">SOME/IP</span>. The work is shared by a chain of modules between the application software and the Ethernet wire.</p>
+
+<h2>The map</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 400" role="img" aria-labelledby="f1t">
+<title id="f1t">One ECU from top to bottom: SWC, RTE with the SOME/IP transformer beside it, COM or LdCom, PduR with SOME/IP TP beside it, SoAd with Sd beside it and BswM above Sd, TcpIp, EthIf, Eth driver, and the Ethernet wire. Dashed control arrows: BswM and Sd exchange requested and reported states; Sd controls socket connections and routing groups in SoAd.</title>
+<rect x="220" y="10" width="200" height="34" class="m-app"/><text x="320" y="31" class="d-t d-c">Software component (SWC)</text>
+<rect x="220" y="54" width="200" height="34" class="m-rte"/><text x="320" y="75" class="d-t d-c">RTE</text>
+<rect x="20" y="54" width="160" height="34" class="m-rte"/><text x="100" y="69" class="d-t d-c">SOME/IP transformer</text><text x="100" y="82" class="d-s d-c">serializes, deserializes</text>
+<rect x="220" y="98" width="200" height="34" class="m-com"/><text x="320" y="119" class="d-t d-c">COM or LdCom</text>
+<rect x="220" y="142" width="200" height="34" class="m-pdur"/><text x="320" y="163" class="d-t d-c">PDU Router (PduR)</text>
+<rect x="20" y="142" width="160" height="34" class="m-tp"/><text x="100" y="157" class="d-t d-c">SOME/IP TP</text><text x="100" y="170" class="d-s d-c">segments large messages</text>
+<rect x="220" y="186" width="200" height="34" class="m-soad"/><text x="320" y="207" class="d-t d-c">Socket Adaptor (SoAd)</text>
+<rect x="460" y="98" width="160" height="34" class="m-bswm"/><text x="540" y="113" class="d-t d-c">BSW Mode Manager</text><text x="540" y="126" class="d-s d-c">(BswM)</text>
+<rect x="460" y="186" width="160" height="34" class="m-sd"/><text x="540" y="201" class="d-t d-c">Service Discovery</text><text x="540" y="214" class="d-s d-c">(Sd)</text>
+<rect x="220" y="230" width="200" height="34" class="m-ip"/><text x="320" y="251" class="d-t d-c">TCP/IP stack (TcpIp)</text>
+<rect x="220" y="274" width="200" height="34" class="m-eth"/><text x="320" y="295" class="d-t d-c">Ethernet Interface (EthIf)</text>
+<rect x="220" y="318" width="200" height="34" class="m-eth"/><text x="320" y="339" class="d-t d-c">Ethernet driver (Eth)</text>
+<line x1="20" y1="380" x2="620" y2="380" class="d-axis"/><text x="610" y="374" class="d-s d-r">Ethernet wire</text>
+<!-- data path -->
+<line x1="320" y1="45" x2="320" y2="53" class="d-ln"/>
+<line x1="320" y1="89" x2="320" y2="97" class="d-ln"/>
+<line x1="320" y1="133" x2="320" y2="141" class="d-ln"/>
+<line x1="320" y1="177" x2="320" y2="185" class="d-ln"/>
+<line x1="320" y1="221" x2="320" y2="229" class="d-ln"/>
+<line x1="320" y1="265" x2="320" y2="273" class="d-ln"/>
+<line x1="320" y1="309" x2="320" y2="317" class="d-ln"/>
+<line x1="320" y1="353" x2="320" y2="378" class="d-ln" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<line x1="182" y1="71" x2="218" y2="71" class="d-ln" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<line x1="182" y1="159" x2="218" y2="159" class="d-ln" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<line x1="422" y1="203" x2="458" y2="203" class="k-sd" marker-start="url(#ah-sd)" marker-end="url(#ah-sd)"/>
+<!-- control path -->
+<line x1="540" y1="134" x2="540" y2="184" class="d-ln dash" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<text x="548" y="155" class="d-s">REQUESTED ↓</text>
+<text x="548" y="168" class="d-s">AVAILABLE ↑</text>
+<path d="M500,222 L500,240 L424,240" class="d-ln dash" marker-end="url(#ah)"/>
+<text x="436" y="256" class="d-s">socket connections,</text>
+<text x="436" y="269" class="d-s">routing groups</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Messages travel along the middle column, solid arrows, in both directions. Side modules help on the way. The dashed arrows carry no messages; they are control: BswM tells Sd which services are REQUESTED (wanted), Sd reports which are AVAILABLE, and Sd controls the socket connections (links to one remote partner) and routing groups (sets of PDU routes switched on and off together) in SoAd.</figcaption>
+<div class="legend"><span><span class="box m-app"></span>SWC</span><span><span class="box m-rte"></span>RTE and transformer</span><span><span class="box m-com"></span>COM, LdCom</span><span><span class="box m-pdur"></span>PduR</span><span><span class="box m-tp"></span>SOME/IP TP</span><span><span class="box m-soad"></span>SoAd</span><span><span class="box m-sd"></span>Sd</span><span><span class="box m-bswm"></span>BswM</span><span><span class="box m-ip"></span>TcpIp</span><span><span class="box m-eth"></span>EthIf, Eth</span></div>
+</figure>
+<p>These colours stay the same in every diagram of the course: green is always <span class="term">SoAd</span>, pink is always <span class="term">Sd</span>, and so on.</p>
+
+<h2>Three groups of jobs</h2>
+<div class="cards">
+  <div class="card m-rte"><p class="tag">making the message</p><h3>Top: RTE and transformer</h3><p>The <span class="term">RTE</span> (Runtime Environment: connects the SWCs to each other and to the basic software) takes the data of the <span class="term">SWC</span> (software component: the application) and lets the <span class="term">SOME/IP transformer</span> (the module that serializes the data into a SOME/IP message) turn it into bytes and write most of the <span class="term">SOME/IP header</span>. <span class="term">COM</span> (the communication module) or <span class="term">LdCom</span> (Large Data COM, its lean alternative) then carries the bytes as one signal.</p></div>
+  <div class="card m-soad"><p class="tag">getting it to the right place</p><h3>Middle: PduR, SoAd, Sd</h3><p>The <span class="term">PduR</span> (PDU Router) forwards each <span class="term">PDU</span> (Protocol Data Unit: a block of data handed between modules, known by its PDU ID). <span class="term">SoAd</span> (Socket Adaptor) maps PDUs to socket connections and adds the rest of the header. <span class="term">Sd</span> (Service Discovery: the module that offers, finds and subscribes services) also decides which routes in SoAd are switched on.</p></div>
+  <div class="card m-eth"><p class="tag">moving bytes</p><h3>Bottom: TcpIp, EthIf, Eth</h3><p><span class="term">TcpIp</span> (the TCP/IP stack) does UDP, TCP and IP. <span class="term">EthIf</span> (Ethernet Interface) hands frames to the right protocol. The <span class="term">Eth driver</span> (Ethernet driver) moves frames in and out of the hardware.</p></div>
+</div>
+<p>Two side paths matter for <span class="term">SOME/IP</span>. Messages too big for one UDP datagram take a detour through <span class="term">SOME/IP TP</span> (SOME/IP Transport Protocol), which does the <span class="term">segmentation</span> (cutting the message into segments that each fit into one UDP datagram; the receiver reassembles them). And SOME/IP-SD messages (the messages of Service Discovery) do not come from an SWC at all: <span class="term">Sd</span> builds them itself and hands them straight to <span class="term">SoAd</span>. <span class="term">BswM</span> (BSW Mode Manager) never touches a message; it tells Sd which services are wanted.</p>
+<p class="small">Not shown: EthSM, ComM and the Ethernet transceiver driver, which bring the network up and down. The course assumes the link is up.</p>
+
+<h2>Try it</h2>
+<p>Click a module to read what it does for SOME/IP. Then press "Who does it?" and answer by clicking the module that does the job.</p>
+<div class="panel no-print">
+  <div class="chips" id="mods"></div>
+  <p class="field-info" id="info" aria-live="polite">Pick a module.</p>
+  <div class="buttons-row"><button type="button" class="primary" id="ask">Who does it?</button></div>
+  <p class="feedback" id="job" aria-live="polite"></p>
+  <p class="small" id="tally"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> The <span class="term">SOME/IP header</span> is written by two modules: the <span class="term">SOME/IP transformer</span> writes most of it, <span class="term">SoAd</span> adds the Message ID and the Length. <span class="term">Sd</span> and <span class="term">BswM</span> never touch the data of an event or a method call; they only decide whether it may flow.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">SWC</span></td><td>Software component: application software above the RTE</td></tr>
+<tr><td><span class="term">RTE</span></td><td>Runtime Environment: connects the SWCs to each other and to the basic software</td></tr>
+<tr><td><span class="term">SOME/IP transformer</span></td><td>Serializes the data of an SWC into a SOME/IP message and back</td></tr>
+<tr><td><span class="term">COM</span>, <span class="term">LdCom</span></td><td>Carry the serialized message between the RTE and the PduR; LdCom is the lean variant</td></tr>
+<tr><td><span class="term">PduR</span></td><td>PDU Router: forwards PDUs between the modules above and below it</td></tr>
+<tr><td><span class="term">PDU</span></td><td>Protocol Data Unit: a block of data handed between modules, known by its PDU ID</td></tr>
+<tr><td><span class="term">SOME/IP TP</span></td><td>SOME/IP Transport Protocol: segments large messages for UDP</td></tr>
+<tr><td><span class="term">segmentation</span></td><td>Cutting a message that is too big for one UDP datagram into segments</td></tr>
+<tr><td><span class="term">SoAd</span></td><td>Socket Adaptor: maps PDUs to socket connections of TcpIp</td></tr>
+<tr><td><span class="term">Sd</span></td><td>Service Discovery: offers, finds and subscribes services</td></tr>
+<tr><td><span class="term">BswM</span></td><td>BSW Mode Manager: tells Sd which services are wanted</td></tr>
+<tr><td><span class="term">TcpIp</span>, <span class="term">EthIf</span>, <span class="term">Eth driver</span></td><td>TCP/IP stack; Ethernet Interface; Ethernet driver</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R20-11</a>; introductions of the R20-11 module specifications of <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer</a> and <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransportProtocol.pdf">SOME/IP TP</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const MODS = [
+    { id: 'swc', cls: 'm-app', name: 'SWC', text: 'The application. It reads and writes data elements and calls operations through the RTE, exactly as it would without SOME/IP.' },
+    { id: 'rte', cls: 'm-rte', name: 'RTE', text: 'Runs the SOME/IP transformer for every communication that is configured to be transformed, keeps track of which response belongs to which request, watches for timeouts, and hands the bytes to COM or LdCom.' },
+    { id: 'xf', cls: 'm-rte', name: 'SOME/IP transformer', text: 'Serializes the data into the SOME/IP format and writes the header fields Request ID, Protocol Version, Interface Version, Message Type and Return Code. Deserializes and checks on reception.' },
+    { id: 'com', cls: 'm-com', name: 'COM / LdCom', text: 'Carries the serialized message as one byte-array signal in an I-PDU. LdCom is the lean variant: the whole I-PDU, no signal handling.' },
+    { id: 'pdur', cls: 'm-pdur', name: 'PduR', text: 'Forwards PDUs by PDU ID between the modules above and SoAd, and through SOME/IP TP when a message needs segmentation.' },
+    { id: 'tp', cls: 'm-tp', name: 'SOME/IP TP', text: 'Cuts a message that is too big for one UDP datagram into segments, and reassembles the segments on reception.' },
+    { id: 'soad', cls: 'm-soad', name: 'SoAd', text: 'Maps PDUs to socket connections of TcpIp. For SOME/IP it puts the Message ID and the Length in front of each PDU, and reads them to route incoming messages.' },
+    { id: 'sd', cls: 'm-sd', name: 'Sd', text: 'Offers the services of this ECU, finds services of others, handles subscriptions to eventgroups, and switches socket connections and routing groups in SoAd. Builds its own SOME/IP-SD messages and sends them through SoAd.' },
+    { id: 'bswm', cls: 'm-bswm', name: 'BswM', text: 'Tells Sd which services this ECU wants to offer or use right now (REQUESTED or RELEASED), and hears back from Sd which ones are AVAILABLE.' },
+    { id: 'ip', cls: 'm-ip', name: 'TcpIp', text: 'Gets the ECU its IP address and does UDP, TCP and IP: it sends datagrams and TCP connections and delivers incoming ones to the right socket by port.' },
+    { id: 'ethif', cls: 'm-eth', name: 'EthIf', text: 'Hides the Ethernet hardware. Hands each incoming frame to its owner by frame type (for example IPv4 to TcpIp) and handles VLANs.' },
+    { id: 'eth', cls: 'm-eth', name: 'Eth driver', text: 'Moves frames between memory and the Ethernet controller, by interrupt or by polling.' }
+  ];
+  const JOBS = [
+    { text: 'Serializes the SWC data and writes most of the SOME/IP header.', id: 'xf' },
+    { text: 'Puts the Message ID and the Length in front of the message.', id: 'soad' },
+    { text: 'Sends OfferService ("the radar service is available here") on the network.', id: 'sd' },
+    { text: 'Decides that the ECU wants to use the radar service now.', id: 'bswm' },
+    { text: 'Cuts a 6 kB message into segments that fit into UDP datagrams.', id: 'tp' },
+    { text: 'Forwards a PDU by its PDU ID from COM to SoAd.', id: 'pdur' },
+    { text: 'Delivers an incoming UDP datagram to the socket with that port.', id: 'ip' },
+    { text: 'Gives an incoming IPv4 frame to TcpIp.', id: 'ethif' },
+    { text: 'Remembers which response belongs to which request and notices when a response is late.', id: 'rte' },
+    { text: 'Reads a data element through the RTE without knowing about SOME/IP.', id: 'swc' },
+    { text: 'Moves a frame out of the Ethernet controller into memory.', id: 'eth' },
+    { text: 'Carries the serialized message as one byte-array signal.', id: 'com' }
+  ];
+  const mods = document.getElementById('mods');
+  const info = document.getElementById('info');
+  const jobEl = document.getElementById('job');
+  const tally = document.getElementById('tally');
+  let current = null, right = 0, asked = 0, order = [];
+  const buttons = MODS.map((m) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="chip ' + m.cls + '">' + m.name + '</span>';
+    b.addEventListener('click', () => pick(m));
+    mods.appendChild(b);
+    return b;
+  });
+  function pick(m) {
+    buttons.forEach((b, i) => b.setAttribute('aria-pressed', MODS[i] === m ? 'true' : 'false'));
+    info.innerHTML = '<strong>' + m.name + '.</strong> ' + m.text;
+    if (current) {
+      asked++;
+      const ok = current.id === m.id;
+      if (ok) right++;
+      const want = MODS.find((x) => x.id === current.id).name;
+      jobEl.className = 'feedback ' + (ok ? 'good' : 'bad');
+      jobEl.textContent = (ok ? 'Right: ' : 'Not quite, it is ' + want + ': ') + current.text;
+      tally.textContent = right + ' of ' + asked + ' right. Press "Who does it?" for the next job.';
+      current = null;
+    }
+  }
+  document.getElementById('ask').addEventListener('click', () => {
+    if (!order.length) order = JOBS.slice().sort(() => Math.random() - 0.5);
+    current = order.pop();
+    jobEl.className = 'feedback';
+    jobEl.textContent = 'Who does this? ' + current.text;
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module builds the SOME/IP-SD messages?',
+    options: ['Sd builds them and gives them to SoAd', 'The SWC writes them through the RTE', 'The transformer builds them for COM'],
+    answer: 0,
+    why: 'Sd builds its own messages and sends them directly through SoAd; they do not pass the RTE, COM or PduR.'
+  },
+  {
+    prompt: 'Which module serializes the SWC data into the SOME/IP format?',
+    options: ['The SOME/IP transformer', 'The Socket Adaptor (SoAd)', 'The PDU Router (PduR)'],
+    answer: 0,
+    why: 'The SOME/IP transformer, run by the RTE, does the serialization.'
+  },
+  {
+    prompt: 'When does a message pass through SOME/IP TP?',
+    options: ['When it is too big for one UDP datagram', 'When it is a request that needs a response', 'When it is sent over a TCP connection'],
+    answer: 0,
+    why: 'SOME/IP TP segments large messages for UDP. TCP can carry large messages on its own.'
+  }
+]);
+</script>
+</body>
+</html>

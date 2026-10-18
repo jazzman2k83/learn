@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+#glossary td:first-child { width: 30%; overflow-wrap: anywhere; }
+#glossary td:last-child { width: 4.5rem; white-space: nowrap; }
+#glossary .also { display: block; margin-top: 0.15rem; }
+#glossary tr:target td { background: var(--warn-soft); }
+@media print {
+  #glossary { break-inside: auto; }
+  #glossary thead { display: table-header-group; }
+  #glossary tr { break-inside: avoid; }
+  #glossary tr[hidden] { display: table-row !important; }
+  #none { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">SOME/IP</p>
+<h1>Glossary</h1>
+<p class="lede">Every AUTOSAR term used in the course, what it means, and the lessons that teach it.</p>
+
+<p class="no-print"><label>Filter <input type="text" id="q" class="search" placeholder="type a term or part of a meaning"></label></p>
+
+<div class="table-wrap">
+<table class="data" id="glossary">
+<thead><tr><th>Term</th><th>Meaning</th><th>Lessons</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<p id="none" class="small" hidden>No term matches.</p>
+
+<p class="source">Source: the lessons of this course; the terms as written in the R20-11 SOME/IP and SOME/IP-SD protocol specifications, the module specifications listed on the home page and the System Template.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script>
+(function () {
+  const terms = window.Glossary ? window.Glossary.TERMS.slice() : [];
+  const lessons = window.Course ? window.Course.LESSONS : [];
+  const tbody = document.querySelector('#glossary tbody');
+  const q = document.getElementById('q');
+  const none = document.getElementById('none');
+
+  // Code font for identifiers: no space, and an underscore or a capital after the first letter
+  // (OfferService, E_OK, SdClientTimer). Acronyms and module names stay in normal text.
+  const PLAIN = new Set(['SOME/IP', 'SWC', 'RTE', 'COM', 'LdCom', 'PduR', 'SoAd', 'TcpIp', 'EthIf', 'BswM',
+    'PDU', 'UDP', 'TCP', 'N-PDU', 'N-SDU', 'BOM', 'TLV']);
+  const CODE = new Set(['ifstatus', 'service-status']);
+  const isCode = (t) => CODE.has(t) || (!PLAIN.has(t) && !/\s/.test(t) && (/_/.test(t) || /[A-Z]/.test(t.slice(1))));
+
+  const used = new Set();
+  const slug = (t) => {
+    let s = 't-' + (t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x');
+    let k = s, n = 2;
+    while (used.has(k)) k = s + '-' + n++;
+    used.add(k);
+    return k;
+  };
+
+  terms.sort((a, b) => {
+    const x = a.t.toLowerCase(), y = b.t.toLowerCase();
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+
+  const rows = terms.map((e) => {
+    const tr = document.createElement('tr');
+    tr.id = slug(e.t);
+    const td1 = document.createElement('td');
+    const name = document.createElement(isCode(e.t) ? 'code' : 'strong');
+    name.textContent = e.t;
+    td1.appendChild(name);
+    if (e.also && e.also.length) {
+      const also = document.createElement('span');
+      also.className = 'also small';
+      also.textContent = 'also: ' + e.also.join(', ');
+      td1.appendChild(also);
+    }
+    const td2 = document.createElement('td');
+    td2.textContent = e.m;
+    const td3 = document.createElement('td');
+    (e.l || []).forEach((n, i) => {
+      if (i) td3.appendChild(document.createTextNode(', '));
+      const l = lessons[n - 1];
+      if (l) {
+        const a = document.createElement('a');
+        a.href = '../lessons/' + l.file;
+        a.title = l.title;
+        a.textContent = String(n);
+        td3.appendChild(a);
+      } else {
+        td3.appendChild(document.createTextNode(String(n)));
+      }
+    });
+    tr.append(td1, td2, td3);
+    tr.dataset.find = [e.t].concat(e.also || [], [e.m]).join(' ').toLowerCase();
+    tbody.appendChild(tr);
+    return tr;
+  });
+
+  function filter() {
+    const v = q.value.trim().toLowerCase();
+    let shown = 0;
+    rows.forEach((tr) => {
+      const ok = !v || tr.dataset.find.includes(v);
+      tr.hidden = !ok;
+      if (ok) shown++;
+    });
+    none.hidden = shown > 0;
+  }
+  q.addEventListener('input', filter);
+  filter();
+
+  if (location.hash) {
+    const t = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (t) t.scrollIntoView();
+  }
+})();
+</script>
+</body>
+</html>

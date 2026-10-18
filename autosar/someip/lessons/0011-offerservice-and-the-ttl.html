@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OfferService and the TTL · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>OfferService and the TTL</h1>
+<p class="lede">A server makes each <span class="term">service instance</span> known with an OfferService: a statement of where the instance can be reached and for how long the statement stays valid. Clients trust it only until that time runs out, so the server keeps renewing it.</p>
+
+<h2>Entries and options</h2>
+<p><span class="term">Sd</span> has its own messages. A <span class="term">SOME/IP-SD message</span> (a SOME/IP message of the Service Discovery service, Service ID 0xFFFF) travels over <span class="term">UDP</span> (the connectionless transport, lesson 22) to a fixed port, 30490 by default. It goes either by <span class="term">multicast</span> (once to a group address that every listening ECU receives) or by <span class="term">unicast</span> (to one ECU at its own IP address). One SD message carries a list of <span class="term">entries</span> (single statements, such as "this service instance is offered") and a list of <span class="term">options</span> (additional information an entry points to). Each entry names the options it needs.</p>
+<p>The entry a server uses is the <code class="term">OfferService</code> (the statement "this service instance is available, for TTL seconds"). Where to reach the instance is in its <span class="term">Endpoint options</span> (an IP address, a port and UDP or TCP).</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 262" role="img" aria-labelledby="f1t">
+<title id="f1t">A SOME/IP-SD message: a SOME/IP header with Service ID 0xFFFF, Method ID 0x8100 and Message Type NOTIFICATION, the SD flags, a list of entries and a list of options. The entry OfferService for radar instance 1, major version 1, TTL 3 s points to two Endpoint options: UDP and TCP, each with IP address and port.</title>
+<rect x="10" y="10" width="620" height="242" class="d-ecu"/>
+<rect x="20" y="20" width="600" height="30" class="m-sd"/><text x="320" y="40" class="d-t d-c">SOME/IP header · Service ID 0xFFFF · Method ID 0x8100 · NOTIFICATION</text>
+<rect x="20" y="54" width="600" height="24" class="m-sd"/><text x="320" y="70" class="d-s d-c">flags: reboot flag and others (lesson 16)</text>
+<text x="24" y="98" class="d-tb">entries</text>
+<rect x="20" y="106" width="290" height="56" class="f-sd"/><text x="165" y="127" class="d-t d-c">OfferService · radar instance 1</text><text x="165" y="146" class="d-s d-c">major version 1 · TTL 3 s · options 1–2</text>
+<rect x="20" y="168" width="290" height="40" class="f-sd"/><text x="165" y="192" class="d-t d-c">OfferService · brake instance 1 …</text>
+<text x="334" y="98" class="d-tb">options</text>
+<rect x="330" y="106" width="290" height="40" class="d-box"/><text x="475" y="124" class="d-t d-c">option 1 · Endpoint option · UDP</text><text x="475" y="139" class="d-s d-c">192.168.0.10 · port 30501</text>
+<rect x="330" y="152" width="290" height="40" class="d-box"/><text x="475" y="170" class="d-t d-c">option 2 · Endpoint option · TCP</text><text x="475" y="185" class="d-s d-c">192.168.0.10 · port 30501</text>
+<path d="M310,124 L328,124" class="k-sd" marker-end="url(#ah-sd)"/>
+<path d="M310,142 C320,142 316,170 328,170" class="k-sd" marker-end="url(#ah-sd)"/>
+<text x="320" y="238" class="d-s d-c">one SD message, many entries: Sd packs whatever can go out at the same time</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Follow the two pink arrows: the entry only names radar instance 1; the options say where. A server serves a service instance over UDP, TCP or both, so an <code class="term">OfferService</code> points to one or two Endpoint options.</figcaption>
+</figure>
+<p>The Endpoint options of an offer are not just for method calls. The server also sends its <span class="term">events</span> from exactly these addresses and ports, so a client knows where the events of this service instance come from.</p>
+
+<h2>The TTL</h2>
+<p>Every <code class="term">OfferService</code> carries a <code class="term">TTL</code> (time to live: how many seconds the offer stays valid unless renewed). A client counts the service instance as available only while the TTL runs. The server sends a new offer before the old TTL ends, and each one starts the TTL again. If the offers stop, for whatever reason, the TTL runs out and clients drop the service instance on their own. This makes an offer <span class="term">soft state</span> (state that disappears by itself unless renewed in time); the TTL works like a lease.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 170" role="img" aria-labelledby="f2t">
+<title id="f2t">Timing diagram: OfferService every 2 seconds with TTL 3 seconds; the TTL periods overlap. After the server crashes at 7 seconds, the last TTL ends at 8 seconds and the client counts the service instance as gone.</title>
+<text x="112" y="44" class="d-t d-r">OfferService</text>
+<line x1="120" y1="40" x2="620" y2="40" class="d-tick"/>
+<g class="tx-sd"><circle cx="161.7" cy="40" r="5"/><circle cx="245" cy="40" r="5"/><circle cx="328.3" cy="40" r="5"/></g>
+<text x="411.7" y="30" class="d-s d-c">server crashes</text>
+<path d="M405,34 l12,12 m0,-12 l-12,12" class="d-cross"/>
+<text x="112" y="84" class="d-t d-r">TTL at client</text>
+<rect x="161.7" y="66" width="125" height="10" class="f-sd"/>
+<rect x="245" y="80" width="125" height="10" class="f-sd"/>
+<rect x="328.3" y="94" width="125" height="10" class="f-sd"/>
+<text x="112" y="134" class="d-t d-r">client sees</text>
+<rect x="161.7" y="124" width="291.6" height="16" class="d-ok"/><text x="307.5" y="136" class="d-s d-c">available</text>
+<rect x="453.3" y="124" width="166.7" height="16" class="d-bad"/><text x="536.7" y="136" class="d-s d-c">gone</text>
+<line x1="453.3" y1="56" x2="453.3" y2="146" class="d-ln dash"/>
+<text x="120" y="164" class="d-s">0 s</text><text x="620" y="164" class="d-s d-r">12 s</text><text x="453.3" y="164" class="d-s d-c">8 s: last TTL ends</text>
+</svg>
+</div>
+<figcaption><b>Figure 2.</b> Each pink bar is one TTL of 3 s, starting at an <code class="term">OfferService</code>. The bars overlap, so the service instance never looks gone while offers keep coming. After the crash nothing renews the last bar, and the client drops the service instance when it ends.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card k-sd"><p class="tag">normal end</p><h3>StopOfferService</h3><p>A server that shuts a <span class="term">service instance</span> down sends a <code class="term">StopOfferService</code> (the <code>OfferService</code> entry with TTL 0). Clients drop the service instance at once.</p></div>
+  <div class="card k-sd"><p class="tag">special TTL</p><h3>"Until reboot"</h3><p>The highest TTL value means "valid until the next reboot". Then nothing expires on its own, and the server need not repeat its offers; <span class="term">reboot detection</span> (noticing that a partner restarted, lesson 16) takes over.</p></div>
+  <div class="card"><p class="tag">why a TTL</p><h3>No goodbye needed</h3><p>A crashed ECU or a broken cable cannot send a <code>StopOfferService</code>. With a TTL, the rest of the network still notices.</p></div>
+</div>
+
+<h2>Try it</h2>
+<p>The radar sends an OfferService every 2 seconds. Pick a TTL, start the clock, then break things: lose one offer, crash the server, or stop properly.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>TTL in each OfferService
+      <select id="ttl">
+        <option value="3">3 s</option>
+        <option value="1.5">1.5 s (shorter than the repeat)</option>
+        <option value="6">6 s</option>
+        <option value="inf">until reboot</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> A <code class="term">TTL</code> shorter than the repeat makes the service instance flicker between available and gone. One lost <code class="term">OfferService</code> does no harm when the TTL is longer than the repeat. After a crash the client needs up to one TTL to notice. With "until reboot" a crash is never noticed this way; the <code class="term">StopOfferService</code> still works.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">SOME/IP-SD message</span></td><td>A SOME/IP message of the Service Discovery service (Service ID 0xFFFF); it carries entries and options</td></tr>
+<tr><td><span class="term">entry</span></td><td>One statement inside an SD message, such as an OfferService</td></tr>
+<tr><td><span class="term">option</span></td><td>Additional information an entry points to, such as an Endpoint option</td></tr>
+<tr><td><span class="term">Endpoint option</span></td><td>IP address, port and UDP or TCP: where to reach a service instance</td></tr>
+<tr><td><code class="term">OfferService</code></td><td>Server: "this service instance is available here, for TTL seconds"</td></tr>
+<tr><td><code class="term">StopOfferService</code></td><td>The OfferService entry with TTL 0: no longer available</td></tr>
+<tr><td><code class="term">TTL</code></td><td>Time to live: how many seconds an offer stays valid unless renewed; 0 means stop</td></tr>
+<tr><td><span class="term">multicast</span></td><td>Sent once to a group address; every listening ECU receives it</td></tr>
+<tr><td><span class="term">unicast</span></td><td>Sent to one ECU only, at its own IP address</td></tr>
+<tr><td><span class="term">soft state</span></td><td>State that disappears by itself unless renewed in time</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.2 (message, entries, options), 4.1.2.5 (offer and stop offer), 4.1.2.6 (endpoints), 4.1.3 and 4.1.4.5 (soft state).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const DUR = 20, PERIOD = 2;
+  const ttlSel = document.getElementById('ttl');
+  const readout = document.getElementById('readout');
+  let ttl, nextOffer, alive, loseNext, stopped, leaseEnd, available, state;
+  function setText(t) { readout.textContent = t; }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'srv', label: 'OfferService' },
+      { id: 'lease', label: 'TTL at client' },
+      { id: 'cli', label: 'Client sees' }
+    ],
+    duration: DUR,
+    axis: 2,
+    onTick(prev, now) {
+      if (alive && !stopped && now >= nextOffer) {
+        const t = nextOffer;
+        nextOffer += PERIOD;
+        if (loseNext) {
+          loseNext = false;
+          tl.markAt('srv', t, 'lost', 'lost');
+          setText('An OfferService was lost on the way. The TTL from the previous one keeps running.');
+        } else {
+          tl.markAt('srv', t, '', 'k-sd');
+          const end = ttl === Infinity ? DUR : t + ttl;
+          tl.span('lease', t, end, 'f-sd');
+          leaseEnd = ttl === Infinity ? Infinity : t + ttl;
+          if (!available) { available = true; tl.markAt('cli', t, 'available', 'k-res'); }
+        }
+      }
+      if (available && now >= leaseEnd) {
+        available = false;
+        tl.markAt('cli', leaseEnd, 'gone', 'k-err');
+        setText('The TTL ran out at ' + leaseEnd.toFixed(1) + ' s: the client counts the service instance as gone.');
+      }
+      // dotted bar while available
+      const steps = Math.floor(now / 0.25) - Math.floor(prev / 0.25);
+      if (available && steps > 0) tl.mark('cli', '', 'tick');
+    },
+    onReset() {
+      ttl = ttlSel.value === 'inf' ? Infinity : Number(ttlSel.value);
+      nextOffer = 1; alive = true; loseNext = false; stopped = false; leaseEnd = 0; available = false;
+      setText('Press "Start". The radar sends an OfferService at 1 s, then every 2 s.');
+    }
+  });
+  tl.buttons.append(
+    Timeline.button('Start', () => { if (tl.finished()) tl.reset(); tl.start(); }, true),
+    Timeline.button('Lose the next OfferService', () => { loseNext = true; setText('The next OfferService will be lost.'); }),
+    Timeline.button('Server crashes', () => {
+      if (!tl.running()) return;
+      alive = false;
+      tl.mark('srv', 'crash', 'lost');
+      setText(ttl === Infinity ? 'The server crashed. With TTL "until reboot" the client keeps believing in the service instance.' : 'The server crashed. No more OfferService: watch the last TTL run out.');
+    }),
+    Timeline.button('Server stops properly', () => {
+      if (!tl.running() || stopped || !alive) return;
+      stopped = true;
+      tl.mark('srv', 'StopOfferService', 'k-err');
+      if (available) { available = false; tl.mark('cli', 'gone', 'k-err'); }
+      setText('StopOfferService: the OfferService entry with TTL 0. The client drops the service instance at once.');
+    })
+  );
+  ttlSel.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A server crashes without a word. How does a client notice?',
+    options: ['Its last TTL runs out unrenewed', 'A StopOfferService arrives', 'The next call returns an error'],
+    answer: 0,
+    why: 'The OfferService entries stop, so the last TTL is not renewed and runs out.'
+  },
+  {
+    prompt: 'What does a StopOfferService look like?',
+    options: ['The OfferService entry with TTL 0', 'An entry with a special stop flag', 'An SD message without entries'],
+    answer: 0,
+    why: 'A StopOfferService is the OfferService entry with TTL 0.'
+  },
+  {
+    prompt: 'Where does the client find the IP address and port of radar instance 1?',
+    options: ['In the Endpoint options of the offer', 'In the Message ID of the header', 'In a fixed list inside every client'],
+    answer: 0,
+    why: 'The OfferService entry points to Endpoint options with IP address, protocol and port.'
+  }
+]);
+</script>
+</body>
+</html>

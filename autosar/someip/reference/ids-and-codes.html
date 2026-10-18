@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDs, types and codes · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">SOME/IP</p>
+<h1>IDs, types and codes</h1>
+<p class="lede">The fixed values of <span class="term">SOME/IP</span> and <span class="term">SOME/IP-SD</span> in one place, for reading traces and configurations.</p>
+
+<h2>Message Type</h2>
+<p>The <code class="term">Message Type</code> field of the <span class="term">SOME/IP header</span>.</p>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>Value</th><th>Name</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td><code>0x00</code></td><td><code class="term">REQUEST</code></td><td><span class="term">method</span> call that expects a response, even an empty one</td></tr>
+<tr><td><code>0x01</code></td><td><code class="term">REQUEST_NO_RETURN</code></td><td><span class="term">fire&amp;forget</span> method call</td></tr>
+<tr><td><code>0x02</code></td><td><code class="term">NOTIFICATION</code></td><td><span class="term">event</span> or field <span class="term">notifier</span>; also every <span class="term">SOME/IP-SD message</span></td></tr>
+<tr><td><code>0x80</code></td><td><code class="term">RESPONSE</code></td><td>response to a REQUEST, <code class="term">Return Code</code> <code class="term">E_OK</code></td></tr>
+<tr><td><code>0x81</code></td><td><code class="term">ERROR</code></td><td>response to a REQUEST that failed; the Return Code says why (the Classic Platform <span class="term">SOME/IP transformer</span> sends it without exception data)</td></tr>
+<tr><td><code>0x20 0x21 0x22 0xA0 0xA1</code></td><td><code>TP_REQUEST</code> … <code>TP_ERROR</code></td><td>the same Message Types for a <span class="term">segment</span> of <span class="term">SOME/IP TP</span>: <span class="term">TP flag</span> <code>0x20</code> added</td></tr>
+</tbody></table></div>
+
+<h2>Return Code</h2>
+<p>The <code class="term">Return Code</code> field of the <span class="term">SOME/IP header</span>.</p>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>Value</th><th>Name</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><code>0x00</code></td><td><code class="term">E_OK</code></td><td>no error; the only value allowed in a <code class="term">REQUEST</code> or <code class="term">NOTIFICATION</code></td></tr>
+<tr><td><code>0x01</code></td><td><code class="term">E_NOT_OK</code></td><td>unspecified error</td></tr>
+<tr><td><code>0x02</code></td><td><code class="term">E_UNKNOWN_SERVICE</code></td><td><code class="term">Service ID</code> unknown</td></tr>
+<tr><td><code>0x03</code></td><td><code class="term">E_UNKNOWN_METHOD</code></td><td><code class="term">Method ID</code> unknown, service known</td></tr>
+<tr><td><code>0x04</code></td><td><code class="term">E_NOT_READY</code></td><td>service and method known, application not running</td></tr>
+<tr><td><code>0x05</code></td><td><code class="term">E_NOT_REACHABLE</code></td><td>used only inside the client, never sent</td></tr>
+<tr><td><code>0x06</code></td><td><code class="term">E_TIMEOUT</code></td><td>used only inside the client, never sent</td></tr>
+<tr><td><code>0x07</code></td><td><code class="term">E_WRONG_PROTOCOL_VERSION</code></td><td><code class="term">Protocol Version</code> not supported</td></tr>
+<tr><td><code>0x08</code></td><td><code class="term">E_WRONG_INTERFACE_VERSION</code></td><td><code class="term">Interface Version</code> does not match</td></tr>
+<tr><td><code>0x09</code></td><td><code class="term">E_MALFORMED_MESSAGE</code></td><td><span class="term">payload</span> cannot be deserialized</td></tr>
+<tr><td><code>0x0A</code></td><td><code class="term">E_WRONG_MESSAGE_TYPE</code></td><td>unexpected <code class="term">Message Type</code></td></tr>
+<tr><td><code>0x0B–0x0F</code></td><td><span class="term">E2E</span> return codes (PRS)</td><td>repeated, wrong sequence, generic, not available, no new data; the Classic Platform transformer table lists only <code>0x0B</code> <code>E_E2E</code></td></tr>
+<tr><td><code>0x10–0x1F</code></td><td>reserved</td><td>future generic SOME/IP errors</td></tr>
+<tr><td><code>0x20–0x5E</code></td><td>service specific</td><td>in the Classic Platform: the <code class="term">ApplicationError</code> of the <code class="term">ClientServerOperation</code> + <code>0x1F</code></td></tr>
+</tbody></table></div>
+
+<h2>Reserved IDs</h2>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>ID</th><th>Value</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Service ID</code></td><td><code>0x0000</code></td><td>reserved</td></tr>
+<tr><td>Service ID</td><td><code>0xFF00–0xFF1F</code>, <code>0xFF20–0xFF3F</code>, <code>0xFF40–0xFF5F</code></td><td>testing at OEM, testing at Tier-1, ECU-internal (Tier-1)</td></tr>
+<tr><td>Service ID</td><td><code>0xFFFE</code></td><td>offering non-SOME/IP services (with the <code>otherserv</code> key in a <span class="term">Configuration option</span>)</td></tr>
+<tr><td>Service ID</td><td><code>0xFFFF</code></td><td>SOME/IP and SOME/IP-SD special service (<span class="term">Magic Cookie</span>, <span class="term">SOME/IP-SD message</span>)</td></tr>
+<tr><td><code class="term">Instance ID</code></td><td><code>0x0000</code> / <code>0xFFFF</code></td><td>reserved / all instances</td></tr>
+<tr><td><code class="term">Method ID</code> or <code class="term">Event ID</code></td><td><code>0x0000</code>, <code>0x7FFF</code>, <code>0x8000</code>, <code>0xFFFF</code></td><td>reserved; a Method ID has the top bit 0, an Event ID 1</td></tr>
+<tr><td><code class="term">Eventgroup ID</code></td><td><code>0x0000</code> / <code>0xFFFF</code></td><td>reserved / all eventgroups</td></tr>
+<tr><td><code class="term">Message ID</code></td><td><code>0xFFFF 8100</code></td><td>SOME/IP-SD messages</td></tr>
+<tr><td>Message ID</td><td><code>0xFFFF 0000</code> / <code>0xFFFF 8000</code></td><td>Magic Cookie client → server / server → client (<span class="term">TCP</span>)</td></tr>
+</tbody></table></div>
+
+<h2>Service Discovery</h2>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>Item</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Port</td><td><span class="term">UDP</span> 30490 by default, as source and destination</td></tr>
+<tr><td>Header fields</td><td><code class="term">Client ID</code> 0, <code class="term">Session ID</code> never 0, <code class="term">Protocol Version</code> and <code class="term">Interface Version</code> 1, <code class="term">Message Type</code> <code>0x02</code> (<code class="term">NOTIFICATION</code>), <code class="term">Return Code</code> <code>0x00</code></td></tr>
+<tr><td>Flags</td><td>bit 7 <span class="term">reboot flag</span>, bit 6 <span class="term">Unicast flag</span> (always 1), bit 5 <span class="term">Explicit Initial Data Control flag</span> (always 1)</td></tr>
+<tr><td><span class="term">Entry</span> types</td><td><code>0x00</code> <code class="term">FindService</code> · <code>0x01</code> <code class="term">OfferService</code> / <code class="term">StopOfferService</code> (TTL 0) · <code>0x06</code> <code class="term">SubscribeEventgroup</code> / <code class="term">StopSubscribeEventgroup</code> (TTL 0) · <code>0x07</code> <code class="term">SubscribeEventgroupAck</code> / <code class="term">SubscribeEventgroupNack</code> (TTL 0)</td></tr>
+<tr><td><span class="term">Option</span> types</td><td><code>0x01</code> <span class="term">Configuration option</span> · <code>0x02</code> <span class="term">Load Balancing option</span> · <code>0x04</code> / <code>0x06</code> IPv4 / IPv6 <span class="term">Endpoint option</span> · <code>0x14</code> / <code>0x16</code> IPv4 / IPv6 <span class="term">Multicast option</span> · <code>0x24</code> / <code>0x26</code> IPv4 / IPv6 <span class="term">SD Endpoint option</span></td></tr>
+<tr><td>L4-Proto in options</td><td><code>0x06</code> <span class="term">TCP</span>, <code>0x11</code> UDP</td></tr>
+<tr><td><code class="term">TTL</code></td><td>seconds, 24 bit; <code>0xFFFFFF</code> = until the next reboot; 0 = stop (StopOfferService, StopSubscribeEventgroup, SubscribeEventgroupNack)</td></tr>
+<tr><td>Wildcards in a FindService</td><td><code class="term">Instance ID</code> <code>0xFFFF</code>, <span class="term">major version</span> <code>0xFF</code>, <span class="term">minor version</span> <code>0xFFFFFFFF</code></td></tr>
+<tr><td>Configuration option keys</td><td><code>hostname</code>, <code>instancename</code>, <code>servicename</code>, <code>otherserv</code></td></tr>
+</tbody></table></div>
+
+<h2>SOME/IP TP</h2>
+<div class="table-wrap"><table class="data">
+<tbody>
+<tr><td><span class="term">SOME/IP TP header</span></td><td>4 bytes after the 16-byte <span class="term">SOME/IP header</span>: <code class="term">Offset</code> (upper 28 bits, unit 16 bytes), 3 reserved bits, <span class="term">More Segments flag</span></td></tr>
+<tr><td><span class="term">Segment</span> size</td><td>multiple of 16 bytes except the last; at most 1392 bytes of <span class="term">payload</span> for <span class="term">UDP</span></td></tr>
+<tr><td>UDP payload limit</td><td>1400 bytes of SOME/IP payload without <span class="term">segmentation</span></td></tr>
+</tbody></table></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.1.2, 4.2.1, 4.2.6; <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.2, 4.1.7 and 5; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, section 7.3.4.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+</body>
+</html>

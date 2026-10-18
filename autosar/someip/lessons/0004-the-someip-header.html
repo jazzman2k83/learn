@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The SOME/IP header · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The SOME/IP header</h1>
+<p class="lede">Every <span class="term">SOME/IP</span> message starts with the same <span class="term">SOME/IP header</span>. It says which service and which method or event the message is about, what kind of message it is, and which request it belongs to.</p>
+
+<h2>Seven fields in a fixed order</h2>
+<p>Whatever the message carries, the header has the same fields in the same places, so every receiver can read it. After the header comes the <span class="term">payload</span> (the serialized data of the message).</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 214" role="img" aria-labelledby="f1t">
+<title id="f1t">The SOME/IP header as a block of fields: Message ID (Service ID plus Method ID or Event ID); Length; Request ID (Client ID plus Session ID); Protocol Version, Interface Version, Message Type and Return Code; then the payload.</title>
+<rect x="20" y="10" width="600" height="34" class="m-soad"/>
+<text x="320" y="31" class="d-t d-c">Message ID = Service ID + Method ID or Event ID</text>
+<rect x="20" y="44" width="600" height="34" class="m-soad"/>
+<text x="320" y="65" class="d-t d-c">Length · number of bytes that follow</text>
+<rect x="20" y="78" width="600" height="34" class="m-rte"/>
+<text x="320" y="99" class="d-t d-c">Request ID = Client ID + Session ID</text>
+<rect x="20" y="112" width="150" height="40" class="m-rte"/><text x="95" y="130" class="d-t d-c">Protocol Version</text><text x="95" y="145" class="d-s d-c">always 0x01</text>
+<rect x="170" y="112" width="150" height="40" class="m-rte"/><text x="245" y="130" class="d-t d-c">Interface Version</text><text x="245" y="145" class="d-s d-c">the major version</text>
+<rect x="320" y="112" width="150" height="40" class="m-rte"/><text x="395" y="130" class="d-t d-c">Message Type</text><text x="395" y="145" class="d-s d-c">REQUEST, RESPONSE …</text>
+<rect x="470" y="112" width="150" height="40" class="m-rte"/><text x="545" y="130" class="d-t d-c">Return Code</text><text x="545" y="145" class="d-s d-c">E_OK or an error code</text>
+<rect x="20" y="160" width="600" height="44" class="m-app"/>
+<text x="320" y="180" class="d-t d-c">Payload</text>
+<text x="320" y="196" class="d-s d-c">the serialized data: arguments of a method, the value of an event …</text>
+<path d="M626,44 Q636,44 636,54 L636,194 Q636,204 626,204" class="d-ln mute"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read the fields top to bottom, in the order they travel. The bracket on the right shows what the Length counts: everything after it, the rest of the header and the payload. Colours show which AUTOSAR module writes the field (lesson 20): green SoAd, purple the SOME/IP transformer.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card"><p class="tag">32 bits</p><h3>Message ID</h3><p>The <span class="term">Message ID</span> (what the message is about) is the <span class="term">Service ID</span> plus the <span class="term">Method ID</span> or <span class="term">Event ID</span>. Together they name exactly one method or event in the whole vehicle.</p></div>
+  <div class="card"><p class="tag">32 bits</p><h3>Length</h3><p>The <span class="term">Length</span> (the number of bytes that follow it) lets a receiver find the end of this message. Several messages can share one UDP datagram; each keeps its own header.</p></div>
+  <div class="card"><p class="tag">32 bits</p><h3>Request ID</h3><p>The <span class="term">Request ID</span> (which request this message belongs to) is a <span class="term">Client ID</span> (tells apart the clients on one ECU) plus a <span class="term">Session ID</span> (a running counter). The server copies both into the response, so the client can match response to request.</p></div>
+  <div class="card"><p class="tag">8 bits each</p><h3>Versions, type, result</h3><p>A receiver checks the <span class="term">Protocol Version</span> (the version of SOME/IP itself) and the <span class="term">Interface Version</span> (the <span class="term">major version</span> of the service interface) before trusting the data. The <span class="term">Message Type</span> says what kind of message this is. The <span class="term">Return Code</span> (the result) is only meaningful in responses and errors.</p></div>
+</div>
+
+<h2>The Message Types</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Message Type</th><th>Sent by</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><code class="chip k-req term">REQUEST</code></td><td>client</td><td>A method call that expects a response, even when the response carries no data.</td></tr>
+<tr><td><code class="chip k-req term">REQUEST_NO_RETURN</code></td><td>client</td><td>A <span class="term">fire&amp;forget</span> method call: no response will come.</td></tr>
+<tr><td><code class="chip k-ev term">NOTIFICATION</code></td><td>server</td><td>An <span class="term">event</span>: a new value or something that happened. No response.</td></tr>
+<tr><td><code class="chip k-res term">RESPONSE</code></td><td>server</td><td>The result of a REQUEST.</td></tr>
+<tr><td><code class="chip k-err term">ERROR</code></td><td>server</td><td>A response that reports a failure instead of a result.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each Message Type has a twin with the TP flag set (a bit that marks one segment of a large message cut up by <span class="term">SOME/IP TP</span>, lesson 23).</p>
+
+<h2>The Session ID</h2>
+<p>The <span class="term">Request ID</span> has two halves. The <span class="term">Client ID</span> names the client inside the calling ECU. The <span class="term">Session ID</span> counts: every new request gets the next number, and after the highest number it starts again at 1, never at 0. This counting is called <span class="term">session handling</span> (the Session ID goes 1, 2, … wrapping to 1). Notifications may count too, or may keep the Session ID at 0 when session handling is off for them.</p>
+
+<h2>Try it</h2>
+<p>Pick a Message Type and press "Send". Watch which header fields change. Send the same type twice to see the Session ID move.</p>
+<div class="panel no-print">
+  <div class="chips" id="kinds"></div>
+  <div class="buttons-row"><button type="button" class="primary" id="send">Send</button><button type="button" id="reset">Reset Session IDs</button></div>
+  <div class="table-wrap">
+  <table class="data" id="label">
+    <thead><tr><th>Header field</th><th>Value</th><th>Why</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> A <code class="term">RESPONSE</code> never makes up its own <span class="term">Request ID</span>: it copies the one of its <code class="term">REQUEST</code>. A <code class="term">NOTIFICATION</code> from the server has no client, so the <span class="term">Client ID</span> is 0. Only <code>RESPONSE</code> and <code class="term">ERROR</code> can carry a real <span class="term">Return Code</span>; every other type sends <code class="term">E_OK</code> (0x00, no error). Message ID, Protocol Version and Interface Version stay the same for every message of one method or event.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Message ID</span></td><td>Service ID plus Method ID or Event ID: what the message is about</td></tr>
+<tr><td><span class="term">Length</span></td><td>Number of bytes that follow the Length field: rest of the header plus payload</td></tr>
+<tr><td><span class="term">Request ID</span></td><td>Client ID plus Session ID; a response copies it from its request</td></tr>
+<tr><td><span class="term">Client ID</span></td><td>Tells apart the clients of a method on one ECU</td></tr>
+<tr><td><span class="term">Session ID</span></td><td>Running counter of requests or notifications</td></tr>
+<tr><td><span class="term">session handling</span></td><td>Counting the Session ID up with every message, wrapping to 1; off means always 0</td></tr>
+<tr><td><span class="term">Protocol Version</span></td><td>Version of the SOME/IP protocol, 0x01</td></tr>
+<tr><td><span class="term">Interface Version</span></td><td>Major version of the service interface</td></tr>
+<tr><td><span class="term">Message Type</span></td><td>Kind of message: <code class="term">REQUEST</code>, <code class="term">REQUEST_NO_RETURN</code>, <code class="term">NOTIFICATION</code>, <code class="term">RESPONSE</code>, <code class="term">ERROR</code></td></tr>
+<tr><td><span class="term">Return Code</span></td><td>Result of a request: <code class="term">E_OK</code> or an error code</td></tr>
+<tr><td><span class="term">payload</span></td><td>The serialized data after the header</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, section 4.1.2 (header) and 4.2.1 (several messages in one UDP datagram).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const KINDS = [
+    { id: 'call', label: 'REQUEST · Calibrate', cls: 'k-req' },
+    { id: 'answer', label: 'RESPONSE to the last REQUEST', cls: 'k-res' },
+    { id: 'error', label: 'ERROR to the last REQUEST', cls: 'k-err' },
+    { id: 'oneway', label: 'REQUEST_NO_RETURN · Reset', cls: 'k-req' },
+    { id: 'news', label: 'NOTIFICATION · BrakeEvent', cls: 'k-ev' }
+  ];
+  const tbody = document.querySelector('#label tbody');
+  const kinds = document.getElementById('kinds');
+  let kind = 'call';
+  let callCounter = 0;      // client side Session ID for REQUEST
+  let onewayCounter = 0;    // client side Session ID for REQUEST_NO_RETURN
+  let newsCounter = 0;      // server side Session ID for NOTIFICATION (session handling on here)
+  let lastCall = null;      // Session ID of the last REQUEST, copied by the RESPONSE
+  const buttons = KINDS.map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="chip ' + k.cls + '">' + k.label + '</span>';
+    b.addEventListener('click', () => { kind = k.id; mark(); });
+    kinds.appendChild(b);
+    return b;
+  });
+  function mark() { buttons.forEach((b, i) => b.setAttribute('aria-pressed', KINDS[i].id === kind ? 'true' : 'false')); }
+  function next(c) { return c >= 0xFFFF ? 1 : c + 1; }
+  function hex4(n) { return '0x' + n.toString(16).toUpperCase().padStart(4, '0'); }
+  function row(box, value, why, changed) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + box + '</td><td>' + (changed ? '<strong>' + value + '</strong>' : value) + '</td><td class="small">' + why + '</td>';
+    tbody.appendChild(tr);
+  }
+  function send() {
+    tbody.replaceChildren();
+    let item, caller, counter, k, result, why3, why7 = 'Not a RESPONSE or ERROR, so always E_OK.';
+    if (kind === 'call') {
+      callCounter = next(callCounter); lastCall = callCounter;
+      item = 'Service ID 0x1234 · Method ID 0x0001 (Calibrate)'; caller = 'Client ID 0x0010 (brake ECU)'; counter = callCounter;
+      k = 'REQUEST (expects a response)'; result = 'E_OK';
+      why3 = 'A new REQUEST takes the next Session ID.';
+    } else if (kind === 'answer' || kind === 'error') {
+      if (lastCall === null) {
+        row('–', 'No REQUEST was sent yet', 'Send a REQUEST first; a RESPONSE or ERROR copies the Request ID from its REQUEST.', true);
+        return;
+      }
+      item = 'Service ID 0x1234 · Method ID 0x0001 (Calibrate)'; caller = 'Client ID 0x0010 (brake ECU)'; counter = lastCall;
+      k = kind === 'answer' ? 'RESPONSE' : 'ERROR';
+      result = kind === 'answer' ? 'E_OK' : 'E_NOT_READY';
+      why3 = 'Copied unchanged from the REQUEST it answers.';
+      why7 = kind === 'answer' ? 'The method call worked.' : 'E_NOT_READY: the method exists, but the radar application is not running yet (return codes: lesson 9).';
+    } else if (kind === 'oneway') {
+      onewayCounter = next(onewayCounter);
+      item = 'Service ID 0x1234 · Method ID 0x0003 (Reset)'; caller = 'Client ID 0x0010 (brake ECU)'; counter = onewayCounter;
+      k = 'REQUEST_NO_RETURN (no response)'; result = 'E_OK';
+      why3 = 'Still names the client; the Session ID moves, but no response will copy it.';
+    } else {
+      newsCounter = next(newsCounter);
+      item = 'Service ID 0x1234 · Event ID 0x8001 (BrakeEvent)'; caller = 'Client ID 0x0000 (no client)'; counter = newsCounter;
+      k = 'NOTIFICATION'; result = 'E_OK';
+      why3 = 'A NOTIFICATION has no client. With session handling on, each one takes the next Session ID.';
+    }
+    row('Message ID', item, 'Same for every message of this method or event.', false);
+    row('Length', '8 + payload length', 'Computed for each message.', false);
+    row('Request ID', caller + ' · Session ID ' + counter + ' (' + hex4(counter) + ')', why3, true);
+    row('Protocol Version', '0x01', 'Always 0x01.', false);
+    row('Interface Version', '1', 'The major version of the radar service.', false);
+    row('Message Type', k, 'Tells the receiver how to treat the message.', true);
+    row('Return Code', result, why7, kind === 'error');
+  }
+  document.getElementById('send').addEventListener('click', send);
+  document.getElementById('reset').addEventListener('click', () => {
+    callCounter = 0; onewayCounter = 0; newsCounter = 0; lastCall = null; tbody.replaceChildren();
+  });
+  mark();
+  send();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A server sends a RESPONSE. Where does its Request ID come from?',
+    options: ['It is copied from the REQUEST', 'The server counts it up itself', 'It is always set to zero'],
+    answer: 0,
+    why: 'The server copies the whole Request ID (Client ID and Session ID) from the REQUEST, so the client can match the response even with several requests open.'
+  },
+  {
+    prompt: 'The Session ID has reached its highest value. What is the next value?',
+    options: ['It starts again at one', 'It starts again at zero', 'It stays at the highest'],
+    answer: 0,
+    why: 'The Session ID wraps around to 1. Zero means "session handling off".'
+  },
+  {
+    prompt: 'Which Message Type reports a failure with a Return Code other than E_OK?',
+    options: ['ERROR', 'NOTIFICATION', 'REQUEST'],
+    answer: 0,
+    why: 'An ERROR carries an error code. REQUEST, REQUEST_NO_RETURN and NOTIFICATION always carry E_OK.'
+  }
+]);
+</script>
+</body>
+</html>

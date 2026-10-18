@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sd configuration map · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The Sd configuration map</h1>
+<p class="lede">The configuration of the <span class="term">Sd</span> module mirrors the Service Discovery part of this course: one container per network, timers for the phases, and one container per <span class="term">service instance</span> with its <span class="term">eventgroups</span> and the <span class="term">socket connections</span> and <span class="term">routing groups</span> it controls.</p>
+
+<h2>The shape of it</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 330" role="img" aria-labelledby="f1t">
+<title id="f1t">Sd configuration: one SdInstance per link or VLAN with its three PDUs for SD messages, SdServerTimer and SdClientTimer, SdServerService with SdProvidedMethods and SdEventHandler, SdClientService with SdConsumedMethods and SdConsumedEventGroup. Services and eventgroups reference timers; routing group and socket connection group references point into SoAd; BswM uses the handle IDs.</title>
+<rect x="10" y="10" width="470" height="310" class="d-frame"/>
+<text x="20" y="28" class="d-tb">SdInstance</text><text x="96" y="28" class="d-s">one per link or VLAN</text>
+<rect x="20" y="38" width="140" height="58" class="m-sd"/><text x="90" y="56" class="d-t d-c">SD message PDUs</text><text x="90" y="72" class="d-s d-c">1 Tx, 1 unicast Rx,</text><text x="90" y="85" class="d-s d-c">1 multicast Rx</text>
+<rect x="175" y="38" width="140" height="26" class="d-box"/><text x="245" y="55" class="d-t d-c">SdServerTimer …</text>
+<rect x="175" y="70" width="140" height="26" class="d-box"/><text x="245" y="87" class="d-t d-c">SdClientTimer …</text>
+<rect x="20" y="110" width="210" height="200" class="m-sd"/>
+<text x="125" y="128" class="d-tb d-c">SdServerService</text><text x="125" y="142" class="d-s d-c">one per ProvidedServiceInstance</text>
+<rect x="32" y="152" width="186" height="30" class="d-box"/><text x="125" y="171" class="d-t d-c">SdProvidedMethods</text>
+<rect x="32" y="190" width="186" height="110" class="d-box"/><text x="125" y="208" class="d-t d-c">SdEventHandler</text><text x="125" y="222" class="d-s d-c">one per eventgroup</text>
+<rect x="44" y="232" width="162" height="18" class="d-area"/><text x="125" y="245" class="d-s d-c">…Udp · …Tcp · …Multicast</text>
+<text x="125" y="272" class="d-s d-c">SdEventActivationRef,</text><text x="125" y="285" class="d-s d-c">SdEventTriggeringRef</text>
+<rect x="250" y="110" width="220" height="200" class="m-sd"/>
+<text x="360" y="128" class="d-tb d-c">SdClientService</text><text x="360" y="142" class="d-s d-c">one per ConsumedServiceInstance</text>
+<rect x="262" y="152" width="196" height="30" class="d-box"/><text x="360" y="171" class="d-t d-c">SdConsumedMethods</text>
+<rect x="262" y="190" width="196" height="110" class="d-box"/><text x="360" y="208" class="d-t d-c">SdConsumedEventGroup</text><text x="360" y="222" class="d-s d-c">one per subscribed eventgroup</text>
+<text x="360" y="252" class="d-s d-c">routing groups for UDP, TCP</text><text x="360" y="265" class="d-s d-c">and multicast events</text>
+<rect x="500" y="104" width="130" height="84" class="m-soad"/><text x="565" y="124" class="d-tb d-c">SoAd</text><text x="565" y="143" class="d-s d-c">socket connection</text><text x="565" y="156" class="d-s d-c">groups,</text><text x="565" y="169" class="d-s d-c">routing groups</text>
+<rect x="500" y="220" width="130" height="44" class="m-bswm"/><text x="565" y="240" class="d-t d-c">BswM</text><text x="565" y="254" class="d-s d-c">uses the handle IDs</text>
+<line x1="472" y1="150" x2="498" y2="150" class="d-ln dash" marker-end="url(#ah)"/>
+<line x1="482" y1="242" x2="498" y2="242" class="d-ln dash" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<path d="M125,110 L125,104 L245,104 L245,98" class="d-ln dash" marker-end="url(#ah)"/>
+<path d="M360,110 L360,104 L300,104 L300,98" class="d-ln dash" marker-end="url(#ah)"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Pink is Sd configuration; the dashed arrows are references. Services and eventgroups reference the timers they use above and SoAd's socket connection groups and routing groups on the right; BswM addresses everything through the handle IDs.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card m-sd"><p class="tag">per network</p><h3>SdInstance</h3><p>An <code class="term">SdInstance</code> (the Sd configuration of one link) exists once per link, including VLANs. It owns the three PDUs for <span class="term">SD messages</span> in SoAd: one to transmit and two to receive (<span class="term">unicast</span> and <span class="term">multicast</span>).</p></div>
+  <div class="card m-sd"><p class="tag">shared</p><h3>Timers</h3><p><code class="term">SdServerTimer</code> (the SD timing of a server) and <code class="term">SdClientTimer</code> (the SD timing of a client) are separate containers. Each service instance and each eventgroup references one; several service instances can share a timer.</p></div>
+  <div class="card m-sd"><p class="tag">per service instance</p><h3>Server and client services</h3><p><code class="term">SdServerService</code> and <code class="term">SdClientService</code> hold the IDs and versions used in the <code class="term">OfferService</code> and <code class="term">FindService</code> entries, the <span class="term">socket connection groups</span> for UDP and TCP, the routing group for methods (in <code class="term">SdProvidedMethods</code> or <code class="term">SdConsumedMethods</code>, the containers for the methods of a service instance), the eventgroups, and a handle ID for <span class="term">BswM</span>.</p></div>
+  <div class="card m-sd"><p class="tag">per eventgroup, server</p><h3>SdEventHandler</h3><p>For each <span class="term">event handler</span>, <code class="term">SdEventActivationRef</code> (the routing group Sd enables per socket connection for each <span class="term">subscriber</span>) and <code class="term">SdEventTriggeringRef</code> (the routing group Sd triggers once to send the <span class="term">initial events</span> to a new subscriber), separately for UDP, TCP and multicast.</p></div>
+</div>
+<p>Two parameters matter everywhere. <code class="term">SdMainFunctionCycleTime</code> (the period of the Sd <span class="term">main function</span>, in seconds) is the step all Sd timing runs on. The <code class="term">HandleId</code> parameters (the numbers <span class="term">BswM</span> uses to request a service instance or eventgroup and to read its state) appear in every server service, client service, event handler, <span class="term">consumed eventgroup</span> and <span class="term">service group</span>.</p>
+
+<h2>The map</h2>
+<p>Every container and parameter of the <span class="term">Sd</span> module, with its multiplicity. Containers are in bold. The chips in "Try it" mark everything that belongs to one feature of the earlier lessons.</p>
+<div id="tree"></div>
+
+<h2>Try it</h2>
+<p>Pick a feature; the map above marks the containers and parameters that set it.</p>
+<div class="panel no-print">
+  <div class="chips" id="feats"></div>
+  <p class="field-info" id="finfo" aria-live="polite">Pick a feature.</p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Timing is never set on a service instance itself; its <code class="term">SdServerService</code> or <code class="term">SdClientService</code> references a timer. <span class="term">Socket connections</span> and <span class="term">routing groups</span> are never defined in Sd; Sd only references SoAd's socket connection groups and routing groups. <span class="term">Multicast</span> touches both sides: the <span class="term">multicast threshold</span> and the multicast socket connection on the server, the multicast socket connection group and routing group on the client.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">SdInstance</code></td><td>The Sd configuration of one link or VLAN, with its three PDUs for SD messages</td></tr>
+<tr><td><code class="term">SdServerTimer</code></td><td>SD timing of a server: initial delay, repetitions, cyclic offer delay, TTL, request-response delay</td></tr>
+<tr><td><code class="term">SdClientTimer</code></td><td>SD timing of a client: initial delay, repetitions, TTL, request-response delay, Subscribe retry</td></tr>
+<tr><td><code class="term">SdProvidedMethods</code> / <code class="term">SdConsumedMethods</code></td><td>The methods of a service instance: the routing group Sd enables while it is offered / available</td></tr>
+<tr><td><code class="term">SdEventActivationRef</code></td><td>Routing group Sd enables per socket connection for each subscriber</td></tr>
+<tr><td><code class="term">SdEventTriggeringRef</code></td><td>Routing group Sd triggers once to send the initial events to a new subscriber</td></tr>
+<tr><td><code class="term">SdMainFunctionCycleTime</code></td><td>Period of the Sd main function; all Sd timing runs on it</td></tr>
+<tr><td><code class="term">HandleId</code></td><td>The number BswM uses for a service instance, eventgroup or service group</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, chapter 10 (containers and configuration parameters) and sections 7.2.4, 7.6.5, 7.7.6.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // [name, multiplicity, description, features, children]. Children present = container.
+  const T = ['Sd', '', 'the Service Discovery module', [], [
+    ['SdGeneral', '1', 'module-wide settings', [], [
+      ['SdDevErrorDetect', '1', 'development error checks on/off', []],
+      ['SdVersionInfoApi', '1', 'version info function on/off', []],
+      ['SdMainFunctionCycleTime', '1', 'period of the Sd main function in seconds; all Sd timing runs on it', ['phases']],
+      ['SdSubscribeEventgroupRetryEnable', '1', 'Subscribe retry on/off (lesson 14)', ['signup']],
+      ['SdSetRemAddrOfClientRxMulticastSoCon', '1', 'client: set the remote address of the multicast Rx socket connection from the server\'s OfferService', ['multicast']]
+    ]],
+    ['SdConfig', '1', 'the configuration set', [], [
+      ['SdInstance', '0..*', 'one per link or VLAN', ['msgs'], [
+        ['SdInstanceHostname', '0..1', 'host name sent in a configuration option', []],
+        ['SdInstanceLocalAdressCheckLength', '0..1', 'how many address bits a partner must share with the local address to be accepted', []],
+        ['SdInstanceTxPdu', '1', 'the PDU Sd transmits its SD messages in', ['msgs'], [
+          ['SdTxPduRef', '1', 'the global PDU of it', ['msgs']]
+        ]],
+        ['SdInstanceUnicastRxPdu', '1', 'the PDU for SD messages received by unicast', ['msgs'], [
+          ['SdRxPduId', '1', 'handle SoAd uses for it', ['msgs']], ['SdRxPduRef', '1', 'the global PDU', ['msgs']]
+        ]],
+        ['SdInstanceMulticastRxPdu', '1', 'the PDU for SD messages received by multicast', ['msgs'], [
+          ['SdRxPduId', '1', 'handle SoAd uses for it', ['msgs']], ['SdRxPduRef', '1', 'the global PDU', ['msgs']]
+        ]],
+        ['SdServerTimer', '0..*', 'timing of a server (lessons 11, 12)', ['phases', 'lease', 'delay'], [
+          ['SdServerTimerInitialOfferDelayMin', '0..1', 'INITIAL_DELAY_MIN of the Initial Wait Phase', ['phases']],
+          ['SdServerTimerInitialOfferDelayMax', '0..1', 'INITIAL_DELAY_MAX', ['phases']],
+          ['SdServerTimerInitialOfferRepetitionBaseDelay', '0..1', 'REPETITIONS_BASE_DELAY: base delay of the Repetition Phase (then doubled)', ['phases']],
+          ['SdServerTimerInitialOfferRepetitionsMax', '0..1', 'REPETITIONS_MAX; 0 skips the Repetition Phase', ['phases']],
+          ['SdServerTimerOfferCyclicDelay', '0..1', 'CYCLIC_OFFER_DELAY of the Main Phase; 0 means no cyclic offers', ['phases']],
+          ['SdServerTimerRequestResponseMinDelay', '1', 'REQUEST_RESPONSE_DELAY before answering a multicast message, lower end', ['delay']],
+          ['SdServerTimerRequestResponseMaxDelay', '1', 'REQUEST_RESPONSE_DELAY, upper end', ['delay']],
+          ['SdServerTimerTTL', '1', 'TTL of the OfferService entries, in seconds', ['lease']]
+        ]],
+        ['SdClientTimer', '0..*', 'timing of a client (lessons 13, 14)', ['phases', 'lease', 'delay', 'signup'], [
+          ['SdClientTimerInitialFindDelayMin', '0..1', 'INITIAL_DELAY_MIN before the first FindService', ['phases']],
+          ['SdClientTimerInitialFindDelayMax', '0..1', 'INITIAL_DELAY_MAX', ['phases']],
+          ['SdClientTimerInitialFindRepetitionsBaseDelay', '0..1', 'REPETITIONS_BASE_DELAY between FindService entries (then doubled)', ['phases']],
+          ['SdClientTimerInitialFindRepetitionsMax', '0..1', 'REPETITIONS_MAX of FindService', ['phases']],
+          ['SdClientTimerRequestResponseMinDelay', '0..1', 'REQUEST_RESPONSE_DELAY before answering a multicast OfferService with a Subscribe, lower end', ['delay']],
+          ['SdClientTimerRequestResponseMaxDelay', '0..1', 'REQUEST_RESPONSE_DELAY, upper end', ['delay']],
+          ['SdClientTimerTTL', '1', 'TTL of FindService and SubscribeEventgroup entries, in seconds', ['lease', 'signup']],
+          ['SdSubscribeEventgroupRetryDelay', '0..1', 'SUBSCRIBE_RETRY_DELAY before repeating an unanswered Subscribe', ['signup']],
+          ['SdSubscribeEventgroupRetryMax', '0..1', 'SUBSCRIBE_RETRY_MAX; 0xFF: as long as requested', ['signup']]
+        ]],
+        ['SdServerService', '0..*', 'one per provided service instance', ['ids', 'bswm'], [
+          ['SdServerServiceHandleId', '1', 'handle ID of this service instance for BswM', ['bswm']],
+          ['SdServerServiceId', '1', 'Service ID', ['ids']],
+          ['SdServerServiceInstanceId', '1', 'Instance ID', ['ids']],
+          ['SdServerServiceMajorVersion', '1', 'major version', ['ids']],
+          ['SdServerServiceMinorVersion', '1', 'minor version', ['ids']],
+          ['SdServerServiceAutoAvailable', '1', 'AVAILABLE right from start-up', ['bswm']],
+          ['SdServerServiceLoadBalancingPriority', '0..1', 'load-balancing priority sent with the offer', []],
+          ['SdServerServiceLoadBalancingWeight', '0..1', 'load-balancing weight sent with the offer', []],
+          ['SdServerServiceTimerRef', '1', 'the SdServerTimer this service instance uses', ['phases', 'lease', 'delay']],
+          ['SdServerServiceUdpRef', '0..1', 'SoAd socket connection group for UDP; gives the UDP Endpoint option of the OfferService', ['doors']],
+          ['SdServerServiceTcpRef', '0..1', 'SoAd socket connection group for TCP; gives the TCP Endpoint option', ['doors']],
+          ['SdServiceGroupRef', '0..*', 'service groups this service instance belongs to', ['bswm']],
+          ['SdServerCapabilityRecordMatchCalloutRef', '0..1', 'callout that matches configuration options', []],
+          ['SdProvidedMethods', '0..1', 'the methods of this service instance', ['switches'], [
+            ['SdServerServiceActivationRef', '1', 'routing group for the methods, enabled while the service instance is offered', ['switches']]
+          ]],
+          ['SdServerCapabilityRecord', '0..*', 'key/value pairs for configuration options', []],
+          ['SdEventHandler', '0..*', 'one per eventgroup the server publishes', ['ids', 'signup', 'bswm'], [
+            ['SdEventHandlerHandleId', '1', 'handle ID of this event handler for BswM', ['bswm']],
+            ['SdEventHandlerEventGroupId', '1', 'Eventgroup ID', ['ids']],
+            ['SdEventHandlerMulticastThreshold', '1', 'number of subscribers from which events go by multicast (lesson 15)', ['multicast']],
+            ['SdEventHandlerTimerRef', '1', 'the SdServerTimer for this eventgroup', ['delay']],
+            ['SdEventHandlerUdp', '0..1', 'events over UDP by unicast', ['switches', 'signup'], [
+              ['SdEventActivationRef', '0..1', 'routing group enabled per socket connection for each subscriber', ['switches', 'signup']],
+              ['SdEventTriggeringRef', '0..1', 'routing group triggered to send the initial events to a new subscriber', ['switches', 'signup']]
+            ]],
+            ['SdEventHandlerTcp', '0..1', 'events over TCP', ['switches', 'signup'], [
+              ['SdEventActivationRef', '0..1', 'routing group per socket connection for each subscriber', ['switches', 'signup']],
+              ['SdEventTriggeringRef', '0..1', 'routing group triggered for the initial events', ['switches', 'signup']]
+            ]],
+            ['SdEventHandlerMulticast', '0..1', 'events by multicast', ['multicast'], [
+              ['SdEventActivationRef', '0..1', 'routing group for the multicast events', ['multicast', 'switches']],
+              ['SdMulticastEventSoConRef', '1', 'the SoAd socket connection that sends to the multicast address', ['multicast', 'doors']]
+            ]]
+          ]]
+        ]],
+        ['SdClientService', '0..*', 'one per consumed service instance', ['ids', 'bswm'], [
+          ['SdClientServiceHandleId', '1', 'handle ID of this service instance for BswM', ['bswm']],
+          ['SdClientServiceId', '1', 'Service ID', ['ids']],
+          ['SdClientServiceInstanceId', '1', 'Instance ID', ['ids']],
+          ['SdClientServiceMajorVersion', '1', 'major version', ['ids']],
+          ['SdClientServiceMinorVersion', '1', 'minor version; 0xFFFFFFFF accepts any', ['ids']],
+          ['SdVersionDrivenFindBehavior', '0..1', 'exact or any minor version, or a minimum (draft)', ['ids']],
+          ['SdClientServiceAutoRequire', '1', 'REQUESTED right from start-up', ['bswm']],
+          ['SdClientServiceTimerRef', '1', 'the SdClientTimer this service instance uses', ['phases', 'lease', 'delay']],
+          ['SdClientServiceUdpRef', '0..1', 'SoAd socket connection group for UDP', ['doors']],
+          ['SdClientServiceTcpRef', '0..1', 'SoAd socket connection group for TCP; the client opens the connection', ['doors']],
+          ['SdServiceGroupRef', '0..*', 'service groups this service instance belongs to', ['bswm']],
+          ['SdClientCapabilityRecordMatchCalloutRef', '0..1', 'callout that matches configuration options', []],
+          ['SdConsumedMethods', '0..1', 'the methods this ECU calls', ['switches'], [
+            ['SdClientServiceActivationRef', '1', 'routing group for the methods, enabled while the service instance is AVAILABLE', ['switches']]
+          ]],
+          ['SdClientCapabilityRecord', '0..*', 'key/value pairs for configuration options', []],
+          ['SdBlacklistedVersions', '0..1', 'minor versions to ignore (draft)', ['ids'], [
+            ['SdBlacklistedMinorVersions', '0..*', 'one ignored minor version each', ['ids']]
+          ]],
+          ['SdConsumedEventGroup', '0..*', 'one per eventgroup the client subscribes to', ['ids', 'signup', 'bswm'], [
+            ['SdConsumedEventGroupHandleId', '1', 'handle ID of this consumed eventgroup for BswM', ['bswm']],
+            ['SdConsumedEventGroupId', '1', 'Eventgroup ID', ['ids']],
+            ['SdConsumedEventGroupAutoRequire', '1', 'REQUESTED as soon as its client service is REQUESTED', ['bswm']],
+            ['SdConsumedEventGroupTimerRef', '1', 'the SdClientTimer for this eventgroup (subscription TTL, Subscribe retry)', ['signup', 'lease']],
+            ['SdConsumedEventGroupUdpActivationRef', '0..1', 'routing group for receiving events over UDP; also gives the UDP Endpoint option of the Subscribe', ['switches', 'signup']],
+            ['SdConsumedEventGroupTcpActivationRef', '0..1', 'routing group for receiving events over TCP; gives the TCP Endpoint option', ['switches', 'signup']],
+            ['SdConsumedEventGroupMulticastActivationRef', '0..1', 'routing group for receiving multicast events', ['multicast', 'switches']],
+            ['SdConsumedEventGroupMulticastGroupRef', '0..*', 'SoAd socket connection group(s) for receiving multicast events', ['multicast', 'doors']]
+          ]]
+        ]],
+        ['SdInstanceDemEventParameterRefs', '0..1', 'production errors: malformed message, out of resources, SubscribeEventgroupNack received', [], [
+          ['SD_E_MALFORMED_MSG', '0..1', '', []], ['SD_E_OUT_OF_RES', '0..1', '', []], ['SD_E_SUBSCR_NACK_RECV', '0..1', '', []]
+        ]]
+      ]],
+      ['SdServiceGroup', '0..*', 'a group of service instances requested and released together (lesson 17)', ['bswm'], [
+        ['SdServiceGroupHandleId', '1', 'handle ID of the service group for BswM', ['bswm']]
+      ]],
+      ['SdCapabilityRecordMatchCallout', '0..*', 'callout functions for capability records', [], [
+        ['SdCapabilityRecordMatchCalloutName', '1', 'C function name', []]
+      ]]
+    ]]
+  ]];
+  const FEATS = {
+    msgs: ['SD message PDUs', 'SD messages travel in three PDUs per SdInstance, routed by SoAd with the fixed SD header ID.'],
+    phases: ['SD phases (12, 13)', 'Initial Wait Phase, Repetition Phase and Main Phase: all in the timers, run on the Sd main function.'],
+    lease: ['TTL (11, 14)', 'TTL of the OfferService in SdServerTimer; TTL of FindService and SubscribeEventgroup in SdClientTimer.'],
+    delay: ['Request-response delay (13)', 'The random delay before answering a message received by multicast, for servers and clients.'],
+    ids: ['IDs and versions', 'What is matched in the entries: Service ID, Instance ID, versions, Eventgroup IDs.'],
+    signup: ['Subscription (14)', 'Eventgroups on both sides, their routing groups, the subscription TTL and the Subscribe retry.'],
+    multicast: ['Multicast events (15)', 'Multicast threshold and multicast socket connection on the server; multicast socket connection group and routing group on the client.'],
+    switches: ['Routing groups (21)', 'Every reference to a SoAd routing group: methods, events per socket connection, initial events, multicast events.'],
+    doors: ['Socket connections (21)', 'References to SoAd socket connection groups and socket connections.'],
+    bswm: ['BswM states (17)', 'Handle IDs for the BswM interface, AutoAvailable / AutoRequire, service groups.']
+  };
+  const host = document.getElementById('tree');
+  const nodes = [];
+  function build(n) {
+    const [name, mult, d, f, kids] = n;
+    const li = document.createElement('li');
+    if (kids) li.className = 'c';
+    li.innerHTML = (kids ? '<b>' + name + '</b>' : '<code>' + name + '</code>') + (mult ? ' <span class="m">' + mult + '</span>' : '') + (d ? ' <span class="d">' + d + '</span>' : '');
+    nodes.push({ li, f, kids: !!kids });
+    if (kids) {
+      const ul = document.createElement('ul');
+      kids.forEach((k) => ul.appendChild(build(k)));
+      li.appendChild(ul);
+    }
+    return li;
+  }
+  const root = document.createElement('ul');
+  root.className = 'tree';
+  root.appendChild(build(T));
+  host.appendChild(root);
+  const chips = document.getElementById('feats');
+  const finfo = document.getElementById('finfo');
+  const keys = Object.keys(FEATS);
+  const buttons = keys.map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = FEATS[k][0];
+    b.addEventListener('click', () => pick(k));
+    chips.appendChild(b);
+    return b;
+  });
+  const all = document.createElement('button');
+  all.type = 'button';
+  all.textContent = 'Show all';
+  all.addEventListener('click', () => pick(null));
+  chips.appendChild(all);
+  function pick(k) {
+    buttons.forEach((b, i) => b.setAttribute('aria-pressed', keys[i] === k ? 'true' : 'false'));
+    let count = 0;
+    nodes.forEach((n) => {
+      const hit = k && n.f.includes(k);
+      n.li.classList.toggle('hl', !!hit);
+      n.li.classList.toggle('dim', !!k && !hit && !n.kids);
+      if (hit && !n.kids) count++;
+    });
+    finfo.textContent = k ? FEATS[k][1] + ' (' + count + ' parameter' + (count === 1 ? '' : 's') + ' marked.)' : 'Pick a feature.';
+  }
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Where is the CYCLIC_OFFER_DELAY of the Main Phase set?',
+    options: ['In SdServerTimer, used by the service', 'In SdServerService of each instance', 'In SdGeneral for the whole Sd module'],
+    answer: 0,
+    why: 'SdServerTimerOfferCyclicDelay is in SdServerTimer; the SdServerService references it with SdServerServiceTimerRef.'
+  },
+  {
+    prompt: 'Which parameter decides when events change to multicast?',
+    options: ['SdEventHandlerMulticastThreshold', 'SdConsumedEventGroupAutoRequire', 'SdServerTimerOfferCyclicDelay'],
+    answer: 0,
+    why: 'The multicast threshold is set per event handler on the server side.'
+  },
+  {
+    prompt: 'How many receive PDUs for SD messages does one SdInstance have?',
+    options: ['Two: unicast and multicast', 'One for all received messages', 'One per configured service'],
+    answer: 0,
+    why: 'Each SdInstance has exactly one Tx PDU, one unicast Rx PDU and one multicast Rx PDU.'
+  }
+]);
+</script>
+</body>
+</html>

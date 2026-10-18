@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reception: from the wire to the SWC · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Reception: from the wire to the SWC</h1>
+<p class="lede">On the way up, each module removes its own header, sorts the content by one more key, and drops what it cannot place. Follow the <span class="term">event</span> BrakeEvent arriving at the brake ECU.</p>
+
+<h2>A series of checks</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 720 380" role="img" aria-labelledby="f1t">
+<title id="f1t">Checks from bottom to top: EthIf checks the frame type and VLAN tag and hands the frame to its frame owner; TcpIp checks the own IP address and UDP port; SoAd picks the socket connection and applies the message acceptance filter, finds the socket route by the header ID, and checks that its routing group is enabled; COM or LdCom stores the data and notifies the RTE; the SOME/IP transformer checks versions and Message Type and deserializes the payload. A failing check drops the message to the side; passing all checks delivers the value to the SWC.</title>
+<rect x="120" y="10" width="320" height="30" class="m-app"/><text x="280" y="30" class="d-t d-c">SWC gets the value</text>
+<rect x="120" y="56" width="320" height="30" class="m-rte"/><text x="280" y="76" class="d-t d-c">versions, Message Type, payload OK?</text>
+<rect x="120" y="102" width="320" height="30" class="m-com"/><text x="280" y="122" class="d-t d-c">COM / LdCom: store, notify the RTE</text>
+<rect x="120" y="148" width="320" height="30" class="m-soad"/><text x="280" y="168" class="d-t d-c">routing group of the socket route enabled?</text>
+<rect x="120" y="194" width="320" height="30" class="m-soad"/><text x="280" y="214" class="d-t d-c">header ID (Message ID) → socket route?</text>
+<rect x="120" y="240" width="320" height="30" class="m-soad"/><text x="280" y="260" class="d-t d-c">socket connection? sender accepted?</text>
+<rect x="120" y="286" width="320" height="30" class="m-ip"/><text x="280" y="306" class="d-t d-c">own IP address? UDP port → socket</text>
+<rect x="120" y="332" width="320" height="30" class="m-eth"/><text x="280" y="352" class="d-t d-c">frame type IPv4? VLAN tag?</text>
+<line x1="280" y1="330" x2="280" y2="318" class="d-ln" marker-end="url(#ah)"/>
+<line x1="280" y1="284" x2="280" y2="272" class="d-ln" marker-end="url(#ah)"/>
+<line x1="280" y1="238" x2="280" y2="226" class="d-ln" marker-end="url(#ah)"/>
+<line x1="280" y1="192" x2="280" y2="180" class="d-ln" marker-end="url(#ah)"/>
+<line x1="280" y1="146" x2="280" y2="134" class="d-ln" marker-end="url(#ah)"/>
+<line x1="280" y1="100" x2="280" y2="88" class="d-ln" marker-end="url(#ah)"/>
+<line x1="280" y1="54" x2="280" y2="42" class="d-ln" marker-end="url(#ah)"/>
+<line x1="442" y1="347" x2="490" y2="347" class="k-err" marker-end="url(#ah-err)"/><text x="496" y="351" class="d-s">to another frame owner, or dropped</text>
+<line x1="442" y1="301" x2="490" y2="301" class="k-err" marker-end="url(#ah-err)"/><text x="496" y="305" class="d-s">dropped silently</text>
+<line x1="442" y1="255" x2="490" y2="255" class="k-err" marker-end="url(#ah-err)"/><text x="496" y="252" class="d-s">message acceptance filter:</text><text x="496" y="265" class="d-s">not accepted, dropped</text>
+<line x1="442" y1="209" x2="490" y2="209" class="k-err" marker-end="url(#ah-err)"/><text x="496" y="213" class="d-s">dropped, runtime error reported</text>
+<line x1="442" y1="163" x2="490" y2="163" class="k-err" marker-end="url(#ah-err)"/><text x="496" y="167" class="d-s">routing group disabled: dropped</text>
+<line x1="442" y1="71" x2="490" y2="71" class="k-err" marker-end="url(#ah-err)"/><text x="496" y="68" class="d-s">not delivered; the SWC gets the</text><text x="496" y="81" class="d-s">transformer error, nothing sent back</text>
+<text x="110" y="352" class="d-s d-r">EthIf</text>
+<text x="110" y="306" class="d-s d-r">TcpIp</text>
+<text x="110" y="214" class="d-s d-r">SoAd</text>
+<text x="110" y="70" class="d-s d-r">SOME/IP</text>
+<text x="110" y="83" class="d-s d-r">transformer</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read from the bottom. Each check uses one more key: frame type, IP address and port, sender, header ID, routing group, SOME/IP header. A message that fails a check leaves to the right and never reaches the SWC.</figcaption>
+</figure>
+<p><span class="term">EthIf</span> hands each received frame to its <span class="term">frame owner</span> (the upper module registered for the frame type, here <span class="term">TcpIp</span> for IPv4). <span class="term">SoAd</span> picks the <span class="term">socket connection</span> that best matches the sender's address and port, and its <span class="term">message acceptance filter</span> (a check that the sender is a remote address this socket connection allows) drops messages from anyone else. It then reads the <span class="term">header ID</span> (the first 32 bits of the SoAd PDU header, for SOME/IP the <span class="term">Message ID</span>) and finds the <span class="term">socket route</span> (the way of a received message from a socket connection up to a module). From module to module the data goes up by an <code class="term">RxIndication</code> (the callback that tells the module above that a PDU has been received).</p>
+<p>The <span class="term">routing group</span> check is where <span class="term">Sd</span> shows its power. A routing group works like a switch for a set of routes in SoAd, and Sd turns it on and off: the socket route for BrakeEvent is only enabled after the <code class="term">SubscribeEventgroupAck</code> arrived. Until then, even a correctly addressed event is dropped.</p>
+
+<h2>One datagram, several messages</h2>
+<p>A single <span class="term">UDP</span> datagram may carry several SOME/IP messages back to back. <span class="term">SoAd</span> reads the length in each <span class="term">SoAd PDU header</span> (for SOME/IP the <span class="term">Length</span> field) to find where one message ends and the next begins, and passes each one up separately. If the rest of the datagram is shorter than a PDU header or than the length it gives, SoAd stops and ignores the rest. A stricter setting makes SoAd drop the whole datagram when the lengths do not add up exactly.</p>
+
+<h2>Try it</h2>
+<p>Step up through the stack and watch the headers come off.</p>
+<div class="panel no-print">
+  <div id="steps"></div>
+  <p class="pkt-label">The message at this point</p>
+  <div class="pkt" id="pkt"></div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> The receiving <span class="term">SoAd</span> removes the <span class="term">SoAd PDU header</span> (<span class="term">Message ID</span> and Length) and passes on only the rest; inside the ECU the Message ID survives only as the PDU ID of the <span class="term">I-PDU</span>. The <span class="term">SOME/IP transformer</span> is the first module that looks at versions; every module below sorts only by addresses and IDs.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">frame owner</span></td><td>The upper module EthIf hands a received frame to, chosen by the frame type (TcpIp for IPv4)</td></tr>
+<tr><td><span class="term">message acceptance filter</span></td><td>SoAd check on reception: only messages from the remote address the socket connection allows are accepted</td></tr>
+<tr><td><span class="term">routing group</span></td><td>A set of routes in SoAd that is enabled or disabled as a whole; Sd controls it</td></tr>
+<tr><td><code class="term">RxIndication</code></td><td>Callback to the module above: a PDU has been received, here is its data</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: R20-11 specifications of <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_EthernetInterface.pdf">Ethernet Interface</a> (frame owner), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_TcpIp.pdf">TCP/IP</a> (7.6), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor</a> (7.4–7.6, 7.9), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_RTE.pdf">RTE</a> (4.10) and <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol</a> (4.2.1, several messages per datagram).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/stepper.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const C = {
+    val: { cls: 'm-app', b: 'BrakeEvent value', t: 'distance 42 m, speed 3 m/s' },
+    data: { cls: 'm-app', b: 'payload', t: '00 2A 00 03' },
+    rest: { cls: 'm-rte', b: 'SOME/IP header from Request ID', t: 'Client ID 0 · Session ID 5 · Protocol Version 1 · Interface Version 1 · NOTIFICATION · E_OK' },
+    head: { cls: 'm-soad', b: 'SoAd PDU header', t: 'Message ID radar · BrakeEvent · Length 12' },
+    udp: { cls: 'm-ip', b: 'UDP header', t: 'port 30501 → 40001' },
+    ip: { cls: 'm-ip', b: 'IP header', t: '192.168.0.10 → .0.20' },
+    eth: { cls: 'm-eth', b: 'Ethernet header', t: 'MAC → MAC · VLAN tag · IPv4' },
+    fcs: { cls: 'm-eth', b: 'FCS', t: 'check sum' }
+  };
+  // index = step number; steps go from the wire (step 0) up to the SWC
+  const PKT = [
+    ['eth', 'ip', 'udp', 'head', 'rest', 'data', 'fcs'], ['ip', 'udp', 'head', 'rest', 'data'], ['head', 'rest', 'data'],
+    ['rest', 'data'], ['rest', 'data'], ['rest', 'data'], ['val']
+  ];
+  const pkt = document.getElementById('pkt');
+  Stepper.create(document.getElementById('steps'), {
+    vertical: true,
+    stages: [
+      { html: '<strong>SWC</strong> <small>brake application</small>', cls: 'm-app' },
+      { html: '<strong>RTE + SOME/IP transformer</strong>', cls: 'm-rte' },
+      { html: '<strong>COM</strong> <small>(or LdCom)</small>', cls: 'm-com' },
+      { html: '<strong>PduR</strong>', cls: 'm-pdur' },
+      { html: '<strong>SoAd</strong>', cls: 'm-soad' },
+      { html: '<strong>TcpIp</strong>', cls: 'm-ip' },
+      { html: '<strong>EthIf and Ethernet driver</strong>', cls: 'm-eth' }
+    ],
+    steps: [
+      { at: [6], text: 'The Ethernet controller receives the frame; the Eth driver picks it up (by interrupt, or when EthIf polls it). EthIf sees the VLAN tag and the frame type IPv4 and hands the IP packet to its frame owner, TcpIp.' },
+      { at: [5], text: 'TcpIp checks that the IP address is one of its own, finds the socket by the UDP port and hands the UDP payload to SoAd, together with the sender\'s IP address and port.' },
+      { at: [4], text: 'SoAd picks the socket connection that best matches the sender, and the message acceptance filter accepts it. SoAd reads the SoAd PDU header: the header ID (Message ID radar · BrakeEvent) leads to a socket route, the Length tells where the message ends. The routing group of the socket route is enabled (the SubscribeEventgroupAck arrived), so SoAd removes the PDU header and passes the rest up as one I-PDU.' },
+      { at: [3], text: 'PduR looks up the PDU ID of the I-PDU and passes it to COM.' },
+      { at: [2], text: 'COM stores the bytes as the UINT8_N signal and notifies the RTE that new data has arrived.' },
+      { at: [1], text: 'The RTE runs the transformer chain backwards. The SOME/IP transformer checks Protocol Version, Interface Version and Message Type, and deserializes the payload. Had a check failed, the value would not be delivered; the SWC gets the transformer error from the RTE, and nothing is sent back to the radar.' },
+      { at: [0], text: 'The brake SWC reads the value, or its runnable is started because new data arrived, as for any received data element.' }
+    ],
+    onStep(i) {
+      pkt.innerHTML = PKT[i].map((k) => '<div class="cell ' + C[k].cls + '"><b>' + C[k].b + '</b>' + C[k].t + '</div>').join('');
+    }
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'An event arrives for a socket route whose routing group is still disabled. What happens?',
+    options: ['SoAd drops it', 'COM stores it', 'The SWC gets it'],
+    answer: 0,
+    why: 'Received PDUs whose socket route destination belongs only to inactive routing groups are discarded by SoAd.'
+  },
+  {
+    prompt: 'Which module is the first on the way up to check the Interface Version?',
+    options: ['The SOME/IP transformer', 'The Socket Adaptor', 'The TCP/IP stack'],
+    answer: 0,
+    why: 'SoAd sorts only by header ID and Length; the SOME/IP transformer checks Protocol Version and Interface Version when it deserializes.'
+  },
+  {
+    prompt: 'One UDP datagram holds three SOME/IP messages. How does SoAd find where each one ends?',
+    options: ['From the Length in each header', 'From a separator byte between them', 'From the size of the UDP datagram'],
+    answer: 0,
+    why: 'Each message has its own SoAd PDU header with a Length; SoAd steps from one message to the next with it.'
+  }
+]);
+</script>
+</body>
+</html>

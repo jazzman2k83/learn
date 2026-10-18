@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methods: fire&amp;forget · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Methods: fire&amp;forget</h1>
+<p class="lede">A <span class="term">fire&amp;forget</span> <span class="term">method</span> asks the server to do something and expects nothing back: no <code class="term">RESPONSE</code>, and no <code class="term">ERROR</code> either.</p>
+
+<h2>Fire and forget</h2>
+<p>Some requests need no reply. "Reset", "write your current state to the log": the client only wants the server to do it. A fire&amp;forget call is a message with the <span class="term">Message Type</span> <code class="term">REQUEST_NO_RETURN</code> in its <span class="term">SOME/IP header</span>. The server runs the method and stays silent.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 660 190" role="img" aria-labelledby="f1t">
+<title id="f1t">Side by side: request/response has two arrows, REQUEST and then RESPONSE or ERROR. Fire&amp;forget has a single arrow, REQUEST_NO_RETURN, from client to server and nothing back, even when the server fails.</title>
+<text x="160" y="16" class="d-tb d-c">request/response</text>
+<rect x="30" y="26" width="90" height="28" class="d-box"/><text x="75" y="45" class="d-t d-c">Client</text>
+<rect x="200" y="26" width="90" height="28" class="d-box"/><text x="245" y="45" class="d-t d-c">Server</text>
+<line x1="75" y1="54" x2="75" y2="182" class="d-life"/><line x1="245" y1="54" x2="245" y2="182" class="d-life"/>
+<line x1="77" y1="84" x2="242" y2="84" class="k-req" marker-end="url(#ah-req)"/><text x="160" y="77" class="d-t d-c">REQUEST · Calibrate</text>
+<line x1="243" y1="130" x2="78" y2="130" class="k-res" marker-end="url(#ah-res)"/><text x="160" y="123" class="d-t d-c">RESPONSE or ERROR</text>
+<line x1="330" y1="10" x2="330" y2="182" class="d-tick"/>
+<text x="495" y="16" class="d-tb d-c">fire&amp;forget</text>
+<rect x="350" y="26" width="90" height="28" class="d-box"/><text x="395" y="45" class="d-t d-c">Client</text>
+<rect x="550" y="26" width="90" height="28" class="d-box"/><text x="595" y="45" class="d-t d-c">Server</text>
+<line x1="395" y1="54" x2="395" y2="182" class="d-life"/><line x1="595" y1="54" x2="595" y2="182" class="d-life"/>
+<line x1="397" y1="84" x2="592" y2="84" class="k-req" marker-end="url(#ah-req)" stroke-dasharray="6 4"/><text x="495" y="77" class="d-t d-c">REQUEST_NO_RETURN · Reset</text>
+<text x="495" y="130" class="d-s d-c">nothing comes back</text>
+<text x="495" y="146" class="d-s d-c">not even when Reset fails</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Count the arrows: two on the left, one on the right. Fire&amp;forget calls are drawn dashed in this course.</figcaption>
+</figure>
+
+<h2>Three rules</h2>
+<div class="cards">
+  <div class="card k-req"><p class="tag">header</p><h3>REQUEST_NO_RETURN</h3><p>The same <span class="term">SOME/IP header</span> as a <code class="term">REQUEST</code>, but the <span class="term">Message Type</span> says no response is expected. The <span class="term">Return Code</span> stays <code class="term">E_OK</code>.</p></div>
+  <div class="card k-err"><p class="tag">errors</p><h3>No ERROR ever comes back</h3><p>If the server does not know the method, is not ready, or fails, it still sends nothing. Error handling, if needed, is the application's job.</p></div>
+  <div class="card"><p class="tag">delivery</p><h3>No proof of arrival</h3><p>Over <span class="term">UDP</span> (connectionless transport, lesson 22) a lost request is simply gone. Over <span class="term">TCP</span> (connection-oriented transport that repeats lost data) the connection repeats lost bytes, but the client application still gets no reply from the server.</p></div>
+</div>
+
+<h2>How the Classic Platform describes it</h2>
+<p>There is no fire&amp;forget flag on a <code class="term">ClientServerOperation</code>. A fire&amp;forget method is described like an <span class="term">event</span> in the other direction:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>The fire&amp;forget method…</th><th>is described as</th><th>The client SWC uses</th></tr></thead>
+<tbody>
+<tr><td>has arguments</td><td>a <span class="term">data element</span> (one value an interface carries) of a <span class="term">sender-receiver interface</span> (an interface over which one SWC sends data and others receive it); the client sends, the server receives</td><td>a normal write</td></tr>
+<tr><td>has no arguments</td><td>a trigger of a <span class="term">trigger interface</span> (an interface that carries triggers: signals without data)</td><td>a normal trigger</td></tr>
+</tbody>
+</table>
+</div>
+<p>The Message Type <code>REQUEST_NO_RETURN</code> comes from the <span class="term">SOME/IP transformer</span> settings for that data element. An event uses the same mechanism with Message Type <code class="term">NOTIFICATION</code>. On the wire the two differ only in the Message Type, the ID (a <span class="term">Method ID</span> instead of an <span class="term">Event ID</span>) and the direction.</p>
+
+<h2>Try it</h2>
+<p>Choose what happens at the server and step through both kinds of method.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>At the server
+      <select id="fate">
+        <option value="ok">the method runs fine</option>
+        <option value="notready">the application is not running yet</option>
+        <option value="lost">the request is lost on the way</option>
+      </select>
+    </label>
+    <label>Kind of method
+      <select id="kind">
+        <option value="oneway">fire&amp;forget: Reset</option>
+        <option value="call">request/response: Calibrate</option>
+      </select>
+    </label>
+  </div>
+  <div id="seq"></div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With fire&amp;forget the client's story ends the same way in all three cases: it sent the <code>REQUEST_NO_RETURN</code> and heard nothing. Only request/response lets the client tell success, failure and loss apart (loss shows up as <code>E_TIMEOUT</code>).</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">fire&amp;forget</span></td><td>A method call without a response: nothing comes back, not even an error</td></tr>
+<tr><td><code class="term">REQUEST_NO_RETURN</code></td><td>The Message Type of a fire&amp;forget call</td></tr>
+<tr><td><span class="term">sender-receiver interface</span>, <span class="term">data element</span></td><td>How a fire&amp;forget method with arguments is described: the client writes a data element, the server receives it</td></tr>
+<tr><td><span class="term">trigger interface</span></td><td>How a fire&amp;forget method without arguments is described: the client fires a trigger</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.2.3 and 4.2.6.2; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_TPS_SystemTemplate.pdf">System Template, R20-11</a>, sections 10.1.3 and 10.2; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, sections 7.3.2 and 7.3.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const fate = document.getElementById('fate');
+  const kind = document.getElementById('kind');
+  const actors = [
+    { id: 'c', label: 'Brake ECU', sub: 'client' },
+    { id: 's', label: 'Radar ECU', sub: 'server' }
+  ];
+  function story() {
+    const one = kind.value === 'oneway';
+    const name = one ? 'Reset' : 'Calibrate';
+    const steps = [];
+    const reqRow = { from: 'c', to: 's', label: (one ? 'REQUEST_NO_RETURN · ' : 'REQUEST · ') + name, kind: 'req', dash: one, lost: fate.value === 'lost' };
+    steps.push({ text: 'The client sends ' + (one ? 'Reset as REQUEST_NO_RETURN. The Message Type says: no response expected.' : 'Calibrate as a REQUEST and starts the timeout.'),
+      rows: one ? [reqRow] : [reqRow, { at: 'c', note: 'timeout starts' }] });
+    if (fate.value === 'ok') {
+      steps.push({ text: 'The server runs ' + name + '.', rows: [{ at: 's', note: 'runs ' + name }] });
+      steps.push(one
+        ? { text: 'Done. The server sends nothing back. The client never learns that it worked.', rows: [{ at: 'c', note: 'hears nothing' }] }
+        : { text: 'The server sends a RESPONSE with Return Code E_OK. The client knows it worked.', rows: [{ from: 's', to: 'c', label: 'RESPONSE · E_OK', kind: 'res' }] });
+    } else if (fate.value === 'notready') {
+      steps.push({ text: 'The server ECU knows the method, but the application behind it is not running yet.', rows: [{ at: 's', note: 'application not ready' }] });
+      steps.push(one
+        ? { text: 'For fire&forget no ERROR may be sent. The client hears nothing and believes nothing went wrong.', rows: [{ at: 'c', note: 'hears nothing' }] }
+        : { text: 'The server answers with an ERROR whose Return Code is E_NOT_READY (service known, application not running). The client can react, for example call again later.', rows: [{ from: 's', to: 'c', label: 'ERROR · E_NOT_READY', kind: 'err' }] });
+    } else {
+      steps.push({ text: 'The request never reaches the server. Over UDP nothing repeats it.', rows: [{ at: 's', note: 'receives nothing' }] });
+      steps.push(one
+        ? { text: 'The client hears nothing, exactly as when everything went fine.', rows: [{ at: 'c', note: 'hears nothing' }] }
+        : { text: 'The client\'s timeout expires and the call ends with E_TIMEOUT. The client knows something went wrong.', rows: [{ at: 'c', note: 'timeout → E_TIMEOUT' }] });
+    }
+    return steps;
+  }
+  const seq = Seq.create(document.getElementById('seq'), { actors, steps: story() });
+  fate.addEventListener('change', () => seq.set({ steps: story() }));
+  kind.addEventListener('change', () => seq.set({ steps: story() }));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A server receives a REQUEST_NO_RETURN for a method it does not know. What does it send back?',
+    options: ['Nothing at all', 'An ERROR message', 'An empty RESPONSE'],
+    answer: 0,
+    why: 'No ERROR is ever sent for fire&forget. Error handling is up to the application.'
+  },
+  {
+    prompt: 'How is a fire&forget method with arguments described in the Classic Platform?',
+    options: ['As a data element of a sender-receiver interface', 'As a ClientServerOperation with a special flag', 'As a trigger that carries the arguments as data'],
+    answer: 0,
+    why: 'With arguments: a data element of a sender-receiver interface, written by the client. Without arguments: a trigger.'
+  },
+  {
+    prompt: 'What tells the receiver that a message is a fire&forget call and not an event?',
+    options: ['The Message Type in the header', 'The Length field of the header', 'The port the message arrives on'],
+    answer: 0,
+    why: 'The Message Type: REQUEST_NO_RETURN for fire&forget, NOTIFICATION for an event. The ID differs too: a Method ID instead of an Event ID.'
+  }
+]);
+</script>
+</body>
+</html>

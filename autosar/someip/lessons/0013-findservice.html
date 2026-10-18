@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FindService · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>FindService</h1>
+<p class="lede">A client that needs a <span class="term">service instance</span> and knows no valid <code class="term">OfferService</code> for it asks for it with a FindService (the question "who offers this service?"), a few times with growing gaps, and then simply listens. Any OfferService ends the asking at once.</p>
+
+<h2>Listening comes first</h2>
+<p>A <span class="term">client</span> listens to every <code class="term">OfferService</code> all the time, even before it needs the service, and <span class="term">Sd</span> remembers which service instances are available and for how long (their <code class="term">TTL</code>). When <span class="term">BswM</span> sets the client service to <span class="term">REQUESTED</span> (wanted; RELEASED means not wanted) and a valid offer is already known, there is nothing to ask: the client goes straight to using it.</p>
+
+<h2>The client phases</h2>
+<p>Only when no valid offer is known does the client send a <code class="term">FindService</code> (an SD entry from the client: "who offers this service?"). It goes through the same three phases as the server, with one big difference: a FindService is never repeated forever.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 200" role="img" aria-labelledby="f1t">
+<title id="f1t">Timing diagram: the client service is RELEASED until 1 second, the Initial Wait Phase lasts until 1.5 seconds, FindService goes out at 1.5, 2, 3 and 5 seconds with doubling gaps, then the client only listens in the Main Phase. The server becomes available later and sends OfferService at 6.6 seconds; from then on the client service is AVAILABLE.</title>
+<text x="140.8" y="15" class="d-s d-c">RELEASED</text>
+<text x="112" y="34" class="d-t d-r">client phase</text>
+<rect x="120" y="22" width="41.7" height="18" class="d-box"/>
+<rect x="161.7" y="22" width="20.8" height="18" class="d-box"/>
+<rect x="182.5" y="22" width="145.8" height="18" class="f-sd"/><text x="255.4" y="35" class="d-s d-c">Repetition Phase</text>
+<rect x="328.3" y="22" width="291.7" height="18" class="f-res"/><text x="474.2" y="35" class="d-s d-c">Main Phase: listen only</text>
+<path d="M172,41 v6" class="d-ln mute"/><text x="164" y="58" class="d-s">Initial Wait Phase</text>
+<text x="112" y="84" class="d-t d-r">FindService</text>
+<line x1="120" y1="80" x2="620" y2="80" class="d-tick"/>
+<g class="tx-sd"><rect x="178" y="75.5" width="9" height="9"/><rect x="198.8" y="75.5" width="9" height="9"/><rect x="240.5" y="75.5" width="9" height="9"/><rect x="323.8" y="75.5" width="9" height="9"/></g>
+<text x="112" y="124" class="d-t d-r">OfferService</text>
+<line x1="120" y1="120" x2="620" y2="120" class="d-tick"/>
+<rect x="370" y="111" width="25" height="18" class="d-box"/>
+<g class="tx-sd"><circle cx="395" cy="120" r="5"/><circle cx="415.8" cy="120" r="5"/><circle cx="457.5" cy="120" r="5"/><circle cx="540.8" cy="120" r="5"/></g>
+<text x="370" y="144" class="d-s">server starts</text>
+<text x="112" y="174" class="d-t d-r">client service</text>
+<rect x="395" y="164" width="225" height="16" class="d-ok"/><text x="507.5" y="176" class="d-s d-c">AVAILABLE</text>
+<text x="120" y="196" class="d-s">0 s</text><text x="620" y="196" class="d-s d-r">12 s</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Squares are <code class="term">FindService</code> entries, circles are <code class="term">OfferService</code> entries. The four FindService entries all go unanswered because the server is not up yet; after the last one the client only listens. The server's very first OfferService is enough to make the client service <span class="term">AVAILABLE</span> (Sd reports to BswM: the service has been offered).</figcaption>
+</figure>
+<div class="cards">
+  <div class="card"><p class="tag">phase 1</p><h3>Initial Wait Phase</h3><p>A random wait between <code class="term">INITIAL_DELAY_MIN</code> and <code class="term" data-term="INITIAL_DELAY_MIN">INITIAL_DELAY_MAX</code>. If an <code class="term">OfferService</code> arrives meanwhile, the client takes it and sends no <code class="term">FindService</code>.</p></div>
+  <div class="card k-sd"><p class="tag">phase 2</p><h3>Repetition Phase</h3><p>A FindService, then another after <code class="term">REPETITIONS_BASE_DELAY</code>, twice that, four times that, <code class="term">REPETITIONS_MAX</code> times.</p></div>
+  <div class="card k-res"><p class="tag">phase 3</p><h3>Main Phase</h3><p>No more FindService. The client waits for the OfferService entries the server sends in its own <span class="term">Main Phase</span>.</p></div>
+</div>
+<p>Any <code class="term">OfferService</code> for the wanted <span class="term">service instance</span>, in any phase, stops the <code class="term">FindService</code> entries and moves the client to the <span class="term">Main Phase</span>.</p>
+
+<h2>What a FindService says</h2>
+<p>A <code class="term">FindService</code> names the <span class="term">Service ID</span> and, if the client cares, the <span class="term">Instance ID</span>, <span class="term">major version</span> and <span class="term">minor version</span>; each of these may also be "any" (Instance ID 0xFFFF, major version 0xFF, minor version 0xFFFFFFFF). It carries no <span class="term">Endpoint option</span>: the server answers to the address the FindService came from. A FindService carries a <code class="term">TTL</code> too; after it runs out, the FindService counts as forgotten.</p>
+
+<h2>Answering a multicast message</h2>
+<p>A <code class="term">FindService</code> by <span class="term">multicast</span> can reach many servers at the same moment, and an <code class="term">OfferService</code> by multicast can make many clients send a <code class="term">SubscribeEventgroup</code> (the client's request for the events of an eventgroup, lesson 14) at the same moment. To avoid a storm of answers, an answer to a message received by multicast waits <code class="term">REQUEST_RESPONSE_DELAY</code> first. Answers to <span class="term">unicast</span> messages go out without this delay.</p>
+
+<h2>When the service instance disappears</h2>
+<div class="cards">
+  <div class="card k-err"><p class="tag">TTL runs out</p><h3>FindService again</h3><p>Sd reports the client service as <span class="term">DOWN</span> (no longer offered) and starts over with the <span class="term">Initial Wait Phase</span>, so it sends <code class="term">FindService</code> again.</p></div>
+  <div class="card k-err"><p class="tag">StopOfferService</p><h3>Wait quietly</h3><p>The server ended the offer on purpose with a <code class="term">StopOfferService</code>. Sd reports the client service as DOWN but sends no FindService; it waits for the next <code class="term">OfferService</code>.</p></div>
+</div>
+
+<h2>Try it</h2>
+<p>Pick who starts first and press "Start". Both sides use the same settings: Initial Wait Phase about 0.5 s, REPETITIONS_BASE_DELAY 0.5 s, REPETITIONS_MAX 3; the server's CYCLIC_OFFER_DELAY is 3 s.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Who starts first
+      <select id="scen">
+        <option value="server">server first, client later</option>
+        <option value="client">client first, server much later</option>
+        <option value="middle">server starts during the client's Repetition Phase</option>
+        <option value="never">server never comes</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <ul class="log" id="log" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> "Server first": the client never sends a single <code class="term">FindService</code>. "Client first": every FindService is wasted, and later the server's own <code class="term">OfferService</code> does the job. "Server never comes": after the <span class="term">Repetition Phase</span> the network stays quiet; no FindService is sent forever.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">FindService</code></td><td>Client: "who offers this service?"; sent by multicast in the Initial Wait and Repetition Phase only</td></tr>
+<tr><td><span class="term">REQUESTED</span> / <span class="term" data-term="REQUESTED">RELEASED</span></td><td>Set by BswM: the client service is wanted / not wanted</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.2.5 (find), 4.1.4.1 and 4.1.4.2; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.5.3.1 and 7.7.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const DUR = 14, WAIT = 0.5, BASE = 0.5, REPS = 3, CYC = 3, RR = 0.3, TTL = 5;
+  const SCEN = {
+    server: { srv: 0.2, cli: 4.0 },
+    client: { srv: 7.0, cli: 0.5 },
+    middle: { srv: 1.6, cli: 0.5 },
+    never: { srv: Infinity, cli: 0.5 }
+  };
+  const scen = document.getElementById('scen');
+  const log = document.getElementById('log');
+  let S, C, answers, t0;
+  const PHASE = { down: 'RELEASED', wait: 'Initial Wait Phase', rep: 'Repetition Phase', main: 'Main Phase' };
+  // name a phase span only where the name fits (553 px for DUR seconds, about 5.5 px per character)
+  function fit(t0, t1, ph) { return (t1 - t0) * 553 / DUR > PHASE[ph].length * 5.5 + 8 ? PHASE[ph] : ''; }
+  function say(t, text) { const li = document.createElement('li'); li.textContent = t.toFixed(1) + ' s · ' + text; log.prepend(li); }
+  function clientPhase(p, t) {
+    if (C.phase === p) return;
+    const cls = { down: 'f-mute', wait: 'f-mute', rep: 'f-sd', main: 'f-res' };
+    if (C.phase) tl.span('cphase', C.since, t, cls[C.phase], fit(C.since, t, C.phase));
+    C.phase = p; C.since = t;
+  }
+  function offerReachesClient(t, direct) {
+    C.leaseEnd = t + TTL;
+    if (!C.has) {
+      if (C.phase === 'down') { C.known = true; say(t, 'Client service still RELEASED; Sd remembers the OfferService and its TTL.'); return; }
+      C.has = true; tl.markAt('have', t, 'AVAILABLE', 'k-res');
+      say(t, 'Client receives an OfferService' + (direct ? ' (unicast answer)' : '') + ': AVAILABLE, no more FindService.');
+      clientPhase('main', t); C.next = Infinity;
+    }
+  }
+  function step(now) {
+    for (let guard = 0; guard < 50; guard++) {
+      const evs = [];
+      if (S.availAt <= now && !S.up) evs.push({ t: S.availAt, f: () => { S.up = true; S.phase = 'wait'; S.next = S.availAt + 0.6; say(S.availAt, 'Server: service instance available, Initial Wait Phase.'); } });
+      if (S.up && S.next <= now) evs.push({ t: S.next, f: () => {
+        const t = S.next;
+        tl.markAt('offer', t, '', 'k-sd');
+        if (S.phase === 'wait') { S.phase = 'rep'; S.run = 0; S.next = t + BASE; }
+        else if (S.phase === 'rep') { S.run++; if (S.run >= REPS) { S.phase = 'main'; S.next = t + CYC; } else S.next = t + BASE * Math.pow(2, S.run); }
+        else S.next = t + CYC;
+        offerReachesClient(t, false);
+      } });
+      if (C.reqAt <= now && C.phase === 'down') evs.push({ t: C.reqAt, f: () => {
+        const t = C.reqAt;
+        if (C.known && C.leaseEnd > t) { C.has = true; tl.markAt('have', t, 'AVAILABLE', 'k-res'); say(t, 'Client service REQUESTED; a valid OfferService is already known: no FindService needed.'); clientPhase('main', t); C.next = Infinity; }
+        else { clientPhase('wait', t); C.next = t + WAIT; say(t, 'Client service REQUESTED, no valid OfferService known: Initial Wait Phase.'); }
+      } });
+      if (C.next <= now) evs.push({ t: C.next, f: () => {
+        const t = C.next;
+        tl.markAt('find', t, '', 'k-sd');
+        if (S.up && S.phase !== 'wait') { answers.push(t + RR); say(t, 'Client sends FindService; the server receives it and will answer.'); }
+        else say(t, 'Client sends FindService; nobody answers.');
+        if (C.phase === 'wait') { clientPhase('rep', t); C.run = 0; C.next = t + BASE; }
+        else { C.run++; if (C.run >= REPS) { clientPhase('main', t); C.next = Infinity; say(t, 'Last FindService sent: Main Phase, the client only listens from now on.'); } else C.next = t + BASE * Math.pow(2, C.run); }
+      } });
+      answers.forEach((a, k) => { if (a <= now) evs.push({ t: a, f: () => { answers.splice(answers.indexOf(a), 1); tl.markAt('offer', a, 'unicast', 'k-res'); offerReachesClient(a, true); } }); });
+      if (C.has && C.leaseEnd <= now) evs.push({ t: C.leaseEnd, f: () => { C.has = false; tl.markAt('have', C.leaseEnd, 'DOWN', 'k-err'); say(C.leaseEnd, 'TTL ran out: DOWN.'); } });
+      if (!evs.length) return;
+      evs.sort((a, b) => a.t - b.t);
+      evs[0].f();
+    }
+  }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'cphase', label: 'Client phase' },
+      { id: 'find', label: 'FindService' },
+      { id: 'offer', label: 'OfferService' },
+      { id: 'have', label: 'Client service' }
+    ],
+    duration: DUR,
+    axis: 2,
+    onTick(prev, now) {
+      step(now);
+      if (now >= DUR && C.phase) tl.span('cphase', C.since, DUR, { down: 'f-mute', wait: 'f-mute', rep: 'f-sd', main: 'f-res' }[C.phase], fit(C.since, DUR, C.phase));
+    },
+    onReset() {
+      const sc = SCEN[scen.value];
+      S = { availAt: sc.srv, up: false, phase: null, next: Infinity, run: 0 };
+      C = { reqAt: sc.cli, phase: null, since: 0, next: Infinity, run: 0, known: false, has: false, leaseEnd: 0 };
+      answers = [];
+      log.replaceChildren();
+      clientPhase('down', 0);
+    }
+  });
+  tl.buttons.append(Timeline.button('Start', () => { if (tl.finished()) tl.reset(); tl.start(); }, true));
+  scen.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A client service becomes REQUESTED and a valid OfferService for it is already known. What does the client send?',
+    options: ['No FindService at all', 'One FindService to confirm', 'FindService with growing gaps'],
+    answer: 0,
+    why: 'A known, still valid OfferService lets the client go straight to the Main Phase.'
+  },
+  {
+    prompt: 'The client is in its Main Phase and the service is still unknown. How often does it send FindService?',
+    options: ['Never; it waits for OfferService', 'At a steady interval, like offers', 'Once every time its TTL ends'],
+    answer: 0,
+    why: 'FindService is never cyclic. In the Main Phase the client only listens.'
+  },
+  {
+    prompt: 'A server answers a FindService it received by multicast. When does the answer go out?',
+    options: ['After REQUEST_RESPONSE_DELAY', 'Immediately, without delay', 'With its next regular offer'],
+    answer: 0,
+    why: 'Answers to multicast messages wait REQUEST_RESPONSE_DELAY, a random time, to avoid answer storms.'
+  }
+]);
+</script>
+</body>
+</html>

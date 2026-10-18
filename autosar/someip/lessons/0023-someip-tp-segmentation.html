@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOME/IP TP: segmentation · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>SOME/IP TP: segmentation</h1>
+<p class="lede">Over <span class="term">UDP</span> a SOME/IP message must fit into one datagram. <span class="term">SOME/IP TP</span> cuts a bigger message into parts, each with its own <span class="term">SOME/IP header</span>, and the receiver joins them back together.</p>
+
+<h2>Why segments</h2>
+<p>Over <span class="term">UDP</span> the <span class="term">payload</span> of one SOME/IP message may be at most 1400 bytes; the rest of the datagram is kept free for headers. A camera object list or a calibration table can be several kilobytes. <span class="term">TCP</span> could carry it, but TCP makes everything wait after a loss (lesson 22). <span class="term">SOME/IP TP</span> keeps UDP and uses <span class="term">segmentation</span> instead: it cuts the message into <span class="term">segment</span>s (parts that each travel as a SOME/IP message of their own: SOME/IP header, SOME/IP TP header and a slice of the payload).</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 236" role="img" aria-labelledby="f1t">
+<title id="f1t">An original message with one SOME/IP header and a payload of 5880 bytes is cut into five segments. Each segment has a copy of the SOME/IP header with the TP flag set, a SOME/IP TP header with the Offset where it starts and the More Segments flag, and up to 1392 bytes of payload. The last segment holds the remaining 312 bytes and has More Segments 0.</title>
+<text x="20" y="20" class="d-tb">original message</text>
+<rect x="20" y="28" width="110" height="30" class="m-rte"/><text x="75" y="47" class="d-s d-c">SOME/IP header</text>
+<rect x="130" y="28" width="490" height="30" class="m-app"/><text x="375" y="47" class="d-t d-c">payload: 5880 bytes</text>
+<text x="20" y="92" class="d-tb">five segments</text>
+<g>
+<rect x="20" y="100" width="114" height="32" class="m-rte"/><text x="77" y="113" class="d-s d-c">SOME/IP header</text><text x="77" y="126" class="d-s d-c">+ TP flag</text>
+<rect x="20" y="132" width="114" height="32" class="m-tp"/><text x="77" y="145" class="d-s d-c">Offset 0</text><text x="77" y="158" class="d-s d-c">More Segments 1</text>
+<rect x="20" y="164" width="114" height="26" class="m-app"/><text x="77" y="181" class="d-s d-c">1392 bytes</text>
+<rect x="141" y="100" width="114" height="32" class="m-rte"/><text x="198" y="113" class="d-s d-c">SOME/IP header</text><text x="198" y="126" class="d-s d-c">+ TP flag</text>
+<rect x="141" y="132" width="114" height="32" class="m-tp"/><text x="198" y="145" class="d-s d-c">Offset 1392</text><text x="198" y="158" class="d-s d-c">More Segments 1</text>
+<rect x="141" y="164" width="114" height="26" class="m-app"/><text x="198" y="181" class="d-s d-c">1392 bytes</text>
+<rect x="262" y="100" width="114" height="32" class="m-rte"/><text x="319" y="113" class="d-s d-c">SOME/IP header</text><text x="319" y="126" class="d-s d-c">+ TP flag</text>
+<rect x="262" y="132" width="114" height="32" class="m-tp"/><text x="319" y="145" class="d-s d-c">Offset 2784</text><text x="319" y="158" class="d-s d-c">More Segments 1</text>
+<rect x="262" y="164" width="114" height="26" class="m-app"/><text x="319" y="181" class="d-s d-c">1392 bytes</text>
+<rect x="383" y="100" width="114" height="32" class="m-rte"/><text x="440" y="113" class="d-s d-c">SOME/IP header</text><text x="440" y="126" class="d-s d-c">+ TP flag</text>
+<rect x="383" y="132" width="114" height="32" class="m-tp"/><text x="440" y="145" class="d-s d-c">Offset 4176</text><text x="440" y="158" class="d-s d-c">More Segments 1</text>
+<rect x="383" y="164" width="114" height="26" class="m-app"/><text x="440" y="181" class="d-s d-c">1392 bytes</text>
+<rect x="504" y="100" width="114" height="32" class="m-rte"/><text x="561" y="113" class="d-s d-c">SOME/IP header</text><text x="561" y="126" class="d-s d-c">+ TP flag</text>
+<rect x="504" y="132" width="114" height="32" class="m-tp"/><text x="561" y="145" class="d-s d-c">Offset 5568</text><text x="561" y="158" class="d-s d-c">More Segments 0</text>
+<rect x="504" y="164" width="114" height="26" class="m-app"/><text x="561" y="181" class="d-s d-c">312 bytes</text>
+</g>
+<text x="20" y="212" class="d-s">Every segment goes out as its own UDP message, in ascending order. Offsets are shown in bytes.</text><text x="20" y="228" class="d-s">All segments carry the SOME/IP header of the original, except the Length and the TP flag.</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Look at the orange row, the SOME/IP TP header: it tells the receiver where each segment belongs and whether more follow. The example is the one used in the specifications: 5880 bytes become four full segments of 1392 bytes and one of 312.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card m-tp"><p class="tag">sender</p><h3>As few segments as possible</h3><p>Segments are as big as allowed, all segments except the last have the same size, they go out in ascending order without overlaps, and a configured separation time keeps them apart so the receiver is not flooded.</p></div>
+  <div class="card m-tp"><p class="tag">receiver</p><h3>Reassemble or give up</h3><p>The receiver checks that each segment carries the same SOME/IP header and that its <span class="term">Offset</span> (where the segment starts in the original payload) is exactly where the last one ended. A timeout watches the gap between segments. Only a completely reassembled message is passed up, with the <span class="term">TP flag</span> (the bit in the Message Type that marks a segment) cleared.</p></div>
+  <div class="card k-req"><p class="tag">SOME/IP header</p><h3>Same Session ID for all segments</h3><p>All segments of one message carry the same <span class="term">Session ID</span>, so messages that use segmentation must have <span class="term">session handling</span> switched on. A segment with a new Session ID starts a new message.</p></div>
+</div>
+
+<h2>Stricter in AUTOSAR</h2>
+<p>The protocol specification lets a receiver reassemble <span class="term">segment</span>s that arrive in reverse order and repair overlapping or repeated segments. The AUTOSAR <span class="term">SOME/IP TP</span> module deliberately does less, to save time and memory on the receiver: it does not reorder segments and does not retry. A missing or out-of-place segment, a segment with a different <span class="term">SOME/IP header</span>, or a gap longer than the timeout allows cancels the whole message. The typical use, "streaming" of large data, simply waits for the next message.</p>
+
+<h2>Where the module sits</h2>
+<figure class="fig">
+<svg viewBox="0 0 640 170" role="img" aria-labelledby="f2t">
+<title id="f2t">Sending: COM passes the large I-PDU to PduR, PduR to SOME/IP TP, which hands each segment back to PduR, which passes it to SoAd. Receiving: SoAd passes each segment to PduR, PduR to SOME/IP TP, which hands the reassembled message to PduR, which passes it to COM.</title>
+<rect x="20" y="10" width="140" height="34" class="m-com"/><text x="90" y="31" class="d-t d-c">COM or LdCom</text>
+<rect x="20" y="68" width="140" height="34" class="m-pdur"/><text x="90" y="89" class="d-t d-c">PduR</text>
+<rect x="20" y="126" width="140" height="34" class="m-soad"/><text x="90" y="147" class="d-t d-c">SoAd</text>
+<rect x="300" y="68" width="160" height="34" class="m-tp"/><text x="380" y="89" class="d-t d-c">SOME/IP TP</text>
+<line x1="70" y1="45" x2="70" y2="66" class="d-ln" marker-end="url(#ah)"/><text x="64" y="60" class="d-s d-r">large</text>
+<path d="M162,78 L298,78" class="d-ln" marker-end="url(#ah)"/><text x="230" y="72" class="d-s d-c">large I-PDU</text>
+<path d="M298,94 L162,94" class="d-ln" marker-end="url(#ah)"/><text x="252" y="112" class="d-s d-c">one segment at a time</text>
+<line x1="70" y1="103" x2="70" y2="124" class="d-ln" marker-end="url(#ah)"/><text x="64" y="118" class="d-s d-r">segments</text>
+<line x1="110" y1="124" x2="110" y2="103" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="110" y1="66" x2="110" y2="45" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<text x="116" y="118" class="d-s">segments in</text>
+<text x="116" y="60" class="d-s">reassembled</text>
+<text x="472" y="80" class="d-s">sending: segmentation</text>
+<text x="472" y="96" class="d-s">receiving: reassembly</text>
+</svg>
+<figcaption><b>Figure 2.</b> SOME/IP TP is not in the straight line between COM and SoAd: when sending, PduR passes the message to it and gets the segments back (left-hand arrows); when receiving it is the other way round (right-hand, lighter arrows).</figcaption>
+</figure>
+<p>Towards <span class="term">SoAd</span> every segment is a small <span class="term">PDU</span> of its own; towards <span class="term">COM</span> or <span class="term">LdCom</span> the whole message is one large I-PDU handed over in parts, the way transport protocols normally work. A message that fits into one UDP datagram is passed through unchanged.</p>
+
+<h2>Try it</h2>
+<p>Pick a payload size, then disturb the segments and see what the receiving SOME/IP TP module does.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Payload size
+      <select id="size">
+        <option value="5880">5880 bytes</option>
+        <option value="3000">3000 bytes</option>
+        <option value="1000">1000 bytes</option>
+      </select>
+    </label>
+    <label>On the way
+      <select id="fault">
+        <option value="none">all segments arrive in order</option>
+        <option value="lose">segment 2 is lost</option>
+        <option value="swap">segments 2 and 3 swap places</option>
+        <option value="last">the last segment never comes</option>
+      </select>
+    </label>
+  </div>
+  <div class="buttons-row"><button type="button" class="primary" id="go">Send</button></div>
+  <div class="table-wrap">
+  <table class="data" id="tab"><thead><tr><th>Arrives</th><th>Offset (bytes)</th><th>More Segments</th><th>Receiver</th></tr></thead><tbody></tbody></table>
+  </div>
+  <p class="feedback" id="out" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> 1000 bytes needs no <span class="term">segmentation</span> at all. A lost <span class="term">segment</span> and a swapped pair end the same way: the next segment's <span class="term">Offset</span> is not where the receiver expects, so the message is dropped. When the last segment never comes, it is the timeout that ends the wait.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">segment</span></td><td>One part of a segmented message: SOME/IP header, SOME/IP TP header and a slice of the payload</td></tr>
+<tr><td><span class="term">SOME/IP TP header</span></td><td>The 4 bytes SOME/IP TP adds after the SOME/IP header of each segment: Offset and More Segments flag</td></tr>
+<tr><td><span class="term">Offset</span></td><td>Where this segment starts in the original payload (in the header: in units of 16 bytes)</td></tr>
+<tr><td><span class="term">More Segments flag</span></td><td>1 if more segments follow, 0 in the last segment</td></tr>
+<tr><td><span class="term">TP flag</span></td><td>Bit 0x20 in the Message Type: this message is a segment (TP_REQUEST, TP_NOTIFICATION, …)</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.1.2.10 and 4.2.1.4; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransportProtocol.pdf">SOME/IP Transport Protocol, R20-11</a>, chapters 4, 5 and 7.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const SEG = 1392;
+  const size = document.getElementById('size'), fault = document.getElementById('fault');
+  const tbody = document.querySelector('#tab tbody'), out = document.getElementById('out');
+  function go() {
+    tbody.replaceChildren();
+    const total = Number(size.value);
+    if (total <= 1400) {
+      out.className = 'feedback good';
+      out.textContent = 'The payload fits into one UDP message: SOME/IP TP passes it on unchanged, without segmentation.';
+      return;
+    }
+    const segs = [];
+    for (let at = 0; at < total; at += SEG) segs.push({ n: segs.length + 1, at, len: Math.min(SEG, total - at) });
+    segs.forEach((p, i) => { p.more = i < segs.length - 1; });
+    let arrive = segs.slice();
+    if (fault.value === 'lose') arrive = arrive.filter((p) => p.n !== 2);
+    if (fault.value === 'swap') { const a = arrive[1]; arrive[1] = arrive[2]; arrive[2] = a; }
+    if (fault.value === 'last') arrive = arrive.slice(0, -1);
+    let expect = 0, ok = true;
+    for (const p of arrive) {
+      let verdict;
+      if (!ok) verdict = p.at === 0 ? 'starts a new message' : 'no message open: ignored';
+      else if (p.at !== expect) { verdict = 'expected Offset ' + expect + ': message cancelled'; ok = false; }
+      else { expect += p.len; verdict = p.more ? 'reassembled so far: ' + expect + ' bytes' : 'complete: passed up'; }
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>segment ' + p.n + ' (' + p.len + ' bytes)</td><td>' + p.at + '</td><td>' + (p.more ? '1' : '0, last') + '</td><td>' + verdict + '</td>';
+      tbody.appendChild(tr);
+    }
+    if (ok && fault.value === 'last') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>–</td><td>–</td><td>–</td><td>the timeout between segments runs out: message cancelled</td>';
+      tbody.appendChild(tr);
+      ok = false;
+    }
+    out.className = 'feedback ' + (ok ? 'good' : 'bad');
+    out.textContent = ok ? total + ' bytes in ' + segs.length + ' segments, reassembled and passed up to COM or LdCom as one message.'
+      : 'The message is dropped. Nothing is passed up and nothing is asked again; the next message starts fresh.';
+  }
+  document.getElementById('go').addEventListener('click', go);
+  [size, fault].forEach((s) => s.addEventListener('change', go));
+  go();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Segment 3 arrives before segment 2. What does the AUTOSAR SOME/IP TP module do?',
+    options: ['Cancel the whole message', 'Wait and reorder the segments', 'Ask the sender for segment 2'],
+    answer: 0,
+    why: 'The AUTOSAR module does not reorder and does not retry; an unexpected Offset cancels the message.'
+  },
+  {
+    prompt: 'What do all segments of one message have in common?',
+    options: ['The same header and Session ID', 'The same Length and Offset', 'Nothing, each is independent'],
+    answer: 0,
+    why: 'All segments carry the Message ID, Request ID (including the Session ID), versions and return code of the original message.'
+  },
+  {
+    prompt: 'A message of 1000 bytes is configured to go through SOME/IP TP. How is it sent?',
+    options: ['Unchanged, as one message', 'As one segment, TP flag set', 'As two segments of 500 bytes'],
+    answer: 0,
+    why: 'If the data fits into a single PDU the header is used without modification.'
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Return codes and errors · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Return codes and errors</h1>
+<p class="lede">Problems with a <code class="term">REQUEST</code> travel back in the <span class="term">Return Code</span> of the answer: an <code class="term">ERROR</code> message, or a <code class="term">RESPONSE</code> when the server method itself reports the error. Some problems are caught before the server method even runs, and some can only show up as a timeout.</p>
+
+<h2>Two ways to report, one used here</h2>
+<p>SOME/IP knows two ways for a server to report a problem: the <span class="term">Return Code</span> in the <span class="term">SOME/IP header</span> of the answer, or an explicit error message that also carries details (exception data, such as a text) in its <span class="term">payload</span>. The <span class="term">SOME/IP transformer</span> of the Classic Platform uses the Return Code. The explicit error message with exception data is not supported by it.</p>
+
+<h2>The general return codes</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Return Code</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><code class="term">E_OK</code></td><td>No problem.</td></tr>
+<tr><td><code class="term">E_NOT_OK</code></td><td>A problem without further detail.</td></tr>
+<tr><td><code class="term">E_UNKNOWN_SERVICE</code>, <code class="term">E_UNKNOWN_METHOD</code></td><td>The <span class="term">Service ID</span>, or the <span class="term">Method ID</span> within a known service, is unknown.</td></tr>
+<tr><td><code class="term">E_NOT_READY</code></td><td>Service and method are known, but the application behind them is not running.</td></tr>
+<tr><td><code class="term">E_NOT_REACHABLE</code>, <code class="term">E_TIMEOUT</code></td><td>Used only inside the client side; never sent on the wire.</td></tr>
+<tr><td><code class="term">E_WRONG_PROTOCOL_VERSION</code>, <code class="term">E_WRONG_INTERFACE_VERSION</code></td><td>The receiver does not support the <span class="term">Protocol Version</span> or the <span class="term">Interface Version</span> in the header.</td></tr>
+<tr><td><code class="term">E_MALFORMED_MESSAGE</code></td><td>The payload cannot be deserialized.</td></tr>
+<tr><td><code class="term">E_WRONG_MESSAGE_TYPE</code></td><td>Unexpected <span class="term">Message Type</span>, for example a <code class="term">REQUEST_NO_RETURN</code> for a method that needs a response.</td></tr>
+<tr><td>E2E return codes</td><td>Problems found by end-to-end protection, if it is used.</td></tr>
+</tbody>
+</table>
+</div>
+<p>On top of these, a method can report its own errors: each <span class="term">ApplicationError</span> (an error the method itself defines; it is listed for the <code class="term">ClientServerOperation</code>). They travel in the same Return Code, moved into a range of values reserved for them so they never clash with the general return codes. The answer stays a normal <code class="term">RESPONSE</code>: the Message Type is not changed to ERROR, and the payload still carries the outputs of the method.</p>
+
+<h2>Three rules that always hold</h2>
+<div class="cards">
+  <div class="card k-err"><p class="tag">rule 1</p><h3>Only REQUESTs get errors</h3><p>No <code class="term">ERROR</code> is ever sent back for an <span class="term">event</span> or for a <span class="term">fire&amp;forget</span> call.</p></div>
+  <div class="card k-err"><p class="tag">rule 2</p><h3>No error for an error</h3><p>A message that reports an error is never itself answered with an ERROR.</p></div>
+  <div class="card k-err"><p class="tag">rule 3</p><h3>Same IDs, empty payload</h3><p>An ERROR copies the <span class="term">Message ID</span>, the <span class="term">Request ID</span> and the <span class="term">Interface Version</span> from the <code class="term">REQUEST</code>. Its payload is empty.</p></div>
+</div>
+
+<h2>Where each problem is caught</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 306" role="img" aria-labelledby="f1t">
+<title id="f1t">A REQUEST arrives at the server ECU. SoAd drops it if it has no route for the Message ID. The SOME/IP transformer checks versions, Message Type and payload; a failure gives an ERROR with E_WRONG_INTERFACE_VERSION, E_MALFORMED_MESSAGE and so on. Otherwise the server method runs and returns E_OK or an ApplicationError, which goes back in the Return Code of a RESPONSE.</title>
+<rect x="20" y="10" width="160" height="34" class="d-box"/><text x="100" y="31" class="d-t d-c">a REQUEST arrives</text>
+<rect x="20" y="70" width="160" height="50" class="m-soad"/><text x="100" y="90" class="d-t d-c">SoAd: is there a route</text><text x="100" y="106" class="d-t d-c">for this Message ID?</text>
+<rect x="20" y="146" width="160" height="70" class="m-rte"/><text x="100" y="166" class="d-t d-c">transformer: versions,</text><text x="100" y="182" class="d-t d-c">Message Type, payload?</text><text x="100" y="202" class="d-s d-c">(deserializing the REQUEST)</text>
+<rect x="20" y="244" width="160" height="50" class="m-app"/><text x="100" y="264" class="d-t d-c">server method runs</text><text x="100" y="280" class="d-s d-c">E_OK or an ApplicationError</text>
+<line x1="100" y1="44" x2="100" y2="68" class="d-ln" marker-end="url(#ah)"/>
+<line x1="100" y1="120" x2="100" y2="144" class="d-ln" marker-end="url(#ah)"/><text x="108" y="137" class="d-s">yes</text>
+<line x1="100" y1="216" x2="100" y2="242" class="d-ln" marker-end="url(#ah)"/><text x="108" y="234" class="d-s">OK</text>
+<line x1="182" y1="95" x2="300" y2="95" class="d-ln" marker-end="url(#ah)"/><text x="240" y="88" class="d-s d-c">no</text>
+<rect x="302" y="76" width="318" height="40" class="d-bad"/><text x="461" y="93" class="d-t d-c">dropped silently, no answer at all</text><text x="461" y="108" class="d-s d-c">the client will see E_TIMEOUT</text>
+<line x1="182" y1="181" x2="300" y2="181" class="d-ln" marker-end="url(#ah)"/><text x="240" y="174" class="d-s d-c">problem</text>
+<rect x="302" y="146" width="318" height="70" class="d-bad"/><text x="461" y="164" class="d-t d-c">ERROR · E_WRONG_INTERFACE_VERSION,</text><text x="461" y="179" class="d-t d-c">E_MALFORMED_MESSAGE …</text><text x="461" y="196" class="d-s d-c">with autonomous error reaction; otherwise</text><text x="461" y="209" class="d-s d-c">the server application is told and decides</text>
+<line x1="182" y1="269" x2="300" y2="269" class="d-ln" marker-end="url(#ah)"/>
+<rect x="302" y="244" width="318" height="50" class="d-ok"/><text x="461" y="264" class="d-t d-c">RESPONSE · E_OK or an ApplicationError,</text><text x="461" y="280" class="d-t d-c">with the outputs</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Follow the REQUEST down the left column. Only the top exit is silent: SoAd routes messages by their Message ID and has no way to answer one it cannot place.</figcaption>
+</figure>
+<p><span class="term">SoAd</span> reads only the first part of the <span class="term">SOME/IP header</span>: the <span class="term">Message ID</span> and the <span class="term">Length</span>. It does not check versions; that is done by the <span class="term">SOME/IP transformer</span> when it deserializes. If the transformer is set to an <span class="term">autonomous error reaction</span> (the transformer sends the ERROR on its own, without the server SWC), the client gets the ERROR at once. (The R20-11 transformer specification writes Message Type RESPONSE into this answer; the protocol specification asks for ERROR, and this course follows the protocol specification.) And because the transformer of the client also checks each RESPONSE it receives, a client can likewise detect a broken RESPONSE.</p>
+
+<h2>Try it</h2>
+<p>Pick a problem and step through the story.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>What goes wrong
+      <select id="what">
+        <option value="app">Calibrate fails with an ApplicationError</option>
+        <option value="version">the client uses an old Interface Version</option>
+        <option value="malformed">the payload arrives cut short</option>
+        <option value="unknown">the server has no such Method ID</option>
+      </select>
+    </label>
+  </div>
+  <div id="seq"></div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Three of the four problems end with an answer the client can read: an ERROR, or a RESPONSE for the ApplicationError. The unknown Method ID ends with silence and <code>E_TIMEOUT</code>, because nobody on the server side may answer it. In every answer, the Client ID and Session ID are those of the REQUEST.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Return Code</span></td><td>Header field: <code class="term">E_OK</code> or the code of the problem</td></tr>
+<tr><td><code class="term">ERROR</code></td><td>The Message Type of an answer that reports a problem</td></tr>
+<tr><td><code class="term">E_NOT_OK</code>, <code class="term">E_UNKNOWN_SERVICE</code>, <code class="term">E_UNKNOWN_METHOD</code>, <code class="term">E_NOT_READY</code>, <code class="term">E_NOT_REACHABLE</code>, <code class="term">E_TIMEOUT</code>, <code class="term">E_WRONG_PROTOCOL_VERSION</code>, <code class="term">E_WRONG_INTERFACE_VERSION</code>, <code class="term">E_MALFORMED_MESSAGE</code>, <code class="term">E_WRONG_MESSAGE_TYPE</code></td><td>The general return codes (table above)</td></tr>
+<tr><td><span class="term">ApplicationError</span></td><td>An error the method itself defines, carried in the Return Code of a RESPONSE</td></tr>
+<tr><td><span class="term">autonomous error reaction</span></td><td>The transformer, not the server SWC, sends the ERROR on its own</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, section 4.2.6; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, sections 7.3.1, 7.3.4 and Appendix B; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor, R20-11</a>, section 4.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const actors = [
+    { id: 'c', label: 'Brake ECU', sub: 'client' },
+    { id: 'soad', label: 'Radar ECU: SoAd', sub: 'routes by Message ID' },
+    { id: 'xf', label: 'Radar ECU: RTE', sub: 'transformer, server SWC' }
+  ];
+  const up = { from: 'soad', to: 'xf', label: 'route found: pass up', kind: 'mute' };
+  const STORIES = {
+    app: [
+      { text: 'The brake ECU calls Calibrate (Client ID 0x10, Session ID 3).', rows: [{ from: 'c', to: 'soad', label: 'REQUEST · Calibrate · Session ID 3', kind: 'req' }] },
+      { text: 'SoAd has a route for this Message ID and passes the message up.', rows: [up] },
+      { text: 'The transformer deserializes the REQUEST without problems and the server method runs. It reports one of its ApplicationErrors: the radar cannot calibrate right now.', rows: [{ at: 'xf', note: 'Calibrate → ApplicationError' }] },
+      { text: 'The ApplicationError goes back in the Return Code of a RESPONSE, with the same Client ID and Session ID. The client SWC receives this ApplicationError as the result of its call.', rows: [{ from: 'xf', to: 'c', label: 'RESPONSE · Session ID 3 · ApplicationError', kind: 'err' }] }
+    ],
+    version: [
+      { text: 'The brake ECU was built for major version 1 of the radar service; the radar runs version 2. The REQUEST carries Interface Version 1.', rows: [{ from: 'c', to: 'soad', label: 'REQUEST · Calibrate · Interface Version 1', kind: 'req' }] },
+      { text: 'SoAd does not look at versions. It passes the message up by its Message ID.', rows: [up] },
+      { text: 'The transformer checks the header while deserializing and finds the wrong Interface Version. The server method does not run.', rows: [{ at: 'xf', note: 'wrong Interface Version' }] },
+      { text: 'With autonomous error reaction, the transformer answers with an ERROR, Return Code E_WRONG_INTERFACE_VERSION and an empty payload.', rows: [{ from: 'xf', to: 'c', label: 'ERROR · E_WRONG_INTERFACE_VERSION', kind: 'err' }] }
+    ],
+    malformed: [
+      { text: 'The REQUEST is sent, but its payload is shorter than the method\'s arguments need.', rows: [{ from: 'c', to: 'soad', label: 'REQUEST · Adjust · payload cut short', kind: 'req' }] },
+      { text: 'SoAd passes it up; it only cares about the Message ID and the Length.', rows: [up] },
+      { text: 'The transformer cannot deserialize the arguments: malformed message. The server method does not run.', rows: [{ at: 'xf', note: 'cannot deserialize' }] },
+      { text: 'With autonomous error reaction, the transformer answers with an ERROR, Return Code E_MALFORMED_MESSAGE and an empty payload.', rows: [{ from: 'xf', to: 'c', label: 'ERROR · E_MALFORMED_MESSAGE', kind: 'err' }] }
+    ],
+    unknown: [
+      { text: 'The brake ECU calls a method the radar does not have, for example because of a mismatched configuration.', rows: [{ from: 'c', to: 'soad', label: 'REQUEST · unknown Method ID', kind: 'req' }, { at: 'c', note: 'timeout starts' }] },
+      { text: 'SoAd finds no route for this Message ID. It drops the message and reports a runtime error. It cannot answer.', rows: [{ at: 'soad', note: 'no route: dropped' }] },
+      { text: 'Nothing comes back. The client\'s timeout expires and the call ends with E_TIMEOUT.', rows: [{ at: 'c', note: 'timeout → E_TIMEOUT' }] }
+    ]
+  };
+  const what = document.getElementById('what');
+  const seq = Seq.create(document.getElementById('seq'), { actors, steps: STORIES.app });
+  what.addEventListener('change', () => seq.set({ steps: STORIES[what.value] }));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A REQUEST arrives with an Interface Version the server does not support. Which module notices?',
+    options: ['The transformer, while deserializing', 'SoAd, while routing by Message ID', 'The Eth driver, on frame reception'],
+    answer: 0,
+    why: 'SoAd only reads the Message ID and the Length. The SOME/IP transformer checks the versions.'
+  },
+  {
+    prompt: 'A REQUEST arrives for a Method ID the server ECU does not know. What does the client see?',
+    options: ['E_TIMEOUT once its timeout expires', 'An ERROR with E_UNKNOWN_METHOD', 'An ERROR with E_MALFORMED_MESSAGE'],
+    answer: 0,
+    why: 'SoAd drops a message it cannot route and cannot answer it, so the client times out.'
+  },
+  {
+    prompt: 'The server method reports one of its ApplicationErrors. How does it travel?',
+    options: ['In the Return Code of the answer', 'As exception data in the payload', 'It is not sent; only timeouts are'],
+    answer: 0,
+    why: 'The Classic Platform transformer sends a RESPONSE; the ApplicationError is moved into its reserved range of the Return Code.'
+  }
+]);
+</script>
+</body>
+</html>

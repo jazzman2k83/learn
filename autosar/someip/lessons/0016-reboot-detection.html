@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reboot detection · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Reboot detection</h1>
+<p class="lede">An ECU that restarted has forgotten every subscription. Its partners must notice that quickly, even when its <code class="term">OfferService</code> entries never stopped for long. Two values in every <span class="term">SD message</span> make this possible: a flag that marks a recent restart, and the <span class="term">Session ID</span>.</p>
+
+<h2>Reboot flag and Session ID</h2>
+<p>Every <span class="term">SD message</span> carries a <span class="term">Session ID</span> in its <span class="term">SOME/IP header</span> and a <span class="term">reboot flag</span> (a flag in the SD header: "I restarted recently") in its flags. The Session ID goes up by one with every SD message. After a restart it starts at 1 with the reboot flag set to 1; the flag stays 1 until the Session ID has wrapped around once. From then on the flag is 0.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 660 160" role="img" aria-labelledby="f1t">
+<title id="f1t">A row of SD messages from one sender: Session ID 1, 2, 3 with reboot flag 1 after start-up; later the Session ID wraps from 0xFFFF to 1 and the reboot flag becomes 0; then a reboot: Session ID 1 with reboot flag 1 again.</title>
+<text x="10" y="48" class="d-s">Session ID</text>
+<text x="10" y="63" class="d-s">Reboot flag</text>
+<text x="80" y="20" class="d-tb">after start-up</text>
+<rect x="80" y="30" width="52" height="40" class="f-sd"/><text x="106" y="48" class="d-t d-c">1</text><text x="106" y="63" class="d-s d-c">1</text>
+<rect x="136" y="30" width="52" height="40" class="f-sd"/><text x="162" y="48" class="d-t d-c">2</text><text x="162" y="63" class="d-s d-c">1</text>
+<rect x="192" y="30" width="52" height="40" class="f-sd"/><text x="218" y="48" class="d-t d-c">3</text><text x="218" y="63" class="d-s d-c">1</text>
+<text x="252" y="55" class="d-t">…</text>
+<text x="272" y="20" class="d-tb">wrap-around</text>
+<rect x="272" y="30" width="56" height="40" class="f-sd"/><text x="300" y="48" class="d-t d-c">0xFFFF</text><text x="300" y="63" class="d-s d-c">1</text>
+<rect x="332" y="30" width="52" height="40" class="d-box"/><text x="358" y="48" class="d-t d-c">1</text><text x="358" y="63" class="d-s d-c">0</text>
+<rect x="388" y="30" width="52" height="40" class="d-box"/><text x="414" y="48" class="d-t d-c">2</text><text x="414" y="63" class="d-s d-c">0</text>
+<text x="448" y="55" class="d-t">…</text>
+<text x="472" y="20" class="d-tb">reboot</text>
+<rect x="472" y="30" width="52" height="40" class="d-box"/><text x="498" y="48" class="d-t d-c">907</text><text x="498" y="63" class="d-s d-c">0</text>
+<path d="M534,30 l12,40 m0,-40 l-12,40" class="d-cross"/>
+<rect x="556" y="30" width="52" height="40" class="d-bad"/><text x="582" y="48" class="d-t d-c">1</text><text x="582" y="63" class="d-s d-c">1</text>
+<text x="10" y="98" class="d-s">Pink: reboot flag 1. The Session ID never uses 0.</text>
+<text x="10" y="116" class="d-s">A partner keeps the last reboot flag and Session ID it received from this sender.</text>
+<text x="10" y="134" class="d-s">Red: reboot flag 1 again while the previous message had 0: a reboot, whatever the Session ID says.</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Watch the reboot flag, not just the Session ID. The flag goes to 0 once, at the first wrap-around, and comes back to 1 only after a reboot.</figcaption>
+</figure>
+
+<h2>The rule</h2>
+<p><span class="term">Reboot detection</span> (noticing that a partner restarted) compares each new <span class="term">SD message</span> with the last one received from the same sender. A reboot is detected if either is true:</p>
+<div class="cards">
+  <div class="card k-err"><p class="tag">case 1</p><h3>The reboot flag came back</h3><p>The last message had reboot flag 0; this one has 1.</p></div>
+  <div class="card k-err"><p class="tag">case 2</p><h3>The Session ID went backwards</h3><p>Both messages have reboot flag 1, and the new Session ID is not larger than the old one.</p></div>
+</div>
+<p>Checking only the <span class="term">Session ID</span> is not enough: messages can be lost, so after a reboot the Session ID may already be higher than the last value received. The <span class="term">reboot flag</span> catches that case.</p>
+<p>Session IDs are kept per <span class="term">communication relation</span> (one sender and one receiver), and separately for <span class="term">multicast</span> and <span class="term">unicast</span> SD messages. So each partner judges each sender on its own.</p>
+
+<h2>What happens after a reboot is detected</h2>
+<p>The rebooted ECU has lost its state. Its partners act on that: a <span class="term">client</span> that detects a reboot of its <span class="term">server</span> treats its subscriptions as gone and sends a new <code class="term">SubscribeEventgroup</code> with the <span class="term">Initial Data Requested flag</span> set, so it gets the <span class="term">initial events</span> again; a server that detects a reboot of a client replaces that client's old subscription with the new one.</p>
+
+<h2>When the IP address is lost</h2>
+<p>When an ECU loses its link or its IP address, <span class="term">Sd</span> leaves all phases. A server sets its <span class="term">event handlers</span> to RELEASED: nobody is subscribed any more. A client reports its client services and <span class="term">consumed eventgroups</span> as DOWN. When <span class="term">TcpIp</span> reports the IP address as assigned again, everything starts again with the <span class="term">Initial Wait Phase</span>. In the example of the SOME/IP-SD specification, an ECU whose link went down also starts its Session ID again at 1 with the reboot flag set, so its partners detect a reboot and clean up as well.</p>
+
+<h2>Try it</h2>
+<p>The radar sends SD messages to the brake ECU. Here the Session ID wraps after 8 so you can see it happen. Send, lose, reboot, and watch the result of reboot detection on the brake ECU.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Brake ECU checks
+      <select id="rule">
+        <option value="full">reboot flag and Session ID (full rule)</option>
+        <option value="counter">only the Session ID (not enough)</option>
+      </select>
+    </label>
+  </div>
+  <div class="buttons-row">
+    <button type="button" class="primary" id="send">Radar sends an SD message</button>
+    <button type="button" id="lose">Next SD message is lost</button>
+    <button type="button" id="reboot">Radar reboots</button>
+    <button type="button" id="clear">Start again</button>
+  </div>
+  <p>Radar now: Session ID <span class="bigval" id="ctr">–</span> · reboot flag <span class="bigval" id="flag">–</span></p>
+  <div class="table-wrap">
+  <table class="data" id="tab"><thead><tr><th>Received Session ID</th><th>Reboot flag</th><th>Last received</th><th>Result</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Send nine SD messages: at the wrap-around the <span class="term">Session ID</span> drops from 8 to 1, yet no reboot is detected, because the <span class="term">reboot flag</span> went to 0. After that, reboot the radar and lose its first two SD messages: the full rule still detects the reboot (the reboot flag came back), the Session-ID-only rule misses it.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">reboot flag</span></td><td>Flag in the SD header: 1 after a restart until the Session ID wraps around for the first time</td></tr>
+<tr><td><span class="term">reboot detection</span></td><td>Noticing that a partner restarted: its reboot flag goes from 0 to 1, or its Session ID goes backwards while the flag is 1</td></tr>
+<tr><td><span class="term">communication relation</span></td><td>One sender and one receiver; Session IDs and reboot flags are judged per relation, separately for multicast and unicast</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.2.1, 4.1.2.2 (reboot flag and detection), 4.1.4.3 and 4.1.6 (link loss examples); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.6 and 7.7 (reaction to a lost IP address).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const MAX = 8;
+  const rule = document.getElementById('rule');
+  const tbody = document.querySelector('#tab tbody');
+  const ctrEl = document.getElementById('ctr'), flagEl = document.getElementById('flag');
+  let counter, flag, lose, last;
+  function reset() {
+    counter = 0; flag = true; lose = 0; last = null;
+    tbody.replaceChildren();
+    show();
+  }
+  function show() { ctrEl.textContent = counter === 0 ? '–' : String(counter); flagEl.textContent = flag ? '1' : '0'; }
+  function row(cells, cls) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = cells.map((c) => '<td>' + c + '</td>').join('');
+    if (cls) tr.lastChild.className = cls;
+    tbody.prepend(tr);
+  }
+  function send() {
+    // the radar's own Session ID
+    if (counter === MAX) { counter = 1; flag = false; } else counter++;
+    show();
+    if (lose > 0) { lose--; row([String(counter), flag ? '1' : '0', '–', 'lost on the way'], 'small'); return; }
+    let verdict = 'normal', cls = 'ok';
+    if (last) {
+      const full = (!last.flag && flag) || (last.flag && flag && last.counter >= counter);
+      const ctrOnly = flag && last.counter >= counter;
+      const seen = rule.value === 'full' ? full : ctrOnly;
+      if (seen) { verdict = 'reboot detected: SubscribeEventgroup again with Initial Data Requested'; cls = 'no'; }
+      else if (last.counter >= counter) verdict = 'Session ID went back, but reboot flag 0: normal wrap-around';
+    } else verdict = 'first SD message from this sender';
+    row([String(counter), flag ? '1' : '0', last ? 'Session ID ' + last.counter + ' · reboot flag ' + (last.flag ? '1' : '0') : '–', verdict], cls);
+    last = { counter, flag };
+  }
+  document.getElementById('send').addEventListener('click', send);
+  document.getElementById('lose').addEventListener('click', () => { lose++; row(['–', '–', '–', 'the next ' + (lose > 1 ? lose + ' SD messages' : 'SD message') + ' will be lost'], 'small'); });
+  document.getElementById('reboot').addEventListener('click', () => { counter = 0; flag = true; show(); row(['–', '–', '–', 'radar reboots: Session ID restarts at 1, reboot flag 1'], 'small'); });
+  document.getElementById('clear').addEventListener('click', reset);
+  rule.addEventListener('change', reset);
+  reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The last SD message from a sender had reboot flag 0. The new one has reboot flag 1 and Session ID 5. What does the receiver conclude?',
+    options: ['The sender has rebooted', 'The Session ID has wrapped', 'Some messages were lost'],
+    answer: 0,
+    why: 'The reboot flag came back: that alone means a reboot.'
+  },
+  {
+    prompt: 'The Session ID drops from 0xFFFF to 1 and the reboot flag is 0. What does the receiver conclude?',
+    options: ['A normal wrap-around', 'The sender has rebooted', 'The message is broken'],
+    answer: 0,
+    why: 'The reboot flag goes to 0 at the first wrap-around; a drop with flag 0 is a normal wrap-around.'
+  },
+  {
+    prompt: 'A client detects that its server rebooted. What does it do about its subscriptions?',
+    options: ['Subscribes again with Initial Data Requested', 'Keeps them; the server still remembers them', 'Waits until the old subscription TTL runs out'],
+    answer: 0,
+    why: 'The rebooted server forgot every subscription; the client sends SubscribeEventgroup again and asks for the initial events.'
+  }
+]);
+</script>
+</body>
+</html>

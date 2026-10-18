@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sd and BswM: requested and available · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Sd and BswM: requested and available</h1>
+<p class="lede"><span class="term">Sd</span> does not decide on its own which services to offer or use. <span class="term">BswM</span> tells it which service instances and eventgroups are wanted, and Sd reports back which ones are actually available on the network.</p>
+
+<h2>Requested states go down, actual states come up</h2>
+<p><span class="term">BswM</span> sets the requested state of each server service (<code class="term">SdServerService</code>), each client service (<code class="term">SdClientService</code>) and each <span class="term">consumed eventgroup</span>. <span class="term">Sd</span> reports the actual state of the client services, the consumed eventgroups and the <span class="term">event handlers</span> back up: <code class="term">AVAILABLE</code> or <code class="term">DOWN</code> (the state as Sd sees it on the network) and, for an event handler, <code class="term">REQUESTED</code> or <code class="term">RELEASED</code>.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 760 240" role="img" aria-labelledby="f1t">
+<title id="f1t">BswM sets the requested states in Sd: server service AVAILABLE or DOWN, client service REQUESTED or RELEASED, consumed eventgroup REQUESTED or RELEASED, service group start or stop. Sd reports the actual states up: client service AVAILABLE or DOWN, consumed eventgroup AVAILABLE or DOWN, event handler REQUESTED or RELEASED. From below, SoAd reports the IP address assigned or unassigned.</title>
+<rect x="260" y="10" width="240" height="40" class="m-bswm"/><text x="380" y="35" class="d-t d-c">BSW Mode Manager (BswM)</text>
+<rect x="260" y="160" width="240" height="40" class="m-sd"/><text x="380" y="185" class="d-t d-c">Service Discovery (Sd)</text>
+<line x1="310" y1="52" x2="310" y2="158" class="d-ln" marker-end="url(#ah)"/>
+<line x1="450" y1="158" x2="450" y2="52" class="d-ln" marker-end="url(#ah)"/>
+<text x="300" y="72" class="d-tb d-r">requested state</text>
+<text x="300" y="92" class="d-s d-r">server service: AVAILABLE / DOWN</text>
+<text x="300" y="108" class="d-s d-r">client service: REQUESTED / RELEASED</text>
+<text x="300" y="124" class="d-s d-r">consumed eventgroup: REQUESTED / RELEASED</text>
+<text x="300" y="140" class="d-s d-r">service group: start / stop</text>
+<text x="460" y="72" class="d-tb">actual state</text>
+<text x="460" y="92" class="d-s">client service: AVAILABLE / DOWN</text>
+<text x="460" y="108" class="d-s">consumed eventgroup: AVAILABLE / DOWN</text>
+<text x="460" y="124" class="d-s">event handler: REQUESTED / RELEASED</text>
+<rect x="260" y="210" width="240" height="26" class="m-soad"/><text x="380" y="227" class="d-s d-c">IP address assigned / unassigned (from SoAd)</text>
+<line x1="380" y1="209" x2="380" y2="202" class="d-ln" marker-end="url(#ah)"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Left column down, right column up. Sd acts only when a requested state and an assigned IP address are both there; what it reports up is what it learned from the network.</figcaption>
+</figure>
+
+<h2>The requested states (BswM → Sd)</h2>
+<div class="cards">
+  <div class="card m-bswm"><p class="tag">server service</p><h3>AVAILABLE / DOWN</h3><p>"The software behind this service instance is ready" or "not ready". AVAILABLE plus an assigned IP address starts the <span class="term">Initial Wait Phase</span> and the offers; DOWN sends a <code class="term">StopOfferService</code>.</p></div>
+  <div class="card m-bswm"><p class="tag">client service</p><h3>REQUESTED / RELEASED</h3><p>"Some software here needs this service instance" or "no longer". REQUESTED starts a <code class="term">FindService</code> if no valid <code class="term">OfferService</code> is known; RELEASED ends the use.</p></div>
+  <div class="card m-bswm"><p class="tag">consumed eventgroup</p><h3>REQUESTED / RELEASED</h3><p>Only allowed while the client service is REQUESTED. REQUESTED leads to a <code class="term">SubscribeEventgroup</code>; RELEASED sends a <code class="term">StopSubscribeEventgroup</code>.</p></div>
+</div>
+<p>Two shortcuts exist. Sd can set a service instance to AVAILABLE or REQUESTED by itself at start-up, and a consumed eventgroup to REQUESTED as soon as its client service is REQUESTED (both configured per service instance). And service instances can be grouped in a <span class="term">service group</span> (a set of service instances that BswM requests or releases together): starting the group makes all its server services AVAILABLE and all its client services REQUESTED at once; a service instance stays so as long as at least one of its started service groups includes it.</p>
+
+<h2>The actual states (Sd → BswM)</h2>
+<div class="cards">
+  <div class="card m-sd"><p class="tag">client service</p><h3>AVAILABLE / DOWN</h3><p>AVAILABLE once a valid <code class="term">OfferService</code> arrived and the <span class="term">socket connections</span> (SoAd's links to the server's IP address and port) are ready. DOWN when the <code class="term">TTL</code> of the offer expires, a <code class="term">StopOfferService</code> arrives, the client service is RELEASED, or the IP address is lost.</p></div>
+  <div class="card m-sd"><p class="tag">consumed eventgroup</p><h3>AVAILABLE / DOWN</h3><p>AVAILABLE when the <code class="term">SubscribeEventgroupAck</code> arrived and the <span class="term">routing group</span> (a set of routes in SoAd that Sd enables and disables as a whole) for the events is enabled. DOWN again on <code>StopOfferService</code>, TTL expiry, RELEASED, or loss of the IP address.</p></div>
+  <div class="card m-sd"><p class="tag">event handler (server)</p><h3>REQUESTED / RELEASED</h3><p>Reported when the first <span class="term">subscriber</span> arrives and when the last one leaves or its subscription TTL expires.</p></div>
+</div>
+<p><span class="term">BswM</span> can pass these states on, for example to start or stop <span class="term">SWCs</span> or to request communication. How it does that is decided in BswM's own rules, not in Sd.</p>
+
+<h2>Try it</h2>
+<p>This ECU is a client of the radar service with Eventgroup 1. Change the requested states and let things happen on the network. The two pills show what Sd reports up to BswM.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label class="inline"><input type="checkbox" id="ip" checked> IP address assigned</label>
+    <label class="inline"><input type="checkbox" id="want"> BswM: client service radar REQUESTED</label>
+    <label class="inline"><input type="checkbox" id="wantEg"> BswM: consumed eventgroup 1 REQUESTED</label>
+  </div>
+  <div class="buttons-row">
+    <button type="button" class="primary" id="offer">OfferService arrives</button>
+    <button type="button" id="ack">SubscribeEventgroupAck arrives</button>
+    <button type="button" id="stop">StopOfferService arrives</button>
+    <button type="button" id="ttl">TTL of the offer expires</button>
+  </div>
+  <p>Reported up: client service radar <span class="state-pill" id="svc">DOWN</span> · consumed eventgroup 1 <span class="state-pill" id="eg">DOWN</span></p>
+  <ul class="log" id="log" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Requesting the <span class="term">consumed eventgroup</span> before the client service is refused. An <code class="term">OfferService</code> makes the client service AVAILABLE only if it is REQUESTED and the IP address is assigned; otherwise Sd just remembers the offer. The consumed eventgroup needs a <code class="term">SubscribeEventgroupAck</code> before it is reported AVAILABLE. Untick the IP address and everything goes DOWN at once.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">AVAILABLE</code> / <code class="term">DOWN</code></td><td>Set by BswM for a server service (offer it or not); reported by Sd for a client service (offered or not) and a consumed eventgroup (acknowledged or not)</td></tr>
+<tr><td><span class="term">service group</span></td><td>Service instances grouped in the Sd configuration so BswM can start or stop them together</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.2.1, 7.2.3, 7.6, 7.7 and 7.8.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const ip = $('ip'), want = $('want'), wantEg = $('wantEg');
+  const svcEl = $('svc'), egEl = $('eg'), log = $('log');
+  let known = false;      // a valid OfferService is known
+  let svcUp = false, egUp = false, subscribed = false;
+  function say(t) { const li = document.createElement('li'); li.textContent = t; log.prepend(li); }
+  function pill(el, on, text) { el.textContent = text; el.className = 'state-pill ' + (on ? 'on' : 'off'); }
+  function report() { pill(svcEl, svcUp, svcUp ? 'AVAILABLE' : 'DOWN'); pill(egEl, egUp, egUp ? 'AVAILABLE' : 'DOWN'); }
+  function down(reason) {
+    if (svcUp) say('Sd reports to BswM: client service radar DOWN (' + reason + ').');
+    if (egUp) say('Sd reports to BswM: consumed eventgroup 1 DOWN (' + reason + ').');
+    svcUp = false; egUp = false; subscribed = false;
+    report();
+  }
+  function tryUp() {
+    if (!svcUp && known && want.checked && ip.checked) {
+      svcUp = true;
+      say('Sd opens the socket connections and reports to BswM: client service radar AVAILABLE.');
+      if (wantEg.checked) { subscribed = true; say('Sd sends SubscribeEventgroup for Eventgroup 1 (in reply to the OfferService).'); }
+    }
+    report();
+  }
+  ip.addEventListener('change', () => {
+    if (!ip.checked) { known = false; say('IP address unassigned: Sd leaves all phases and forgets the known offers.'); down('IP address unassigned'); }
+    else { say('IP address assigned.' + (want.checked ? ' The client service is REQUESTED: Sd starts with the Initial Wait Phase and will send FindService if no offer is known.' : '')); tryUp(); }
+  });
+  want.addEventListener('change', () => {
+    if (want.checked) {
+      say('BswM: client service radar REQUESTED.' + (known ? ' A valid OfferService is known: no FindService needed.' : (ip.checked ? ' No offer known yet: Sd will send FindService.' : ' Waiting for an IP address.')));
+      tryUp();
+    } else {
+      if (wantEg.checked) { wantEg.checked = false; say('Client service RELEASED while the consumed eventgroup was still REQUESTED: Sd treats the consumed eventgroup as RELEASED first.'); }
+      if (subscribed) say('Sd sends StopSubscribeEventgroup for Eventgroup 1.');
+      down('client service RELEASED');
+      say('BswM: client service radar RELEASED.');
+    }
+  });
+  wantEg.addEventListener('change', () => {
+    if (wantEg.checked && !want.checked) {
+      wantEg.checked = false;
+      say('Refused: a consumed eventgroup can only be REQUESTED while its client service is REQUESTED.');
+      return;
+    }
+    if (wantEg.checked) {
+      say('BswM: consumed eventgroup 1 REQUESTED.' + (svcUp ? ' Sd sends SubscribeEventgroup at the next OfferService (or right away if Subscribe retry is configured).' : ''));
+    } else {
+      if (subscribed || egUp) say('Sd sends StopSubscribeEventgroup for Eventgroup 1.');
+      if (egUp) say('Sd reports to BswM: consumed eventgroup 1 DOWN (RELEASED).');
+      subscribed = false; egUp = false; report();
+    }
+  });
+  $('offer').addEventListener('click', () => {
+    if (!ip.checked) { say('No IP address: the OfferService cannot be received.'); return; }
+    known = true;
+    say('An OfferService for radar instance 1 arrives.' + (want.checked ? '' : ' Not REQUESTED yet: Sd only remembers it and its TTL.'));
+    if (svcUp && wantEg.checked) { subscribed = true; say('Sd sends SubscribeEventgroup for Eventgroup 1 in reply' + (egUp ? ' (renewal).' : '.')); }
+    tryUp();
+  });
+  $('ack').addEventListener('click', () => {
+    if (!subscribed) { say('A SubscribeEventgroupAck arrives, but Sd has sent no SubscribeEventgroup: it is ignored.'); return; }
+    if (!egUp) { egUp = true; say('SubscribeEventgroupAck for Eventgroup 1: Sd enables the routing group for the events and reports to BswM: consumed eventgroup 1 AVAILABLE.'); }
+    else say('SubscribeEventgroupAck for the renewal: the consumed eventgroup stays AVAILABLE.');
+    report();
+  });
+  $('stop').addEventListener('click', () => {
+    known = false;
+    say('A StopOfferService arrives: Sd closes the socket connections and sends no FindService.');
+    down('StopOfferService');
+  });
+  $('ttl').addEventListener('click', () => {
+    if (!known && !svcUp) { say('No offer TTL is running.'); return; }
+    known = false;
+    say('The TTL of the OfferService expires' + (want.checked && ip.checked ? ': Sd goes back to the Initial Wait Phase and will send FindService again.' : '.'));
+    down('TTL expired');
+  });
+  report();
+  say('Start: IP address assigned, nothing REQUESTED, no offer known.');
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Who decides that the ECU should use the radar service right now?',
+    options: ['BswM, following its own rules', 'Sd, deciding all on its own', 'The radar, by its OfferService'],
+    answer: 0,
+    why: 'BswM requests the client service; Sd carries out the request.'
+  },
+  {
+    prompt: 'When does Sd report a consumed eventgroup as AVAILABLE?',
+    options: ['When the SubscribeEventgroupAck arrived', 'When the SubscribeEventgroup was sent', 'When the first Notification arrived'],
+    answer: 0,
+    why: 'The consumed eventgroup becomes AVAILABLE after the SubscribeEventgroupAck, once the routing group for the events is enabled.'
+  },
+  {
+    prompt: 'The ECU loses its IP address. What does Sd report for a client service that was AVAILABLE?',
+    options: ['DOWN, with its consumed eventgroups', 'Nothing until the offer TTL expires', 'AVAILABLE, until a StopOfferService'],
+    answer: 0,
+    why: 'Losing the IP address ends the phases; Sd reports the client service and its consumed eventgroups as DOWN.'
+  }
+]);
+</script>
+</body>
+</html>

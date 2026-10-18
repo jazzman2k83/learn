@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What SOME/IP is for · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>What SOME/IP is for</h1>
+<p class="lede"><span class="term">SOME/IP</span> lets one ECU offer a service over Ethernet and lets other ECUs use it: receive its events, call its methods, read and change its fields.</p>
+
+<p><span class="term">SOME/IP</span> (Scalable service-Oriented MiddlewarE over IP: the protocol that lets ECUs offer and use services over Ethernet) is the AUTOSAR way to exchange application data between ECUs on Ethernet. This lesson shows what it changes compared with classic CAN signals.</p>
+
+<h2>Two ways to share data</h2>
+<p>On CAN, a sender puts its signals into frames and sends them on a fixed schedule. Every ECU on the bus sees every frame, and each one decides for itself what to keep. The sender does not know who is listening.</p>
+<p><span class="term">Service-oriented communication</span> (communication organised around services instead of fixed signals on a fixed schedule) turns this around. A <span class="term">server</span> (the ECU that provides a service) says "I offer this service". A <span class="term">client</span> (an ECU that uses the service) asks for exactly the parts it needs. An <span class="term">event</span> (a message the server sends on its own when something happens or a value changes) goes only to the clients that subscribed to it, and a client can call a <span class="term">method</span> (a function of the server) and get a response back.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 210" role="img" aria-labelledby="f1t">
+<title id="f1t">Left: signal-based communication on CAN, a sender sends one frame that all four ECUs on the bus receive. Right: service-oriented communication with SOME/IP, a server sends events only to the two subscribed clients, and one client calls a method of the server.</title>
+<text x="155" y="18" class="d-tb d-c">Signal-based (classic CAN)</text>
+<rect x="105" y="30" width="100" height="34" class="d-box"/>
+<text x="155" y="51" class="d-t d-c">Sender</text>
+<line x1="20" y1="100" x2="290" y2="100" class="d-ln"/>
+<text x="22" y="94" class="d-s">CAN bus</text>
+<line x1="155" y1="64" x2="155" y2="98" class="d-ln" marker-end="url(#ah)"/>
+<g>
+<rect x="20" y="150" width="60" height="30" class="d-box"/><text x="50" y="169" class="d-s d-c">ECU A</text>
+<rect x="90" y="150" width="60" height="30" class="d-box"/><text x="120" y="169" class="d-s d-c">ECU B</text>
+<rect x="160" y="150" width="60" height="30" class="d-box"/><text x="190" y="169" class="d-s d-c">ECU C</text>
+<rect x="230" y="150" width="60" height="30" class="d-box"/><text x="260" y="169" class="d-s d-c">ECU D</text>
+<line x1="50" y1="102" x2="50" y2="148" class="d-ln" marker-end="url(#ah)"/>
+<line x1="120" y1="102" x2="120" y2="148" class="d-ln" marker-end="url(#ah)"/>
+<line x1="190" y1="102" x2="190" y2="148" class="d-ln" marker-end="url(#ah)"/>
+<line x1="260" y1="102" x2="260" y2="148" class="d-ln" marker-end="url(#ah)"/>
+</g>
+<text x="155" y="200" class="d-s d-c">every ECU gets every frame</text>
+
+<line x1="320" y1="10" x2="320" y2="200" class="d-tick"/>
+
+<text x="485" y="18" class="d-tb d-c">Service-oriented (SOME/IP)</text>
+<rect x="435" y="30" width="100" height="34" class="m-app"/>
+<text x="485" y="51" class="d-t d-c">Server</text>
+<rect x="350" y="150" width="60" height="30" class="d-box"/><text x="380" y="169" class="d-s d-c">ECU A</text>
+<rect x="420" y="150" width="60" height="30" class="m-app"/><text x="450" y="169" class="d-s d-c">Client B</text>
+<rect x="490" y="150" width="60" height="30" class="m-app"/><text x="520" y="169" class="d-s d-c">Client C</text>
+<rect x="560" y="150" width="60" height="30" class="d-box"/><text x="590" y="169" class="d-s d-c">ECU D</text>
+<line x1="468" y1="66" x2="452" y2="148" class="k-ev" marker-end="url(#ah-ev)"/>
+<line x1="500" y1="66" x2="516" y2="148" class="k-ev" marker-end="url(#ah-ev)"/>
+<path d="M536,150 C600,120 590,70 540,52" class="k-req" marker-end="url(#ah-req)"/>
+<text x="606" y="96" class="d-s d-c">method</text>
+<text x="606" y="108" class="d-s d-c">call</text>
+<text x="432" y="108" class="d-s d-r">event</text>
+<text x="485" y="200" class="d-s d-c">only subscribed clients get the event</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Count the arrows. On the left all four ECUs receive the frame. On the right only the two clients that subscribed get the event, and client C also calls a method of the server directly.</figcaption>
+</figure>
+<p>Fewer useless messages matter on Ethernet, where one ECU may serve many others and the data can be large: camera frames, object lists, maps. <span class="term">Service-oriented communication</span> also adds something CAN signals cannot do at all: a method call with a response (a remote procedure call).</p>
+
+<h2>What SOME/IP brings</h2>
+<div class="cards">
+  <div class="card"><p class="tag">on every message</p><h3>SOME/IP header</h3><p>The <span class="term">SOME/IP header</span> (a short block in front of the data of every message) says which service, which method or event, what kind of message, and which call it belongs to.</p></div>
+  <div class="card"><p class="tag">for the data</p><h3>Serialization</h3><p><span class="term">Serialization</span> (writing the data out as a row of bytes in a fixed order) turns numbers, structures, arrays and strings into the same bytes on every ECU.</p></div>
+  <div class="card k-ev"><p class="tag">server to clients</p><h3>Events</h3><p>The <span class="term">server</span> sends an <span class="term">event</span> to every <span class="term">client</span> that subscribed to it.</p></div>
+  <div class="card k-req"><p class="tag">client to server</p><h3>Methods</h3><p>A client calls a <span class="term">method</span> of the server, with or without a response.</p></div>
+  <div class="card k-sd"><p class="tag">a separate protocol</p><h3>Service Discovery</h3><p><span class="term" data-term="SOME/IP-SD">SOME/IP-SD</span> (SOME/IP Service Discovery: the messages with which servers offer their services and clients find them and subscribe) runs beside the data messages.</p></div>
+</div>
+
+<h2>Where it sits</h2>
+<p><span class="term">SOME/IP</span> is not a new kind of network. Its messages travel inside ordinary internet protocols: <span class="term">UDP</span> or <span class="term">TCP</span>, on IP, on Ethernet. A service can use UDP (fast and lean, a lost datagram is not repeated) for small, frequent messages and TCP (lost data is repeated and order is kept) where nothing may be lost.</p>
+<figure class="fig">
+<svg viewBox="0 0 640 150" role="img" aria-labelledby="f2t">
+<title id="f2t">Nested layers: an Ethernet frame holds an IP datagram, which holds UDP or TCP, which carries one or more SOME/IP messages, each made of a SOME/IP header and a payload.</title>
+<rect x="10" y="10" width="620" height="130" class="m-eth"/>
+<text x="20" y="28" class="d-t">Ethernet frame</text>
+<rect x="40" y="36" width="580" height="96" class="m-ip"/>
+<text x="50" y="54" class="d-t">IP datagram</text>
+<rect x="70" y="62" width="540" height="62" class="m-soad"/>
+<text x="80" y="80" class="d-t">UDP or TCP</text>
+<rect x="90" y="86" width="115" height="30" class="m-rte"/><text x="147" y="105" class="d-t d-c">SOME/IP header</text>
+<rect x="205" y="86" width="135" height="30" class="m-app"/><text x="272" y="105" class="d-t d-c">payload</text>
+<rect x="350" y="86" width="115" height="30" class="m-rte"/><text x="407" y="105" class="d-t d-c">SOME/IP header</text>
+<rect x="465" y="86" width="135" height="30" class="m-app"/><text x="532" y="105" class="d-t d-c">payload</text>
+</svg>
+<figcaption><b>Figure 2.</b> A SOME/IP message is a SOME/IP header plus a payload (the data after the header). Several messages may share one UDP datagram; each keeps its own header.</figcaption>
+</figure>
+<p>The name says the same thing: <em>Scalable service-Oriented MiddlewarE over IP</em>. The only correct short form is <span class="term">SOME/IP</span>.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> With signal-based communication every frame reaches every ECU on the bus, needed or not. With <span class="term">service-oriented communication</span> an event reaches only the clients that subscribed to it, and an ECU that does not need the data never sees it. The method call with a response is new: CAN signals have nothing like it.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">SOME/IP</span></td><td>Scalable service-Oriented MiddlewarE over IP: the protocol that lets ECUs offer and use services over Ethernet</td></tr>
+<tr><td><span class="term">service-oriented communication</span></td><td>A server offers a service; clients find it and use it, instead of fixed signals on a fixed schedule</td></tr>
+<tr><td><span class="term">server</span></td><td>The ECU that provides a service: sends its events, answers its methods</td></tr>
+<tr><td><span class="term">client</span></td><td>An ECU that uses a service: subscribes to events, calls methods</td></tr>
+<tr><td><span class="term">SOME/IP header</span></td><td>The block in front of every SOME/IP message: what the message is about and what kind it is</td></tr>
+<tr><td><span class="term">serialization</span></td><td>Writing data out as a row of bytes in a fixed order, the same on every ECU</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, chapters 1 and 4 (introduction, transport bindings); <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP Service Discovery Protocol Specification, R20-11</a>, section 4.1.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'With service-oriented communication, which ECUs receive an event from the server?',
+    options: ['Only the clients that subscribed', 'Every ECU on the same network', 'Only ECUs that also run a server'],
+    answer: 0,
+    why: 'An event goes to the clients that subscribed to it. The others never see it.'
+  },
+  {
+    prompt: 'What can SOME/IP do that plain CAN signals cannot?',
+    options: ['Call a method and get a response', 'Send a value on a fixed schedule', 'Carry numbers inside a CAN frame'],
+    answer: 0,
+    why: 'A method call with a response (a remote procedure call) is new. Fixed schedules and packed numbers exist on CAN too.'
+  },
+  {
+    prompt: 'What carries a SOME/IP message between two ECUs?',
+    options: ['UDP or TCP over IP and Ethernet', 'A dedicated SOME/IP bus and cable', 'CAN frames with a special identifier'],
+    answer: 0,
+    why: 'SOME/IP messages travel inside UDP or TCP, on IP, on Ethernet.'
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "title": "SOME/IP in AUTOSAR Classic",
+  "description": "How ECUs of the AUTOSAR Classic Platform offer and use services over Ethernet: what SOME/IP does, how Service Discovery brings client and server together, and how one message travels between the Ethernet wire and the software component.",
+  "path": "autosar/someip",
+  "language": "en",
+  "topic": "AUTOSAR"
+}

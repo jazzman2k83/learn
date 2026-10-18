@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fields: getter, setter and notifier · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Fields: getter, setter and notifier</h1>
+<p class="lede">A <span class="term">field</span> is a value the server always holds. Clients can read it with the <span class="term">getter</span>, ask to change it with the <span class="term">setter</span>, and be told by the <span class="term">notifier</span> when it changes, starting with its current value the moment they subscribe.</p>
+
+<h2>One value, three parts</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f1t">
+<title id="f1t">The UpdateRate field at the radar. Getter: a REQUEST with no payload, answered by a RESPONSE with the value. Setter: a REQUEST with the wanted value, answered by a RESPONSE with the value actually set. Notifier: a NOTIFICATION sent when the value changes, and once as initial event right after a client subscribes.</title>
+<rect x="240" y="80" width="160" height="80" class="f-res"/>
+<text x="320" y="108" class="d-tb d-c">UpdateRate</text>
+<text x="320" y="127" class="d-t d-c">now: 20 → 50</text>
+<text x="320" y="144" class="d-s d-c">held by the radar</text>
+<text x="60" y="56" class="d-tb d-c">getter</text><text x="60" y="70" class="d-s d-c">read the value</text>
+<rect x="10" y="80" width="100" height="80" class="d-box"/><text x="60" y="118" class="d-t d-c">Brake ECU</text><text x="60" y="134" class="d-s d-c">reads</text>
+<line x1="112" y1="100" x2="238" y2="100" class="k-req" marker-end="url(#ah-req)"/><text x="175" y="93" class="d-s d-c">REQUEST · empty</text>
+<line x1="238" y1="146" x2="112" y2="146" class="k-res" marker-end="url(#ah-res)"/><text x="175" y="162" class="d-s d-c">RESPONSE · 20</text>
+<text x="580" y="56" class="d-tb d-c">setter</text><text x="580" y="70" class="d-s d-c">change the value</text>
+<rect x="530" y="80" width="100" height="80" class="d-box"/><text x="580" y="118" class="d-t d-c">Display ECU</text><text x="580" y="134" class="d-s d-c">changes</text>
+<line x1="528" y1="100" x2="402" y2="100" class="k-req" marker-end="url(#ah-req)"/><text x="465" y="93" class="d-s d-c">REQUEST · 80 wanted</text>
+<line x1="402" y1="146" x2="528" y2="146" class="k-res" marker-end="url(#ah-res)"/><text x="465" y="162" class="d-s d-c">RESPONSE · 50 (limit)</text>
+<text x="320" y="196" class="d-tb d-c">notifier</text><text x="320" y="209" class="d-s d-c">NOTIFICATION</text>
+<line x1="290" y1="162" x2="190" y2="213" class="k-ev" marker-end="url(#ah-ev)"/><text x="200" y="186" class="d-s d-r">on every change</text>
+<line x1="350" y1="162" x2="450" y2="213" class="k-ev" marker-end="url(#ah-ev)"/><text x="440" y="180" class="d-s">initial event:</text><text x="440" y="193" class="d-s">once, after subscribing</text>
+<rect x="110" y="215" width="160" height="28" class="m-app"/><text x="190" y="234" class="d-t d-c">subscriber</text>
+<rect x="370" y="215" width="160" height="28" class="m-app"/><text x="450" y="234" class="d-t d-c">new subscriber</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Blue and green arrows come in pairs (REQUEST and RESPONSE); orange arrows go out alone. Look at the setter: the display ECU asked for 80 and the RESPONSE says 50, the value the server really set.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card k-req"><p class="tag">part 1</p><h3>Getter</h3><p>A <code class="term">REQUEST</code> with an empty <span class="term">payload</span>. The <code class="term">RESPONSE</code> carries the current value.</p></div>
+  <div class="card k-req"><p class="tag">part 2</p><h3>Setter</h3><p>A REQUEST carrying the wanted value. The RESPONSE carries the value that was actually set; the server may adjust it, for example to stay within limits.</p></div>
+  <div class="card k-ev"><p class="tag">part 3</p><h3>Notifier</h3><p>An <span class="term">event</span> (Message Type <code class="term">NOTIFICATION</code>) sent when the value changes, following the rules for events, and once to each new <span class="term">subscriber</span> right after it subscribes.</p></div>
+</div>
+<p>A field has at least one of the three parts; which ones exist is part of the <span class="term">service interface</span>. A field without getter, setter and notifier does not exist.</p>
+
+<h2>The difference to a plain event</h2>
+<p>A plain <span class="term">event</span> says "something happened"; a new subscriber only gets the next one. A <span class="term">field</span> says "this is the state"; a new subscriber needs the state at once. So right after accepting the subscription to the <span class="term">eventgroup</span> (lesson 14), the server sends it an <span class="term">initial event</span> (the field's current value, sent once to a new subscriber only). Lesson 14 shows when exactly it is sent, and lesson 21 shows which AUTOSAR module triggers it.</p>
+
+<h2>How the Classic Platform describes it</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Part</th><th>Described as</th></tr></thead>
+<tbody>
+<tr><td>Notifier</td><td>A <span class="term">data element</span> of a <span class="term">sender-receiver interface</span></td></tr>
+<tr><td>Getter</td><td>A <code class="term">ClientServerOperation</code> with one OUT argument</td></tr>
+<tr><td>Setter</td><td>A ClientServerOperation with an IN and an OUT argument</td></tr>
+</tbody>
+</table>
+</div>
+<p>In the system description the three parts belong together as one field of the service. For the <span class="term">SWC</span> they are an ordinary write or read and two ordinary client-server calls.</p>
+
+<h2>Try it</h2>
+<p>The radar holds UpdateRate, limited to 10–50. Subscribe clients, call the getter and the setter, and let the radar change the value itself. Every message appears in the log.</p>
+<div class="panel no-print">
+  <p>Value at the radar: <span class="bigval" id="val">20</span></p>
+  <div class="controls">
+    <label class="inline"><input type="checkbox" id="subB"> Brake ECU subscribed</label>
+    <label class="inline"><input type="checkbox" id="subD"> Display ECU subscribed</label>
+  </div>
+  <div class="controls">
+    <button type="button" id="get">Brake ECU calls the getter</button>
+    <label>Wanted value <input type="number" id="want" value="80" min="0" max="100"></label>
+    <button type="button" id="set">Brake ECU calls the setter</button>
+    <button type="button" class="primary" id="own">Radar changes it itself</button>
+    <button type="button" id="clear">Clear log</button>
+  </div>
+  <p class="small" id="known"></p>
+  <ul class="log" id="log" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Subscribing immediately brings one initial event with the current value, only to the client that subscribed. Asking the setter for 80 brings back 50, and because the value changed, every subscriber also gets a <code>NOTIFICATION</code>. Setting the value it already has brings a <code>RESPONSE</code> but no notification, because nothing changed.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">field</span></td><td>A value the server holds, with a getter, a setter and a notifier (at least one of them)</td></tr>
+<tr><td><span class="term">getter</span></td><td>Reads the value: REQUEST with empty payload, RESPONSE with the value</td></tr>
+<tr><td><span class="term">setter</span></td><td>Changes the value: the RESPONSE carries the value actually set</td></tr>
+<tr><td><span class="term">notifier</span></td><td>Sends a NOTIFICATION to the subscribers when the value changes</td></tr>
+<tr><td><span class="term">initial event</span></td><td>The current value, sent once to a new subscriber right after its subscription is accepted</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, section 4.2.5; <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, section 4.1.6 (initial events); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_TPS_SystemTemplate.pdf">System Template, R20-11</a>, section 10.1.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const MIN = 10, MAX = 50;
+  let value = 20;
+  const known = { B: '?', D: '?' };
+  const NAMES = { B: 'Brake ECU', D: 'Display ECU' };
+  const sub = { B: document.getElementById('subB'), D: document.getElementById('subD') };
+  const log = document.getElementById('log');
+  const valEl = document.getElementById('val');
+  const knownEl = document.getElementById('known');
+  const want = document.getElementById('want');
+  const SEQ = [35, 12, 50, 20, 44, 27];
+  let own = 0;
+  function line(kind, text) {
+    const li = document.createElement('li');
+    const names = { req: 'REQUEST', res: 'RESPONSE', ev: 'NOTIFICATION', sd: 'SOME/IP-SD' };
+    li.innerHTML = '<span class="chip k-' + kind + '">' + names[kind] + '</span> ' + text;
+    log.prepend(li);
+  }
+  function show() {
+    valEl.textContent = String(value);
+    knownEl.textContent = 'Last value known by the Brake ECU: ' + known.B + ' · by the Display ECU: ' + known.D;
+  }
+  function notifyAll() {
+    ['B', 'D'].forEach((c) => {
+      if (sub[c].checked) { known[c] = value; line('ev', 'Radar → ' + NAMES[c] + ': UpdateRate = ' + value); }
+    });
+  }
+  ['B', 'D'].forEach((c) => sub[c].addEventListener('change', () => {
+    if (sub[c].checked) {
+      line('sd', NAMES[c] + ' → Radar: SubscribeEventgroup; Radar → ' + NAMES[c] + ': SubscribeEventgroupAck');
+      known[c] = value;
+      line('ev', 'Radar → ' + NAMES[c] + ' only: UpdateRate = ' + value + ' (initial event)');
+    } else {
+      line('sd', NAMES[c] + ' → Radar: StopSubscribeEventgroup; no more notifications for it');
+    }
+    show();
+  }));
+  document.getElementById('get').addEventListener('click', () => {
+    line('req', 'Brake ECU → Radar: getter of UpdateRate (empty payload)');
+    known.B = value;
+    line('res', 'Radar → Brake ECU: ' + value);
+    show();
+  });
+  document.getElementById('set').addEventListener('click', () => {
+    const w = Math.round(Number(want.value));
+    if (!Number.isFinite(w)) return;
+    line('req', 'Brake ECU → Radar: setter of UpdateRate, value ' + w);
+    const set = Math.max(MIN, Math.min(MAX, w));
+    const changed = set !== value;
+    value = set;
+    known.B = value;
+    line('res', 'Radar → Brake ECU: ' + value + (set !== w ? ' (adjusted to the limit)' : ''));
+    if (changed) notifyAll(); else line('res', '(value unchanged, so no NOTIFICATION is sent)');
+    show();
+  });
+  document.getElementById('own').addEventListener('click', () => {
+    let next = SEQ[own++ % SEQ.length];
+    if (next === value) next = SEQ[own++ % SEQ.length];
+    value = next;
+    line('ev', 'The radar sets UpdateRate to ' + value + ' by itself');
+    notifyAll();
+    show();
+  });
+  document.getElementById('clear').addEventListener('click', () => log.replaceChildren());
+  show();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A client subscribes to the eventgroup of a field. What does it receive right away?',
+    options: ['The current value, only to itself', 'Nothing until the value changes', 'The current value, to all clients'],
+    answer: 0,
+    why: 'The initial event goes only to the new subscriber, right after the subscription is accepted.'
+  },
+  {
+    prompt: 'A client calls the setter with 80, but the server allows at most 50. What is in the RESPONSE?',
+    options: ['50, the value really set', '80, the value asked for', 'An ERROR and no value'],
+    answer: 0,
+    why: 'The RESPONSE of the setter carries the value that was actually set.'
+  },
+  {
+    prompt: 'What is in the payload of the getter REQUEST?',
+    options: ['Nothing, it is empty', 'The last known value', 'The wanted new value'],
+    answer: 0,
+    why: 'The getter REQUEST has an empty payload; the RESPONSE carries the value.'
+  }
+]);
+</script>
+</body>
+</html>

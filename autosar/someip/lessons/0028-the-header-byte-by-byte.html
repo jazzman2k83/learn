@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The SOME/IP header, byte by byte · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem 1rem; margin-bottom: 0.9rem; }
+  .form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.68rem; color: var(--muted); }
+  .form-grid label.inline { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--ink); }
+  .form-grid input[type="text"], .form-grid select { width: 100%; }
+  ul.checks { list-style: none; padding: 0; margin: 0.5rem 0 0; font-size: 0.85rem; }
+  ul.checks li { margin: 0.2rem 0; }
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The SOME/IP header, byte by byte</h1>
+<p class="lede">The <span class="term">SOME/IP header</span> of lesson 4 is exactly 16 bytes: four rows of four. This lesson gives every header field its size, its byte position and its allowed values.</p>
+
+<h2>The layout</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f1t">
+<title id="f1t">SOME/IP header as four 32-bit rows: Service ID 16 bits, a 1-bit method or event flag and a 15-bit Method or Event ID; Length 32 bits; Client ID 16 bits and Session ID 16 bits; Protocol Version, Interface Version, Message Type and Return Code 8 bits each; then the payload. Length covers everything from the Client ID to the end.</title>
+<text x="40" y="16" class="d-s">bit 0</text><text x="32" y="16" class="d-s d-r">byte</text><text x="180" y="16" class="d-s d-c">8</text><text x="320" y="16" class="d-s d-c">16</text><text x="460" y="16" class="d-s d-c">24</text><text x="600" y="16" class="d-s d-r">31</text>
+<text x="32" y="45" class="d-s d-r">0</text>
+<rect x="40" y="26" width="280" height="34" class="m-soad"/><text x="180" y="47" class="d-t d-c">Service ID · 16 bit</text>
+<rect x="320" y="26" width="34" height="34" class="m-soad"/><text x="337" y="47" class="d-s d-c">0/1</text>
+<rect x="354" y="26" width="246" height="34" class="m-soad"/><text x="477" y="47" class="d-t d-c">Method ID / Event ID · 15 bit</text>
+<text x="32" y="79" class="d-s d-r">4</text>
+<rect x="40" y="60" width="560" height="34" class="m-soad"/><text x="320" y="81" class="d-t d-c">Length · 32 bit</text>
+<text x="32" y="113" class="d-s d-r">8</text>
+<rect x="40" y="94" width="280" height="34" class="m-rte"/><text x="180" y="115" class="d-t d-c">Client ID · 16 bit</text>
+<rect x="320" y="94" width="280" height="34" class="m-rte"/><text x="460" y="115" class="d-t d-c">Session ID · 16 bit</text>
+<text x="32" y="147" class="d-s d-r">12</text>
+<rect x="40" y="128" width="140" height="34" class="m-rte"/><text x="110" y="149" class="d-s d-c">Protocol Version</text>
+<rect x="180" y="128" width="140" height="34" class="m-rte"/><text x="250" y="149" class="d-s d-c">Interface Version</text>
+<rect x="320" y="128" width="140" height="34" class="m-rte"/><text x="390" y="149" class="d-s d-c">Message Type</text>
+<rect x="460" y="128" width="140" height="34" class="m-rte"/><text x="530" y="149" class="d-s d-c">Return Code</text>
+<text x="32" y="181" class="d-s d-r">16</text>
+<rect x="40" y="162" width="560" height="44" class="m-app"/><text x="320" y="188" class="d-t d-c">Payload · 0 or more bytes</text>
+<path d="M606,94 L614,94 L614,206 L606,206" class="d-ln mute"/>
+<text x="320" y="228" class="d-s d-c">the Length field counts every byte inside the bracket on the right: 8 header bytes + the payload</text>
+<text x="337" y="244" class="d-s d-c">0 = method · 1 = event</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Bytes travel left to right, top row first. The two green rows (Message ID and Length) are written by SoAd as its PDU header, the purple rows by the SOME/IP transformer (lesson 20). Every multi-byte header field is big-endian (most significant byte first).</figcaption>
+</figure>
+
+<h2>Field by field</h2>
+<p>Bytes 0–3 form the <span class="term">Message ID</span>, bytes 8–11 the <span class="term">Request ID</span>. The table splits them into their parts.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Bytes</th><th>Field</th><th>Values</th></tr></thead>
+<tbody>
+<tr><td>0–1</td><td><span class="term">Service ID</span></td><td>0x0000 reserved · 0xFF00–0xFF5F test and ECU-internal ranges · 0xFFFE non-SOME/IP services offered via SOME/IP-SD · 0xFFFF SOME/IP and SOME/IP-SD itself</td></tr>
+<tr><td>2–3</td><td><span class="term">Method ID</span> or <span class="term">Event ID</span></td><td>Highest bit 0: Method ID, 0x0000–0x7FFF. Highest bit 1: Event ID of an event or field notifier, 0x8000–0xFFFF. 0x0000, 0x7FFF, 0x8000 and 0xFFFF are reserved.</td></tr>
+<tr><td>4–7</td><td><span class="term">Length</span></td><td>Number of bytes from byte 8 to the end of the message: 8 + payload length. So a message without payload has Length 8 and is 16 bytes long.</td></tr>
+<tr><td>8–9</td><td><span class="term">Client ID</span></td><td>Identifies the client inside its ECU; may carry a fixed prefix (for example the upper byte) to be unique in the vehicle. 0x0000 for notifications.</td></tr>
+<tr><td>10–11</td><td><span class="term">Session ID</span></td><td>0x0000 when <span class="term">session handling</span> is off; otherwise 0x0001–0xFFFF, wrapping from 0xFFFF to 0x0001.</td></tr>
+<tr><td>12</td><td><span class="term">Protocol Version</span></td><td>Always 0x01.</td></tr>
+<tr><td>13</td><td><span class="term">Interface Version</span></td><td><span class="term">Major version</span> of the <span class="term">service interface</span>.</td></tr>
+<tr><td>14</td><td><span class="term">Message Type</span></td><td>See the next table.</td></tr>
+<tr><td>15</td><td><span class="term">Return Code</span></td><td>0x00 for everything except RESPONSE and ERROR. See below.</td></tr>
+</tbody>
+</table>
+</div>
+<p><span class="term">Big-endian</span> (network byte order: the most significant byte goes first): Service ID 0x1234 is sent as <code>12 34</code>, Length 12 as <code>00 00 00 0C</code>. The header is always big-endian; the byte order of the <span class="term">payload</span> is a configuration choice (lesson 29).</p>
+
+<h3>Message Type</h3>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Value</th><th>Name</th><th>Meaning</th><th>Segment (TP flag set)</th></tr></thead>
+<tbody>
+<tr><td><code>0x00</code></td><td><code class="term">REQUEST</code></td><td>method call expecting a response (even an empty one)</td><td><code>0x20</code> TP_REQUEST</td></tr>
+<tr><td><code>0x01</code></td><td><code class="term">REQUEST_NO_RETURN</code></td><td><span class="term">fire&amp;forget</span> method call</td><td><code>0x21</code> TP_REQUEST_NO_RETURN</td></tr>
+<tr><td><code>0x02</code></td><td><code class="term">NOTIFICATION</code></td><td>event or field notifier, no response</td><td><code>0x22</code> TP_NOTIFICATION</td></tr>
+<tr><td><code>0x80</code></td><td><code class="term">RESPONSE</code></td><td>response to a REQUEST</td><td><code>0xA0</code> TP_RESPONSE</td></tr>
+<tr><td><code>0x81</code></td><td><code class="term">ERROR</code></td><td>response carrying an error</td><td><code>0xA1</code> TP_ERROR</td></tr>
+</tbody>
+</table>
+</div>
+<p>The <span class="term">TP flag</span> is bit value <code>0x20</code>, the third-highest bit of the byte. <span class="term">SOME/IP TP</span> sets it on every <span class="term">segment</span> and clears it again after reassembly (lesson 32). The top bit <code>0x80</code> marks the answers.</p>
+
+<h3>Return Code</h3>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Value</th><th>Name</th><th>Value</th><th>Name</th></tr></thead>
+<tbody>
+<tr><td><code>0x00</code></td><td><code class="term">E_OK</code></td><td><code>0x08</code></td><td><code class="term">E_WRONG_INTERFACE_VERSION</code></td></tr>
+<tr><td><code>0x01</code></td><td><code class="term">E_NOT_OK</code></td><td><code>0x09</code></td><td><code class="term">E_MALFORMED_MESSAGE</code></td></tr>
+<tr><td><code>0x02</code></td><td><code class="term">E_UNKNOWN_SERVICE</code></td><td><code>0x0A</code></td><td><code class="term">E_WRONG_MESSAGE_TYPE</code></td></tr>
+<tr><td><code>0x03</code></td><td><code class="term">E_UNKNOWN_METHOD</code></td><td><code>0x0B–0x0F</code></td><td>E2E errors (see below)</td></tr>
+<tr><td><code>0x04</code></td><td><code class="term">E_NOT_READY</code></td><td><code>0x10–0x1F</code></td><td>reserved for generic SOME/IP errors</td></tr>
+<tr><td><code>0x05</code></td><td><code>E_NOT_REACHABLE</code> (internal only)</td><td><code>0x20–0x5E</code></td><td>service- and method-specific errors</td></tr>
+<tr><td><code>0x06</code></td><td><code class="term">E_TIMEOUT</code> (internal only)</td><td></td><td></td></tr>
+<tr><td><code>0x07</code></td><td><code class="term">E_WRONG_PROTOCOL_VERSION</code></td><td></td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p>In the Classic Platform an <span class="term">ApplicationError</span> of a client-server operation (range 0x01–0x3F) travels as its value plus 0x1F, which lands in 0x20–0x5E. On E2E: the R20-11 protocol specification lists five E2E codes, 0x0B E_E2E_REPEATED to 0x0F E_E2E_NO_NEW_DATA; the SOME/IP transformer specification of the same release lists only 0x0B E_E2E and reserves 0x0C–0x1F.</p>
+
+<h3>Special messages of service 0xFFFF</h3>
+<p>In service 0xFFFF, Method ID 0x0000 and Event ID 0x8000 are the <span class="term">Magic Cookie</span> messages (16-byte marker messages that test tools can insert into a TCP stream so a receiver finds the message boundaries again). They have Length 8 and Request ID <code>DE AD BE EF</code>: 0x0000 goes from client to server as <code>REQUEST_NO_RETURN</code>, 0x8000 from server to client as <code>NOTIFICATION</code>. Event ID 0x8100 marks the <span class="term">SOME/IP-SD message</span> (lesson 30).</p>
+
+<h2>Try it</h2>
+<p>Build a SOME/IP header, or paste bytes and decode them. Click any byte to see its header field.</p>
+<div class="panel no-print">
+  <div class="chips" id="presets"></div>
+  <div class="form-grid">
+    <label>Service ID (hex)<input type="text" id="svc" value="1234"></label>
+    <label>Method ID or Event ID<select id="me"><option value="0">Method ID (top bit 0)</option><option value="1">Event ID (top bit 1)</option></select></label>
+    <label>Method ID / Event ID, lower 15 bits (hex)<input type="text" id="mid" value="0001"></label>
+    <label>Client ID (hex)<input type="text" id="cli" value="0010"></label>
+    <label>Session ID (hex)<input type="text" id="ses" value="0001"></label>
+    <label>Interface Version (hex)<input type="text" id="ifv" value="01"></label>
+    <label>Message Type<select id="mt"><option value="0">0x00 REQUEST</option><option value="1">0x01 REQUEST_NO_RETURN</option><option value="2">0x02 NOTIFICATION</option><option value="128">0x80 RESPONSE</option><option value="129">0x81 ERROR</option><option value="32">0x20 TP_REQUEST</option><option value="34">0x22 TP_NOTIFICATION</option><option value="160">0xA0 TP_RESPONSE</option></select></label>
+    <label>Return Code (hex)<input type="text" id="rc" value="00"></label>
+    <label>Payload (hex bytes)<input type="text" id="pl" value="00 2A"></label>
+  </div>
+  <div class="buttons-row"><button type="button" class="primary" id="build">Build</button></div>
+  <div class="form-grid"><label>Bytes to decode (hex)<input type="text" id="raw" value=""></label></div>
+  <div class="buttons-row"><button type="button" id="decode">Decode these bytes</button></div>
+  <div id="bytes"></div>
+  <ul class="checks" id="checks" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Switching from Method ID to Event ID only changes the top bit of byte 2: 0x0001 becomes 0x8001. The Length grows by exactly one for every payload byte. Decode the Magic Cookie preset: its Length is 8, so the message ends right after byte 15. Change the Message Type to a TP value and the decoder points out the SOME/IP TP header that must follow.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">big-endian</span></td><td>Network byte order: the most significant byte goes first. The SOME/IP header is always big-endian.</td></tr>
+<tr><td><span class="term">Magic Cookie</span></td><td>A 16-byte marker message of service 0xFFFF (Method ID 0x0000 or Event ID 0x8000) that lets a receiver find message boundaries in a TCP stream</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.1.2, 4.1.3, 4.2.1.2 (magic cookies) and 4.2.6.1; <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, section 4.1.7 (reserved IDs); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, section 7.3.4.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/bytes.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const MT = { 0x00: 'REQUEST', 0x01: 'REQUEST_NO_RETURN', 0x02: 'NOTIFICATION', 0x80: 'RESPONSE', 0x81: 'ERROR',
+    0x20: 'TP_REQUEST', 0x21: 'TP_REQUEST_NO_RETURN', 0x22: 'TP_NOTIFICATION', 0xA0: 'TP_RESPONSE', 0xA1: 'TP_ERROR' };
+  const RC = ['E_OK', 'E_NOT_OK', 'E_UNKNOWN_SERVICE', 'E_UNKNOWN_METHOD', 'E_NOT_READY', 'E_NOT_REACHABLE', 'E_TIMEOUT',
+    'E_WRONG_PROTOCOL_VERSION', 'E_WRONG_INTERFACE_VERSION', 'E_MALFORMED_MESSAGE', 'E_WRONG_MESSAGE_TYPE',
+    'E_E2E_REPEATED', 'E_E2E_WRONG_SEQUENCE', 'E_E2E', 'E_E2E_NOT_AVAILABLE', 'E_E2E_NO_NEW_DATA'];
+  const PRESETS = {
+    'NOTIFICATION · BrakeEvent': { svc: '1234', me: '1', mid: '0001', cli: '0000', ses: '0005', ifv: '01', mt: '2', rc: '00', pl: '00 2A 00 03' },
+    'REQUEST · Calibrate': { svc: '1234', me: '0', mid: '0001', cli: '0010', ses: '0007', ifv: '01', mt: '0', rc: '00', pl: '05' },
+    'ERROR · E_NOT_READY': { svc: '1234', me: '0', mid: '0001', cli: '0010', ses: '0007', ifv: '01', mt: '129', rc: '04', pl: '' },
+    'Magic Cookie · client to server': { svc: 'FFFF', me: '0', mid: '0000', cli: 'DEAD', ses: 'BEEF', ifv: '01', mt: '1', rc: '00', pl: '' }
+  };
+  const view = Bytes.create($('bytes'), { perRow: 4, fields: [] });
+  const checks = $('checks');
+  function num(id, max) {
+    const v = parseInt($(id).value.replace(/^0x/i, ''), 16);
+    return Number.isFinite(v) && v >= 0 && v <= max ? v : null;
+  }
+  function rcName(v) { return v < RC.length ? RC[v] : v <= 0x1F ? 'reserved (generic)' : v <= 0x5E ? 'service/method-specific error' : 'not defined'; }
+  function fieldsOf(b) {
+    const sid = (b[0] << 8) | b[1], mid = (b[2] << 8) | b[3];
+    const len = ((b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]) >>> 0;
+    const cid = (b[8] << 8) | b[9], ses = (b[10] << 8) | b[11];
+    const f = [
+      { name: 'Service ID', bytes: b.slice(0, 2), cls: 'm-soad', info: Bytes.h(sid, 4) + (sid === 0xFFFF ? ': the reserved service of SOME/IP and SOME/IP-SD.' : sid === 0xFFFE ? ': non-SOME/IP service offered via SOME/IP-SD.' : sid === 0 ? ': reserved.' : '.') },
+      { name: (mid & 0x8000) ? 'Event ID (top bit 1)' : 'Method ID (top bit 0)', bytes: b.slice(2, 4), cls: 'm-soad',
+        info: Bytes.h(mid, 4) + ' → ' + ((mid & 0x8000) ? 'Event ID, lower 15 bits ' : 'Method ID ') + Bytes.h(mid & 0x7FFF, 4) + ([0, 0x7FFF, 0x8000, 0xFFFF].includes(mid) && sid !== 0xFFFF ? ' (a reserved value)' : '') + '.' },
+      { name: 'Length', bytes: b.slice(4, 8), cls: 'm-soad', info: len + ' bytes follow from byte 8: 8 header bytes + ' + Math.max(0, len - 8) + ' bytes of payload.' },
+      { name: 'Client ID', bytes: b.slice(8, 10), cls: 'm-rte', info: Bytes.h(cid, 4) + (cid === 0 ? ': no client (NOTIFICATION or SOME/IP-SD message).' : '.') },
+      { name: 'Session ID', bytes: b.slice(10, 12), cls: 'm-rte', info: Bytes.h(ses, 4) + (ses === 0 ? ': session handling off.' : '.') },
+      { name: 'Protocol Version', bytes: [b[12]], cls: 'm-rte', info: b[12] === 1 ? 'Always 1.' : 'Must be 1: a server would answer a REQUEST with E_WRONG_PROTOCOL_VERSION.' },
+      { name: 'Interface Version', bytes: [b[13]], cls: 'm-rte', info: 'Major version ' + b[13] + ' of the service interface.' },
+      { name: 'Message Type', bytes: [b[14]], cls: 'm-rte', info: Bytes.h(b[14]) + ' ' + (MT[b[14]] || 'not defined') + ((b[14] & 0x20) ? ' — TP flag set: a 4-byte SOME/IP TP header follows the SOME/IP header.' : '.') },
+      { name: 'Return Code', bytes: [b[15]], cls: 'm-rte', info: Bytes.h(b[15]) + ' ' + rcName(b[15]) + '.' }
+    ];
+    const payloadEnd = Math.min(b.length, 8 + len);
+    if (payloadEnd > 16) f.push({ name: (b[14] & 0x20) ? 'SOME/IP TP header + payload of the segment' : 'Payload', bytes: b.slice(16, payloadEnd), cls: (b[14] & 0x20) ? 'm-tp' : 'm-app', info: (payloadEnd - 16) + ' bytes.' });
+    if (b.length > payloadEnd) f.push({ name: 'Next message', bytes: b.slice(payloadEnd), cls: 'pad', info: 'Bytes after the end given by Length: the start of another SOME/IP message in the same UDP datagram or TCP stream.' });
+    return { f, sid, mid, len };
+  }
+  function check(b) {
+    checks.replaceChildren();
+    const add = (ok, t) => { const li = document.createElement('li'); li.innerHTML = (ok ? '<span class="ok">✓</span> ' : '<span class="no">✗</span> ') + t; checks.appendChild(li); };
+    if (b.length < 16) { add(false, 'Only ' + b.length + ' bytes: a SOME/IP message has at least 16. Treated as malformed.'); view.set([{ name: 'Too short', bytes: b, cls: 'pad', info: 'Not a complete SOME/IP header.' }]); return; }
+    const { f, mid, len } = fieldsOf(b);
+    view.set(f);
+    add(len >= 8, 'Length ' + len + (len >= 8 ? ' covers at least the 8 remaining header bytes.' : ' is smaller than 8: malformed.'));
+    add(8 + len <= b.length, (8 + len <= b.length) ? 'Length fits the bytes given (' + (8 + len) + ' of ' + b.length + ').' : 'Length says ' + (8 + len) + ' bytes, only ' + b.length + ' given: malformed.');
+    add(b[12] === 1, 'Protocol Version ' + b[12] + (b[12] === 1 ? '.' : ' (must be 1).'));
+    add(MT[b[14]] != null, 'Message Type ' + Bytes.h(b[14]) + ' ' + (MT[b[14]] || 'is not defined.'));
+    const answer = (b[14] & 0x80) !== 0;
+    add(answer || b[15] === 0, answer ? 'Return Code is meaningful for a ' + MT[b[14]] + '.' : (b[15] === 0 ? 'Return Code 0x00, as required for this Message Type.' : 'Return Code must be 0x00 for this Message Type.'));
+    if ((b[14] & 0x7F) === 0x02 && !(mid & 0x8000) && b[0] !== 0xFF) add(false, 'A NOTIFICATION normally carries an Event ID (top bit 1).');
+    if ((b[14] & 0x20)) add(true, 'TP flag set: bytes 16–19 are the SOME/IP TP header (lesson 32).');
+  }
+  function build() {
+    const svc = num('svc', 0xFFFF), mid = num('mid', 0x7FFF), cli = num('cli', 0xFFFF), ses = num('ses', 0xFFFF), ifv = num('ifv', 0xFF), rc = num('rc', 0xFF);
+    const pl = Bytes.parse($('pl').value);
+    if ([svc, mid, cli, ses, ifv, rc].includes(null) || pl === null) {
+      checks.innerHTML = '<li><span class="no">✗</span> Check the inputs: hex digits only, Method ID / Event ID lower bits at most 7FFF.</li>';
+      return;
+    }
+    const id = (Number($('me').value) ? 0x8000 : 0) | mid;
+    const b = [...Bytes.u16(svc), ...Bytes.u16(id), ...Bytes.u32(8 + pl.length), ...Bytes.u16(cli), ...Bytes.u16(ses), 1, ifv, Number($('mt').value), rc, ...pl];
+    $('raw').value = Bytes.hex(b);
+    check(b);
+  }
+  $('build').addEventListener('click', build);
+  $('decode').addEventListener('click', () => {
+    const b = Bytes.parse($('raw').value);
+    if (b === null) { checks.innerHTML = '<li><span class="no">✗</span> Not valid hex.</li>'; return; }
+    check(b);
+  });
+  Object.keys(PRESETS).forEach((k) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = k;
+    btn.addEventListener('click', () => { const p = PRESETS[k]; Object.keys(p).forEach((id) => { $(id).value = p[id]; }); build(); });
+    $('presets').appendChild(btn);
+  });
+  build();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A message has 5 bytes of payload. What is in the Length field?',
+    options: ['13 (0x0000000D)', '21 (0x00000015)', '5 (0x00000005)'],
+    answer: 0,
+    why: 'Length counts from byte 8 to the end: 8 header bytes plus 5 payload bytes.'
+  },
+  {
+    prompt: 'Bytes 2 and 3 of a header are 80 05. What do they say?',
+    options: ['An Event ID, event 0x0005', 'A Method ID, method 0x8005', 'A Method ID, method 0x0005'],
+    answer: 0,
+    why: 'The top bit is 1, so 0x8005 is an Event ID; the remaining 15 bits are 0x0005.'
+  },
+  {
+    prompt: 'Which Message Type value marks a segment of a notification?',
+    options: ['0x22 TP_NOTIFICATION', '0x82 TP_NOTIFICATION', '0x02 TP_NOTIFICATION'],
+    answer: 0,
+    why: 'The TP flag is 0x20: 0x02 | 0x20 = 0x22.'
+  }
+]);
+</script>
+</body>
+</html>

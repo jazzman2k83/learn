@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transmission: from the SWC to the wire · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Transmission: from the SWC to the wire</h1>
+<p class="lede">Follow one <span class="term">event</span>, BrakeEvent, from the radar's <span class="term">SWC</span> to the Ethernet wire. Each module puts its own header in front of what it got from above, like envelopes inside envelopes: <span class="term">SOME/IP header</span>, then UDP and IP header, then the Ethernet frame.</p>
+
+<h2>The message grows on the way down</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 800 336" role="img" aria-labelledby="f1t">
+<title id="f1t">Layout of the message at each level. SWC: the BrakeEvent value. After the SOME/IP transformer: the SOME/IP header from Request ID to Return Code, plus the serialized payload. COM and PduR: one I-PDU with one UINT8_N signal, unchanged. After SoAd: the SoAd PDU header, which is the Message ID and Length, in front. After TcpIp: IP header and UDP header in front. On the wire: Ethernet header with VLAN tag in front and the frame check sequence at the end.</title>
+<text x="10" y="35" class="d-t">SWC</text>
+<rect x="620" y="14" width="170" height="34" class="m-app"/><text x="705" y="28" class="d-s d-c">BrakeEvent value</text><text x="705" y="42" class="d-s d-c">distance, speed</text>
+<text x="10" y="79" class="d-t">RTE + SOME/IP</text><text x="10" y="93" class="d-t">transformer</text>
+<rect x="440" y="64" width="180" height="34" class="m-rte"/><text x="530" y="78" class="d-s d-c">SOME/IP header</text><text x="530" y="92" class="d-s d-c">Request ID … Return Code</text>
+<rect x="620" y="64" width="170" height="34" class="m-app"/><text x="705" y="78" class="d-s d-c">payload</text><text x="705" y="92" class="d-s d-c">serialized data</text>
+<text x="10" y="135" class="d-t">COM / PduR</text>
+<rect x="440" y="114" width="350" height="34" class="m-com"/><text x="615" y="128" class="d-s d-c">one I-PDU = one UINT8_N signal</text><text x="615" y="142" class="d-s d-c">bytes unchanged</text>
+<text x="10" y="185" class="d-t">SoAd</text>
+<rect x="300" y="164" width="140" height="34" class="m-soad"/><text x="370" y="178" class="d-s d-c">SoAd PDU header</text><text x="370" y="192" class="d-s d-c">Message ID · Length</text>
+<rect x="440" y="164" width="350" height="34" class="d-box"/><text x="615" y="185" class="d-s d-c">the I-PDU from PduR</text>
+<text x="10" y="235" class="d-t">TcpIp</text>
+<rect x="210" y="214" width="90" height="34" class="m-ip"/><text x="255" y="228" class="d-s d-c">IP header</text><text x="255" y="242" class="d-s d-c">UDP header</text>
+<rect x="300" y="214" width="490" height="34" class="d-box"/><text x="545" y="235" class="d-s d-c">one or more SOME/IP messages</text>
+<text x="10" y="279" class="d-t">EthIf /</text><text x="10" y="293" class="d-t">Eth driver</text>
+<rect x="110" y="264" width="100" height="34" class="m-eth"/><text x="160" y="278" class="d-s d-c">Ethernet header</text><text x="160" y="292" class="d-s d-c">MAC · VLAN tag</text>
+<rect x="210" y="264" width="510" height="34" class="d-box"/><text x="465" y="285" class="d-s d-c">IP packet: IP header, UDP header, SOME/IP messages</text>
+<rect x="720" y="264" width="70" height="34" class="m-eth"/><text x="755" y="278" class="d-s d-c">FCS</text><text x="755" y="292" class="d-s d-c">check sum</text>
+<text x="10" y="326" class="d-s">Grey boxes are what the module above handed down; coloured boxes are what this module adds.</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read from top to bottom: each line is the previous line with a header added on the left (and, on the wire, the frame check sequence at the end). Only the SOME/IP transformer touches the data itself; every module below treats it as bytes.</figcaption>
+</figure>
+
+<h2>The modules, one by one</h2>
+<div class="cards">
+  <div class="card m-app"><p class="tag">SWC</p><h3>Writes a value</h3><p>An ordinary write of a data element through the <span class="term">RTE</span>. The <span class="term">SWC</span> does not know it is SOME/IP.</p></div>
+  <div class="card m-rte"><p class="tag">RTE + SOME/IP transformer</p><h3>Serializes</h3><p>The RTE runs the <span class="term">transformer chain</span> (the transformers it runs one after the other on the data; here only the SOME/IP transformer). The <span class="term">SOME/IP transformer</span> serializes the value into the <span class="term">payload</span> and writes the <span class="term">SOME/IP header</span> from <span class="term">Request ID</span> to <span class="term">Return Code</span>. The output is one byte array.</p></div>
+  <div class="card m-com"><p class="tag">COM or LdCom</p><h3>Carries</h3><p>In <span class="term">COM</span> the byte array is one signal of type <code class="term">UINT8_N</code> or <code>UINT8_DYN</code> (a byte array of fixed or dynamic length), the only signal in its <span class="term">I-PDU</span>. <span class="term">LdCom</span> hands the byte array on as the I-PDU itself. Either one passes the I-PDU on when it is to be sent.</p></div>
+  <div class="card m-pdur"><p class="tag">PduR</p><h3>Routes</h3><p><span class="term">PduR</span> passes the I-PDU by its PDU ID to SoAd, or first to <span class="term">SOME/IP TP</span> if it needs <span class="term">segmentation</span>.</p></div>
+  <div class="card m-soad"><p class="tag">SoAd</p><h3>Addresses</h3><p><span class="term">SoAd</span> finds the <span class="term">socket connections</span> (each one a local socket plus one remote IP address and port) this I-PDU goes out through: those whose <span class="term">routing group</span> (a set of PDU routes that Sd enables and disables as a whole) is enabled. For an event that is one per <span class="term">subscriber</span>, or one <span class="term">multicast</span> address. SoAd puts the <span class="term">SoAd PDU header</span> (header ID and length in front of each PDU; for SOME/IP it is the <span class="term">Message ID</span> and <span class="term">Length</span> of the SOME/IP header) in front and hands the message to TcpIp once per socket connection.</p></div>
+  <div class="card m-ip"><p class="tag">TcpIp</p><h3>Adds UDP and IP header</h3><p><span class="term">TcpIp</span> adds the UDP header (ports) and the IP header (IP addresses), finds the receiver's <span class="term">MAC address</span> (the hardware address of its Ethernet controller) by ARP, and asks EthIf for a transmit buffer.</p></div>
+  <div class="card m-eth"><p class="tag">EthIf + Eth driver</p><h3>Sends the Ethernet frame</h3><p><span class="term">EthIf</span> picks the controller and adds the <span class="term">VLAN tag</span> (four bytes that put the frame into a virtual LAN) if one is used. The <span class="term">Eth driver</span> writes the Ethernet header and the hardware sends the frame with its frame check sequence (FCS, a check sum).</p></div>
+</div>
+<p>Confirmations travel back up: once the message is sent, SoAd calls the <code class="term">TxConfirmation</code> (the callback that tells the module above that a PDU has been sent) of PduR, and PduR calls that of COM or LdCom. For UDP, SoAd gives this confirmation in its next <span class="term">main function</span> (the cyclic function of a module that the scheduler calls at a fixed period).</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The SOME/IP header is written by two modules: from Request ID on by the SOME/IP transformer near the top, the Message ID and Length by SoAd far below (lesson 20). Between them, COM and PduR pass the bytes on without looking inside. If two clients are subscribed and the events go by <span class="term">unicast</span>, the same I-PDU leaves SoAd twice, through two socket connections.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">socket connection</span></td><td>In SoAd: one local socket plus one remote IP address and port</td></tr>
+<tr><td><span class="term">SoAd PDU header</span></td><td>Header ID and length that SoAd puts in front of a PDU; for SOME/IP the Message ID and Length</td></tr>
+<tr><td><code class="term">UINT8_N</code></td><td>COM signal type for a byte array of fixed length (<code>UINT8_DYN</code>: dynamic length)</td></tr>
+<tr><td><code class="term">TxConfirmation</code></td><td>Callback to the module above: the PDU has been sent</td></tr>
+<tr><td><span class="term">main function</span></td><td>The cyclic function of a module, called at a fixed period</td></tr>
+<tr><td><span class="term">MAC address</span></td><td>Hardware address of an Ethernet controller, found by ARP (IPv4) or NDP (IPv6)</td></tr>
+<tr><td><span class="term">VLAN tag</span></td><td>Four bytes in the Ethernet frame (IEEE 802.1Q) that put it into a virtual LAN</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: R20-11 specifications of <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_RTE.pdf">RTE</a> (4.10), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer</a> (7.2.3), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor</a> (7.2, 7.3), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_TcpIp.pdf">TCP/IP</a> (7.7), <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_EthernetInterface.pdf">Ethernet Interface</a> and <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_EthernetDriver.pdf">Ethernet Driver</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module puts the Message ID and Length in front of the message?',
+    options: ['SoAd, as its PDU header', 'The SOME/IP transformer', 'PduR, while it routes'],
+    answer: 0,
+    why: 'SoAd adds the SoAd PDU header (header ID = Message ID, plus Length). The SOME/IP transformer writes the rest of the SOME/IP header.'
+  },
+  {
+    prompt: 'Two clients are subscribed to the eventgroup, each by unicast. Where does the message get doubled?',
+    options: ['In SoAd, once per socket connection', 'In COM, one I-PDU for each client', 'In the SWC, one write for each client'],
+    answer: 0,
+    why: 'One I-PDU reaches SoAd; SoAd sends it through each socket connection whose routing group is enabled.'
+  },
+  {
+    prompt: 'Which module serializes the value into bytes?',
+    options: ['The SOME/IP transformer', 'The COM module itself', 'The Ethernet driver'],
+    answer: 0,
+    why: 'Serialization is the job of the SOME/IP transformer, run by the RTE. Every module below sees only bytes.'
+  }
+]);
+</script>
+</body>
+</html>

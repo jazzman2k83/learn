@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subscribing to an eventgroup · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Subscribing to an eventgroup</h1>
+<p class="lede">A client asks for the events of a group by subscribing to it, in reply to an <code class="term">OfferService</code>. The server accepts or refuses, and the subscription holds only for its own <code class="term">TTL</code>, so the client renews it with every offer.</p>
+
+<p>A client that wants the events of a service does not just listen. It subscribes to an <span class="term">eventgroup</span> (a set of events and fields the server publishes together, identified by an Eventgroup ID). It does so with a <code class="term">SubscribeEventgroup</code> entry (the request "please send me the events of this group"), and the server answers with a <code class="term">SubscribeEventgroupAck</code> (accepted) or a <code class="term">SubscribeEventgroupNack</code> (refused). Only after the Ack do events flow.</p>
+
+<h2>The basic exchange</h2>
+<figure class="fig">
+<svg viewBox="0 0 640 344" role="img" aria-labelledby="f1t">
+<title id="f1t">Sequence: the radar sends OfferService by multicast; the brake ECU sends SubscribeEventgroup for Eventgroup 1 with TTL 3 seconds, Initial Data Requested and an Endpoint option; the radar checks it and sends SubscribeEventgroupAck, then the initial event of the field UpdateRate, then the event BrakeEvent whenever it occurs.</title>
+<rect x="10" y="6" width="160" height="34" class="d-box"/><text x="90" y="27" class="d-tb d-c">Brake ECU (client)</text>
+<rect x="470" y="6" width="160" height="34" class="d-box"/><text x="550" y="27" class="d-tb d-c">Radar ECU (server)</text>
+<line x1="90" y1="40" x2="90" y2="320" class="d-life"/><line x1="550" y1="40" x2="550" y2="320" class="d-life"/>
+<line x1="548" y1="70" x2="93" y2="70" class="k-sd" marker-end="url(#ah-sd)"/><text x="320" y="62" class="d-t d-c">OfferService · radar instance 1 · multicast</text>
+<line x1="92" y1="116" x2="547" y2="116" class="k-sd" marker-end="url(#ah-sd)"/><text x="320" y="108" class="d-t d-c">SubscribeEventgroup · Eventgroup 1 · TTL 3 s</text><text x="320" y="132" class="d-s d-c">Initial Data Requested · Endpoint option: client IP and port</text>
+<rect x="480" y="144" width="140" height="24" class="d-note"/><text x="550" y="160" class="d-t d-c">checks the request</text>
+<line x1="548" y1="196" x2="93" y2="196" class="k-sd" marker-end="url(#ah-sd)"/><text x="320" y="188" class="d-t d-c">SubscribeEventgroupAck · Eventgroup 1 · TTL 3 s</text><text x="320" y="212" class="d-s d-c">accepted</text>
+<line x1="548" y1="244" x2="93" y2="244" class="k-ev" marker-end="url(#ah-ev)"/><text x="320" y="236" class="d-t d-c">Notification · UpdateRate = 20</text><text x="320" y="260" class="d-s d-c">initial event: the field's current value</text>
+<line x1="548" y1="292" x2="93" y2="292" class="k-ev" marker-end="url(#ah-ev)"/><text x="320" y="284" class="d-t d-c">Notification · BrakeEvent</text><text x="320" y="308" class="d-s d-c">sent when it occurs</text>
+<text x="320" y="336" class="d-s d-c">pink: SOME/IP-SD · orange: events</text>
+</svg>
+<figcaption><b>Figure 1.</b> Three pink SD entries set up the subscription; only then do orange events flow. The field's initial event comes right after the Ack; the event BrakeEvent comes only when it next occurs.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card k-sd"><p class="tag">client → server</p><h3>SubscribeEventgroup</h3><p>Names the <span class="term">service instance</span> (Service ID, Instance ID, major version) and the Eventgroup ID. Carries a <code class="term">TTL</code> (how long the subscription holds), the client's <span class="term">Endpoint options</span> (its IP address and port for events over UDP and/or TCP), and the <span class="term">Initial Data Requested flag</span> when it wants the current field values.</p></div>
+  <div class="card k-sd"><p class="tag">server → client</p><h3>SubscribeEventgroupAck</h3><p>Repeats the Eventgroup ID and the TTL. If the events of this eventgroup are sent by <span class="term">multicast</span>, the Ack carries a <span class="term">Multicast option</span> (the group address the client must listen on).</p></div>
+  <div class="card k-err"><p class="tag">server → client</p><h3>SubscribeEventgroupNack</h3><p>The Ack entry with TTL 0. Reasons: unknown eventgroup, a TCP connection the eventgroup needs is not open, a problem with the Endpoint options, or no resources left.</p></div>
+</div>
+<p>All four eventgroup entries (Subscribe, StopSubscribe, Ack, Nack) go by <span class="term">unicast</span> directly between the two ECUs, never by multicast. One <span class="term">SD message</span> can carry Subscribe entries for several eventgroups at once.</p>
+
+<h2>The subscription has a TTL too</h2>
+<p>Like an <code class="term">OfferService</code>, a subscription is <span class="term">soft state</span> (it disappears unless renewed): it holds only for its <code class="term">TTL</code>. The client keeps it alive by sending a new <code>SubscribeEventgroup</code> in reply to every cyclic offer of the <span class="term">Main Phase</span>. A renewal does not bring the initial events again; the client already has the values. If renewals stop, the server removes the subscriber when the TTL runs out.</p>
+<p>Both sides track the result. On the client, Sd reports the <span class="term">consumed eventgroup</span> as AVAILABLE once the Ack arrives. On the server, the <span class="term">event handler</span> becomes REQUESTED with its first subscriber (lesson 17).</p>
+
+<h2>Initial events: when they are sent</h2>
+<p>An <span class="term">initial event</span> is the current value of a <span class="term">field</span>, sent once so a new subscriber does not wait for the next change.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Situation</th><th>Initial events sent?</th></tr></thead>
+<tbody>
+<tr><td>First Subscribe, Initial Data Requested set</td><td>Yes, right after the Ack, by unicast to this client only</td></tr>
+<tr><td>Renewal of a subscription that is still valid</td><td>No</td></tr>
+<tr><td>Previous Subscribe got no Ack, client subscribes again</td><td>Yes: the client sets Initial Data Requested again</td></tr>
+<tr><td>Events in the eventgroup that are not fields</td><td>Never; a pure <span class="term">event</span> has no current value</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Stopping and retrying</h2>
+<div class="cards">
+  <div class="card k-sd"><p class="tag">client</p><h3>StopSubscribeEventgroup</h3><p>When the events are no longer needed, the client sends the Subscribe entry with TTL 0. No answer comes back. The server stops sending to it; if it was the last subscriber, the event handler becomes RELEASED.</p></div>
+  <div class="card k-sd"><p class="tag">client, optional</p><h3>Subscribe retry</h3><p>If neither Ack nor Nack arrives within <code>SUBSCRIBE_RETRY_DELAY</code>, the client sends the Subscribe again without waiting for the next offer, up to <code>SUBSCRIBE_RETRY_MAX</code> times. Useful when offers are far apart.</p></div>
+</div>
+
+<h2>Try it</h2>
+<p>Pick a story and step through it.</p>
+<div class="panel no-print">
+  <div class="chips" id="stories"></div>
+  <div id="seq"></div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Every <code>SubscribeEventgroup</code> is a reply to an <code>OfferService</code>; the offers drive the rhythm. A lost Ack costs nothing lasting: at the next offer the client simply subscribes again and sets Initial Data Requested once more. A Nack for a missing TCP connection makes the client check and reopen that connection.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">SubscribeEventgroup</code></td><td>Client to server: "send me the events of this eventgroup, for TTL seconds, to these endpoints"</td></tr>
+<tr><td><code class="term">SubscribeEventgroupAck</code></td><td>Server to client: subscription accepted</td></tr>
+<tr><td><code class="term">SubscribeEventgroupNack</code></td><td>Server to client: subscription refused (the Ack entry with TTL 0)</td></tr>
+<tr><td><code class="term">StopSubscribeEventgroup</code></td><td>The Subscribe entry with TTL 0: events no longer wanted; no answer</td></tr>
+<tr><td><span class="term">Initial Data Requested flag</span></td><td>In the Subscribe: "send me the current values of the fields"</td></tr>
+<tr><td><span class="term">Subscribe retry</span></td><td>Optional resend of an unanswered Subscribe (<code>SUBSCRIBE_RETRY_DELAY</code>, <code>SUBSCRIBE_RETRY_MAX</code>)</td></tr>
+<tr><td><span class="term">consumed eventgroup</span> AVAILABLE / DOWN</td><td>Client side: subscription acknowledged / not</td></tr>
+<tr><td><span class="term">event handler</span> REQUESTED / RELEASED</td><td>Server side: at least one subscriber / none</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.3.1 (eventgroup entries) and 4.1.6 (publish/subscribe, initial events, retry); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.2.5, 7.6.2, 7.6.3 and 7.7.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const actors = [{ id: 'c', label: 'Brake ECU', sub: 'client' }, { id: 's', label: 'Radar ECU', sub: 'server' }];
+  const offer = { from: 's', to: 'c', label: 'OfferService · radar instance 1', kind: 'sd' };
+  const STORIES = {
+    first: { label: 'First Subscribe', steps: [
+      { text: 'The radar sends OfferService for its service instance by multicast.', rows: [offer] },
+      { text: 'The brake ECU wants Eventgroup 1. It replies by unicast with SubscribeEventgroup: TTL 3 s, an Endpoint option with its IP address and port, and Initial Data Requested because it has no field values yet.',
+        rows: [{ from: 'c', to: 's', label: 'SubscribeEventgroup · Eventgroup 1 · Initial Data Requested', kind: 'sd' }] },
+      { text: 'The radar checks: eventgroup known, Endpoint option fine, resources left. It adds the brake ECU to the subscribers of Eventgroup 1.',
+        rows: [{ at: 's', note: 'adds subscriber' }] },
+      { text: 'The SubscribeEventgroupAck goes back by unicast. Sd on the client reports the consumed eventgroup as AVAILABLE.',
+        rows: [{ from: 's', to: 'c', label: 'SubscribeEventgroupAck · Eventgroup 1 · TTL 3 s', kind: 'sd' }] },
+      { text: 'Right after the Ack, the initial event of each field in the eventgroup goes to this client only.',
+        rows: [{ from: 's', to: 'c', label: 'Notification · UpdateRate = 20 (initial event)', kind: 'ev' }] },
+      { text: 'From now on events arrive as they occur, for as long as the subscription TTL is renewed.',
+        rows: [{ from: 's', to: 'c', label: 'Notification · BrakeEvent', kind: 'ev' }] }
+    ] },
+    renew: { label: 'Renewal', steps: [
+      { text: 'The subscription is running. The radar sends its cyclic OfferService of the Main Phase.', rows: [offer] },
+      { text: 'The client renews its subscription. It already has the field values, so Initial Data Requested is not set.',
+        rows: [{ from: 'c', to: 's', label: 'SubscribeEventgroup · Eventgroup 1 · TTL 3 s', kind: 'sd' }] },
+      { text: 'Ack. The TTL starts again. No initial events are sent for a renewal.',
+        rows: [{ from: 's', to: 'c', label: 'SubscribeEventgroupAck · Eventgroup 1', kind: 'sd' }, { at: 'c', note: 'TTL restarts' }] }
+    ] },
+    lost: { label: 'Ack lost', steps: [
+      { text: 'OfferService, and the client subscribes with Initial Data Requested.',
+        rows: [offer, { from: 'c', to: 's', label: 'SubscribeEventgroup · Eventgroup 1 · Initial Data Requested', kind: 'sd' }] },
+      { text: 'The radar accepts, but the Ack and the initial event are lost on the way.',
+        rows: [{ from: 's', to: 'c', label: 'SubscribeEventgroupAck · Eventgroup 1', kind: 'sd', lost: true }, { from: 's', to: 'c', label: 'Notification · UpdateRate = 20', kind: 'ev', lost: true }] },
+      { text: 'At the next OfferService the client subscribes again. Because the last Subscribe got no Ack, it sets Initial Data Requested again.',
+        rows: [offer, { from: 'c', to: 's', label: 'SubscribeEventgroup · Eventgroup 1 · Initial Data Requested', kind: 'sd' }] },
+      { text: 'This time both arrive. The short loss is repaired by the next offer.',
+        rows: [{ from: 's', to: 'c', label: 'SubscribeEventgroupAck · Eventgroup 1', kind: 'sd' }, { from: 's', to: 'c', label: 'Notification · UpdateRate = 20 (initial event)', kind: 'ev' }] }
+    ] },
+    nack: { label: 'Nack', steps: [
+      { text: 'Eventgroup 1 is sent over TCP in this example. The OfferService carries the radar\'s UDP and TCP Endpoint options.', rows: [offer] },
+      { text: 'The client subscribes to Eventgroup 1 with its TCP Endpoint option, but its TCP connection to the radar is not open.',
+        rows: [{ from: 'c', to: 's', label: 'SubscribeEventgroup · Eventgroup 1 (TCP endpoint)', kind: 'sd' }] },
+      { text: 'The radar finds no open TCP connection from this client and refuses: SubscribeEventgroupNack, the Ack entry with TTL 0.',
+        rows: [{ at: 's', note: 'no TCP connection' }, { from: 's', to: 'c', label: 'SubscribeEventgroupNack · Eventgroup 1 · TTL 0', kind: 'err' }] },
+      { text: 'The client checks its TCP connection and opens it again. At the next OfferService the Subscribe succeeds.',
+        rows: [{ span: ['c', 's'], note: 'client (re)opens the TCP connection' }, offer, { from: 'c', to: 's', label: 'SubscribeEventgroup · Eventgroup 1 (TCP endpoint)', kind: 'sd' }, { from: 's', to: 'c', label: 'SubscribeEventgroupAck · Eventgroup 1', kind: 'sd' }] }
+    ] },
+    stop: { label: 'StopSubscribe', steps: [
+      { text: 'The brake ECU no longer needs the radar events, for example because the function is switched off.',
+        rows: [{ at: 'c', note: 'eventgroup no longer wanted' }] },
+      { text: 'It sends StopSubscribeEventgroup: the Subscribe entry with TTL 0. No answer comes back for a stop.',
+        rows: [{ from: 'c', to: 's', label: 'StopSubscribeEventgroup · Eventgroup 1 · TTL 0', kind: 'sd' }] },
+      { text: 'The radar removes the subscriber. If it was the last one, the event handler becomes RELEASED: nobody wants these events any more.',
+        rows: [{ at: 's', note: 'removes subscriber' }] }
+    ] }
+  };
+  const seq = Seq.create(document.getElementById('seq'), { actors, steps: STORIES.first.steps });
+  const host = document.getElementById('stories');
+  const buttons = Object.keys(STORIES).map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = STORIES[k].label;
+    b.setAttribute('aria-pressed', k === 'first' ? 'true' : 'false');
+    b.addEventListener('click', () => {
+      buttons.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      seq.set({ steps: STORIES[k].steps });
+    });
+    host.appendChild(b);
+    return b;
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What usually makes a client send a SubscribeEventgroup?',
+    options: ['An OfferService from the server', 'A fixed timer inside the client', 'An event arriving from the server'],
+    answer: 0,
+    why: 'Subscribe entries are replies to offers; the cyclic offers of the Main Phase drive the renewals.'
+  },
+  {
+    prompt: 'A client renews a subscription that is still valid. Does it get the initial events again?',
+    options: ['No, only for a new subscription', 'Yes, with every single renewal', 'Only if a field value has changed'],
+    answer: 0,
+    why: 'Initial events go out only when a client is newly subscribed, or asks again after a missing Ack.'
+  },
+  {
+    prompt: 'How does a SubscribeEventgroupNack differ from an Ack?',
+    options: ['It is the same entry with TTL zero', 'It is sent to everyone by multicast', 'It carries the reason as a text'],
+    answer: 0,
+    why: 'A Nack is the Ack entry with TTL 0, sent by unicast to the client.'
+  }
+]);
+</script>
+</body>
+</html>

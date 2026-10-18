@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The data path configuration map · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The data path configuration map</h1>
+<p class="lede">The path of a SOME/IP message through <span class="term">COM</span> or <span class="term">LdCom</span>, <span class="term">PduR</span>, <span class="term">SOME/IP TP</span>, <span class="term">SoAd</span>, <span class="term">TcpIp</span> and <span class="term">EthIf</span> is configured as a chain of references. Each module references a shared <span class="term">global PDU</span> (the ECU-wide name of one PDU) and the next container on the path.</p>
+
+<h2>One PDU, followed through the configuration</h2>
+<p>All communication modules refer to the same <span class="term">PDUs</span> through a <span class="term">global PDU</span> (an EcuC Pdu container: the ECU-wide name of one PDU that every module references). COM, PduR and SoAd each reference the global PDU "BrakeEvent", and that is how they agree they mean the same PDU. From SoAd on, the references lead to <span class="term">socket connection groups</span>, local addresses and controllers.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 290" role="img" aria-labelledby="f1t">
+<title id="f1t">Configuration chain for transmitting BrakeEvent: the ComIPdu, the PduRRoutingPath with source and destination, the SoAdPduRoute and its SoAdPduRouteDest with header ID, routing groups and socket connection, the SoAdSocketConnectionGroup with SoAdPduHeaderEnable and local port, the TcpIpLocalAddr, the TcpIpCtrl and the EthIfController with its VLAN. ComIPdu, PduRRoutingPath and SoAdPduRoute all reference the same global PDU.</title>
+<rect x="230" y="8" width="180" height="30" class="d-box"/><text x="320" y="27" class="d-tb d-c">global PDU "BrakeEvent"</text>
+<rect x="10" y="70" width="140" height="56" class="m-com"/><text x="80" y="92" class="d-t d-c">ComIPdu</text><text x="80" y="107" class="d-s d-c">ComPduIdRef</text>
+<rect x="170" y="70" width="140" height="56" class="m-pdur"/><text x="240" y="92" class="d-t d-c">PduRRoutingPath</text><text x="240" y="107" class="d-s d-c">source → destination</text>
+<rect x="330" y="70" width="140" height="56" class="m-soad"/><text x="400" y="92" class="d-t d-c">SoAdPduRoute</text><text x="400" y="107" class="d-s d-c">SoAdTxPduRef</text>
+<rect x="490" y="70" width="140" height="56" class="m-soad"/><text x="560" y="86" class="d-t d-c">SoAdPduRouteDest</text><text x="560" y="100" class="d-s d-c">header ID,</text><text x="560" y="111" class="d-s d-c">routing groups,</text><text x="560" y="122" class="d-s d-c">socket connection</text>
+<line x1="80" y1="68" x2="290" y2="40" class="d-ln dash" marker-end="url(#ah)"/>
+<line x1="240" y1="68" x2="310" y2="40" class="d-ln dash" marker-end="url(#ah)"/>
+<line x1="400" y1="68" x2="340" y2="40" class="d-ln dash" marker-end="url(#ah)"/>
+<line x1="152" y1="98" x2="168" y2="98" class="d-ln" marker-end="url(#ah)"/>
+<line x1="312" y1="98" x2="328" y2="98" class="d-ln" marker-end="url(#ah)"/>
+<line x1="472" y1="98" x2="488" y2="98" class="d-ln" marker-end="url(#ah)"/>
+<path d="M560,128 L560,158" class="d-ln" marker-end="url(#ah)"/>
+<rect x="490" y="160" width="140" height="70" class="m-soad"/><text x="560" y="178" class="d-t d-c">SoAdSocket-</text><text x="560" y="192" class="d-t d-c">ConnectionGroup</text><text x="560" y="208" class="d-s d-c">SoAdPduHeaderEnable,</text><text x="560" y="221" class="d-s d-c">local port</text>
+<rect x="330" y="172" width="140" height="46" class="m-ip"/><text x="400" y="191" class="d-t d-c">TcpIpLocalAddr</text><text x="400" y="206" class="d-s d-c">IP address of the ECU</text>
+<rect x="170" y="172" width="140" height="46" class="m-ip"/><text x="240" y="191" class="d-t d-c">TcpIpCtrl</text><text x="240" y="206" class="d-s d-c">TcpIp on one controller</text>
+<rect x="10" y="172" width="140" height="46" class="m-eth"/><text x="80" y="191" class="d-t d-c">EthIfController</text><text x="80" y="206" class="d-s d-c">EthIfVlanId (VLAN)</text>
+<line x1="488" y1="195" x2="472" y2="195" class="d-ln" marker-end="url(#ah)"/>
+<line x1="328" y1="195" x2="312" y2="195" class="d-ln" marker-end="url(#ah)"/>
+<line x1="168" y1="195" x2="152" y2="195" class="d-ln" marker-end="url(#ah)"/>
+<text x="320" y="260" class="d-s d-c">top row: the route of the PDU · bottom row: where it leaves the ECU</text>
+<text x="320" y="275" class="d-s d-c">dashed: "references the same global PDU" · solid: "leads on to"</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read the top row left to right, then the bottom row right to left. The three dashed arrows are why the PDU keeps its identity across modules even though each module gives it its own handle ID.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card m-com"><p class="tag">COM / LdCom</p><h3>One byte-array signal</h3><p>In COM, the <code class="term">ComIPdu</code> (COM's container for one <span class="term">I-PDU</span>) holds one ComSignal of type <code class="term">UINT8_N</code> (fixed length) or <code class="term">UINT8_DYN</code> (up to a maximum), and ComIPduType says NORMAL or TP. In LdCom, one <code class="term">LdComIPdu</code> (LdCom's container for one I-PDU) per PDU, with LDCOM_IF or LDCOM_TP.</p></div>
+  <div class="card m-pdur"><p class="tag">PduR</p><h3>Routing paths</h3><p>In R20-11, the sources (<code class="term">PduRSrcPdu</code>: a PDU PduR receives) and destinations (<code class="term">PduRDestPdu</code>: a PDU PduR forwards) are listed next to the paths, inside PduRRoutingPaths; each <code class="term">PduRRoutingPath</code> (one route through PduR) references one source and one destination. For a <span class="term" data-term="segmentation">segmented</span> message one path goes to SOME/IP TP and another from SOME/IP TP to SoAd.</p></div>
+  <div class="card m-tp"><p class="tag">SOME/IP TP</p><h3>N-SDU and N-PDU</h3><p>For each segmented message: the <span class="term">N-SDU</span> (the whole message, before segmentation or after reassembly) and the <span class="term">N-PDU</span> (the PDU that carries one <span class="term">segment</span>), plus per channel the separation time between segments and the receive timeout.</p></div>
+  <div class="card m-soad"><p class="tag">SoAd</p><h3>Routes, socket connections, routing groups</h3><p>Each <code class="term">SoAdPduRoute</code> (transmit route: a PDU from above) has <code class="term">SoAdPduRouteDest</code>s (one way out each: <span class="term">header ID</span>, <span class="term">routing groups</span>, <span class="term">socket connection</span> or socket connection group). Each <code class="term">SoAdSocketRoute</code> (receive route: from a socket connection up) has a header ID and <code class="term">SoAdSocketRouteDest</code>s (the PDU handed up, with routing groups). Then come the socket connection groups with their socket connections, and the routing groups themselves.</p></div>
+</div>
+
+<h2>The map</h2>
+<p>The SOME/IP-relevant part of each module's configuration, with multiplicities. Containers are in bold. Parameters not needed for SOME/IP are left out. Three containers are new here: <code class="term">SoAdSocketRemoteAddress</code> (the remote IP address and port of a socket connection, possibly a wildcard), <code class="term">TcpIpLocalAddr</code> (one local IP address of the ECU) and <code class="term">EthIfController</code> (an Ethernet controller as TcpIp sees it, with its optional VLAN). <code class="term">SoAdPduHeaderEnable</code> (switches the <span class="term">SoAd PDU header</span> on for a socket connection group) must be on for SOME/IP.</p>
+<div id="tree"></div>
+
+<h2>Try it</h2>
+<p>Pick a feature; the map above marks where it is configured.</p>
+<div class="panel no-print">
+  <div class="chips" id="feats"></div>
+  <p class="field-info" id="finfo" aria-live="polite">Pick a feature.</p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> The <span class="term">header ID</span> appears twice in SoAd: for transmission in the route destination (<code class="term">SoAdTxPduHeaderId</code>), for reception in the route itself (<code class="term">SoAdRxPduHeaderId</code>). The <span class="term">routing groups</span> are defined once in SoAd and referenced from both route kinds, and from <span class="term">Sd</span>. The VLAN is not a SoAd setting at all: it comes from the EthIf controller behind the local address.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">global PDU</span></td><td>The EcuC Pdu container: the ECU-wide name of one PDU that COM, PduR, SOME/IP TP and SoAd all reference</td></tr>
+<tr><td><code class="term">ComIPdu</code> / <code class="term">LdComIPdu</code></td><td>The container for one I-PDU in COM / LdCom</td></tr>
+<tr><td><code class="term">PduRRoutingPath</code></td><td>One route through PduR, from one <code class="term">PduRSrcPdu</code> to one <code class="term">PduRDestPdu</code></td></tr>
+<tr><td><span class="term">N-SDU</span> / <span class="term">N-PDU</span></td><td>In SOME/IP TP: the whole message / the PDU that carries one segment</td></tr>
+<tr><td><code class="term">SoAdPduRoute</code> / <code class="term">SoAdPduRouteDest</code></td><td>Transmit route of a PDU / one way out, with header ID, routing groups and socket connection</td></tr>
+<tr><td><code class="term">SoAdSocketRoute</code> / <code class="term">SoAdSocketRouteDest</code></td><td>Receive route with its header ID / the PDU handed up, with routing groups</td></tr>
+<tr><td><code class="term">SoAdSocketRemoteAddress</code></td><td>Remote IP address and port of a socket connection; may be a wildcard</td></tr>
+<tr><td><code class="term">SoAdPduHeaderEnable</code></td><td>Switches the SoAd PDU header on for a socket connection group; needed for SOME/IP</td></tr>
+<tr><td><code class="term">TcpIpLocalAddr</code></td><td>One local IP address of the ECU</td></tr>
+<tr><td><code class="term">EthIfController</code></td><td>An Ethernet controller as TcpIp sees it, with its optional VLAN</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: chapter 10 of the R20-11 specifications of <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_PDURouter.pdf">PDU Router</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COM.pdf">COM</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_LargeDataCOM.pdf">Large Data COM</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransportProtocol.pdf">SOME/IP TP</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_TcpIp.pdf">TCP/IP</a> and <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_EthernetInterface.pdf">Ethernet Interface</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // [name, multiplicity, description, features, children]. Children present = container.
+  const TREES = [
+    ['Com', '', 'COM module (only what SOME/IP needs)', [], [
+      ['ComConfig', '1', '', [], [
+        ['ComIPdu', '0..*', 'one I-PDU', ['signal'], [
+          ['ComIPduDirection', '1', 'SEND or RECEIVE', ['signal']],
+          ['ComIPduType', '1', 'NORMAL, or TP for messages that go through SOME/IP TP', ['signal', 'pieces']],
+          ['ComPduIdRef', '1', 'the global PDU', ['signal', 'route']],
+          ['ComIPduSignalRef', '0..*', 'its one byte-array ComSignal', ['signal']]
+        ]],
+        ['ComSignal', '0..*', 'the byte array produced by the SOME/IP transformer', ['signal'], [
+          ['ComSignalType', '1', 'UINT8_N (fixed length) or UINT8_DYN (dynamic length)', ['signal']],
+          ['ComSignalLength', '0..1', 'length n for UINT8_N, maximum length for UINT8_DYN', ['signal']]
+        ]]
+      ]]
+    ]],
+    ['LdCom', '', 'Large Data COM, the lean alternative', [], [
+      ['LdComConfig', '1', '', [], [
+        ['LdComIPdu', '0..*', 'one I-PDU with one byte-array signal', ['signal'], [
+          ['LdComApiType', '1', 'LDCOM_IF or LDCOM_TP', ['signal', 'pieces']],
+          ['LdComIPduDirection', '1', 'LDCOM_SEND or LDCOM_RECEIVE', ['signal']],
+          ['LdComHandleId', '1', 'ID used by the RTE and by PduR', ['signal']],
+          ['LdComPduRef', '1', 'the global PDU', ['signal', 'route']]
+        ]]
+      ]]
+    ]],
+    ['PduR', '', 'PDU Router', [], [
+      ['PduRBswModules', '0..*', 'which modules PduR talks to (COM, LdCom, SoAd, SomeIpTp …)', ['route'], []],
+      ['PduRRoutingPaths', '1', 'the routing table', ['route'], [
+        ['PduRSrcPdu', '0..*', 'a source: global PDU and handle (R20-11: next to the paths)', ['route'], [
+          ['PduRSrcPduRef', '1', 'the global PDU', ['route']], ['PduRSourcePduHandleId', '1', 'handle the source module uses', ['route']]
+        ]],
+        ['PduRDestPdu', '0..*', 'a destination: global PDU and handle', ['route'], [
+          ['PduRDestPduRef', '1', 'the global PDU', ['route']], ['PduRDestPduHandleId', '0..1', 'handle used towards the destination', ['route']]
+        ]],
+        ['PduRRoutingPath', '0..*', 'one source to one destination', ['route', 'pieces'], [
+          ['PduRSrcPduRRef', '1', 'which PduRSrcPdu', ['route']], ['PduRDestPduRRef', '1', 'which PduRDestPdu', ['route']]
+        ]]
+      ]]
+    ]],
+    ['SomeIpTp', '', 'SOME/IP TP: only for segmented messages', ['pieces'], [
+      ['SomeIpTpGeneral', '1', 'main function periods for transmission and reception', ['pieces'], [
+        ['SomeIpTpTxMainFunctionPeriod', '1', '', ['pieces']], ['SomeIpTpRxMainFunctionPeriod', '1', '', ['pieces']]
+      ]],
+      ['SomeIpTpChannel', '1..*', 'timing shared by its N-SDUs', ['pieces'], [
+        ['SomeIpTpNPduSeparationTime', '1', 'minimum separation time between two segments', ['pieces']],
+        ['SomeIpTpRxTimeoutTime', '1', 'longest wait for the next segment', ['pieces']],
+        ['SomeIpTpTxNSdu', '0..*', 'a message to segment', ['pieces'], [
+          ['SomeIpTpTxNSduRef', '1', 'global PDU of the whole message', ['pieces']],
+          ['SomeIpTpTxNPdu', '1', 'the N-PDU that carries the segments', ['pieces'], [['SomeIpTpTxNPduRef', '1', 'global PDU of the segments; its size limits the segment size', ['pieces']]]]
+        ]],
+        ['SomeIpTpRxNSdu', '0..*', 'a message to reassemble', ['pieces'], [
+          ['SomeIpTpRxSduRef', '1', 'global PDU of the reassembled message', ['pieces']],
+          ['SomeIpTpRxNPdu', '1', 'the N-PDU that carries the segments', ['pieces'], [['SomeIpTpRxNPduRef', '1', 'global PDU of the segments', ['pieces']]]]
+        ]]
+      ]]
+    ]],
+    ['SoAd', '', 'Socket Adaptor', [], [
+      ['SoAdConfig', '1', '', [], [
+        ['SoAdSocketConnectionGroup', '1..*', 'a socket connection group: one local port, common settings', ['doors'], [
+          ['SoAdPduHeaderEnable', '1', 'write the SoAd PDU header (header ID and length) in front; needed for SOME/IP', ['header']],
+          ['SoAdSocketLocalPort', '1', 'local UDP or TCP port; 0 lets TcpIp choose', ['doors']],
+          ['SoAdSocketLocalAddressRef', '1', 'the TcpIp local address used', ['doors', 'net']],
+          ['SoAdSocketAutomaticSoConSetup', '1', 'open the socket connections automatically', ['doors']],
+          ['SoAdSocketMsgAcceptanceFilterEnabled', '1', 'accept only senders that match the remote address', ['doors']],
+          ['SoAdSocketConnection', '1..*', 'a socket connection, one per remote partner', ['doors'], [
+            ['SoAdSocketId', '1', 'socket connection ID used by Sd and in PDU meta data', ['doors']],
+            ['SoAdSocketRemoteAddress', '0..1', 'remote address, may be a wildcard (ANY and port 0)', ['doors'], [
+              ['SoAdSocketRemoteIpAddress', '1', 'IP address or ANY', ['doors']], ['SoAdSocketRemotePort', '1', 'port, 0 = any', ['doors']]
+            ]]
+          ]],
+          ['SoAdSocketProtocol', '1', 'UDP or TCP (one of the two)', ['doors'], [
+            ['SoAdSocketUdp', '0..1', 'UDP settings', ['doors'], [
+              ['SoAdSocketUdpListenOnly', '1', 'only receive through this socket connection group', ['doors']],
+              ['SoAdSocketUdpStrictHeaderLenCheckEnabled', '1', 'drop a datagram whose lengths do not add up', ['header']],
+              ['SoAdSocketnPduUdpTxBufferMin', '0..1', 'buffer for several PDUs per datagram', ['doors']],
+              ['SoAdSocketUdpTriggerTimeout', '0..1', 'longest wait before a collected datagram is sent', ['doors']]
+            ]],
+            ['SoAdSocketTcp', '0..1', 'TCP settings', ['doors'], [
+              ['SoAdSocketTcpInitiate', '1', 'this side opens the connection (client)', ['doors']],
+              ['SoAdSocketTcpNoDelay', '0..1', 'send small TCP segments at once (Nagle off)', ['doors']]
+            ]]
+          ]]
+        ]],
+        ['SoAdSocketRoute', '0..*', 'receive route: from a socket connection to an upper module', ['header'], [
+          ['SoAdRxPduHeaderId', '0..1', 'header ID that selects this route', ['header']],
+          ['SoAdRxSocketConnOrSocketConnBundleRef', '1', 'socket connection or socket connection group it listens on', ['doors']],
+          ['SoAdSocketRouteDest', '1..*', 'where the PDU goes', ['route'], [
+            ['SoAdRxPduRef', '1', 'global PDU handed up', ['route']],
+            ['SoAdRxUpperLayerType', '1', 'IF or TP', ['route']],
+            ['SoAdRxRoutingGroupRef', '0..*', 'routing groups; all disabled = dropped', ['switches']]
+          ]]
+        ]],
+        ['SoAdPduRoute', '0..*', 'transmit route: a PDU from above', ['route'], [
+          ['SoAdTxPduId', '1', 'handle used by PduR', ['route']],
+          ['SoAdTxPduRef', '1', 'the global PDU', ['route']],
+          ['SoAdTxUpperLayerType', '1', 'IF or TP', ['route']],
+          ['SoAdTxPduCollectionSemantics', '1', 'queued or last-is-best when collecting', ['doors']],
+          ['SoAdPduRouteDest', '1..*', 'one way out', ['header'], [
+            ['SoAdTxPduHeaderId', '0..1', 'header ID written in front', ['header']],
+            ['SoAdTxSocketConnOrSocketConnBundleRef', '1', 'socket connection or socket connection group it leaves by', ['doors']],
+            ['SoAdTxRoutingGroupRef', '0..*', 'routing groups; all disabled = skipped', ['switches']],
+            ['SoAdTxUdpTriggerMode', '0..1', 'TRIGGER_ALWAYS sends at once, TRIGGER_NEVER collects', ['doors']]
+          ]]
+        ]],
+        ['SoAdRoutingGroup', '0..*', 'a routing group', ['switches'], [
+          ['SoAdRoutingGroupId', '1', 'its ID, used by Sd', ['switches']],
+          ['SoAdRoutingGroupIsEnabledAtInit', '1', 'enabled right after start-up (usually not for SOME/IP)', ['switches']],
+          ['SoAdRoutingGroupTxTriggerable', '1', 'may be triggered to transmit at once (initial events)', ['switches']]
+        ]]
+      ]]
+    ]],
+    ['TcpIp', '', 'TCP/IP stack (only the addresses)', ['net'], [
+      ['TcpIpConfig', '', '', ['net'], [
+        ['TcpIpCtrl', '1..*', 'TcpIp on one EthIf controller', ['net'], [['TcpIpEthIfCtrlRef', '1', 'which EthIf controller', ['net']]]],
+        ['TcpIpLocalAddr', '1..*', 'a local IP address', ['net'], [
+          ['TcpIpAddrId', '1', 'its number', ['net']], ['TcpIpDomainType', '1', 'IPv4 or IPv6', ['net']],
+          ['TcpIpAddressType', '1', 'unicast, multicast …', ['net', 'multicast']], ['TcpIpCtrlRef', '1', 'which TcpIpCtrl', ['net']],
+          ['TcpIpAddrAssignment', '1..*', 'static, DHCP, link-local …', ['net'], []]
+        ]]
+      ]]
+    ]],
+    ['EthIf', '', 'Ethernet Interface', ['net'], [
+      ['EthIfConfigSet', '1', '', ['net'], [
+        ['EthIfController', '1..*', 'a controller as seen by TcpIp', ['net'], [
+          ['EthIfCtrlIdx', '1', 'its index', ['net']], ['EthIfVlanId', '0..1', 'VLAN, if any', ['net']],
+          ['EthIfPhysControllerRef', '1', 'the hardware controller behind it', ['net']]
+        ]],
+        ['EthIfFrameOwnerConfig', '1..*', 'which module owns a frame type', ['net'], [
+          ['EthIfFrameType', '1', 'frame type, e.g. 0x800 for IPv4', ['net']], ['EthIfOwner', '1', 'index into the receive callbacks (e.g. TcpIp)', ['net']]
+        ]]
+      ]]
+    ]]
+  ];
+  const FEATS = {
+    signal: ['Byte-array signal (24)', 'COM: one UINT8_N or UINT8_DYN signal per I-PDU; or LdCom: one LdComIPdu.'],
+    route: ['PDU routing (18, 19)', 'Global PDUs and the references that follow one PDU: COM/LdCom, PduR routing paths, SoAd routes.'],
+    pieces: ['Segmentation (23)', 'TP I-PDUs in COM/LdCom, the PduR routing paths through SOME/IP TP and the SOME/IP TP containers.'],
+    header: ['Header ID (20)', 'SoAdPduHeaderEnable on the socket connection group and the header IDs of transmit and receive routes.'],
+    doors: ['Socket connections (21, 22)', 'Socket connection groups, socket connections, remote addresses, UDP and TCP settings.'],
+    switches: ['Routing groups (21)', 'Routing groups and every reference to them.'],
+    multicast: ['Multicast addresses (15)', 'Multicast needs a local address of type multicast in TcpIp.'],
+    net: ['Addresses and VLAN', 'Local IP addresses, controllers, VLAN and frame owners.']
+  };
+  const host = document.getElementById('tree');
+  const nodes = [];
+  function build(n) {
+    const [name, mult, d, f, kids] = n;
+    const li = document.createElement('li');
+    if (kids) li.className = 'c';
+    li.innerHTML = (kids ? '<b>' + name + '</b>' : '<code>' + name + '</code>') + (mult ? ' <span class="m">' + mult + '</span>' : '') + (d ? ' <span class="d">' + d + '</span>' : '');
+    nodes.push({ li, f, kids: !!kids });
+    if (kids && kids.length) {
+      const ul = document.createElement('ul');
+      kids.forEach((k) => ul.appendChild(build(k)));
+      li.appendChild(ul);
+    }
+    return li;
+  }
+  const root = document.createElement('ul');
+  root.className = 'tree';
+  TREES.forEach((t) => root.appendChild(build(t)));
+  host.appendChild(root);
+  const chips = document.getElementById('feats');
+  const finfo = document.getElementById('finfo');
+  const keys = Object.keys(FEATS);
+  const buttons = keys.map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = FEATS[k][0];
+    b.addEventListener('click', () => pick(k));
+    chips.appendChild(b);
+    return b;
+  });
+  const all = document.createElement('button');
+  all.type = 'button';
+  all.textContent = 'Show all';
+  all.addEventListener('click', () => pick(null));
+  chips.appendChild(all);
+  function pick(k) {
+    buttons.forEach((b, i) => b.setAttribute('aria-pressed', keys[i] === k ? 'true' : 'false'));
+    let count = 0;
+    nodes.forEach((n) => {
+      const hit = k && n.f.includes(k);
+      n.li.classList.toggle('hl', !!hit);
+      n.li.classList.toggle('dim', !!k && !hit && !n.kids);
+      if (hit && !n.kids) count++;
+    });
+    finfo.textContent = k ? FEATS[k][1] + ' (' + count + ' parameter' + (count === 1 ? '' : 's') + ' marked.)' : 'Pick a feature.';
+  }
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Where is the header ID written in front of a transmitted message configured?',
+    options: ['SoAdTxPduHeaderId in SoAdPduRouteDest', 'SoAdRxPduHeaderId in SoAdSocketRoute', 'SoAdRoutingGroupId in SoAdRoutingGroup'],
+    answer: 0,
+    why: 'Transmission: the PDU route destination. Reception: the socket route.'
+  },
+  {
+    prompt: 'How do COM, PduR and SoAd know they mean the same PDU?',
+    options: ['They point to the same global PDU', 'They use the same handle ID', 'They share one header ID'],
+    answer: 0,
+    why: 'Each module has its own handle IDs, but all reference the same EcuC global PDU.'
+  },
+  {
+    prompt: 'Where does the VLAN of a SOME/IP socket connection come from?',
+    options: ['The EthIf controller behind it', 'A socket connection group setting', 'The SdServerService in Sd'],
+    answer: 0,
+    why: 'Socket connection group → TcpIp local address → TcpIp controller → EthIf controller with EthIfVlanId.'
+  }
+]);
+</script>
+</body>
+</html>

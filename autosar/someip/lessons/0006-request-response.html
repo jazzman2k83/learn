@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methods: request and response · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Methods: request and response</h1>
+<p class="lede">A client sends a <code class="term">REQUEST</code>, the server runs the <span class="term">method</span> and sends back a <code class="term">RESPONSE</code> that carries the same <span class="term">Request ID</span>, so the client knows which request it belongs to.</p>
+
+<h2>REQUEST and RESPONSE</h2>
+<figure class="fig">
+<svg viewBox="0 0 640 214" role="img" aria-labelledby="f1t">
+<title id="f1t">Sequence: the brake ECU sends a REQUEST for the method Calibrate with Client ID 0x10 and Session ID 7; the radar ECU runs Calibrate and sends a RESPONSE with Client ID 0x10, Session ID 7 and Return Code E_OK.</title>
+<rect x="10" y="6" width="160" height="34" class="d-box"/><text x="90" y="27" class="d-tb d-c">Brake ECU (client)</text>
+<rect x="470" y="6" width="160" height="34" class="d-box"/><text x="550" y="27" class="d-tb d-c">Radar ECU (server)</text>
+<line x1="90" y1="40" x2="90" y2="208" class="d-life"/>
+<line x1="550" y1="40" x2="550" y2="208" class="d-life"/>
+<line x1="92" y1="74" x2="547" y2="74" class="k-req" marker-end="url(#ah-req)"/>
+<text x="320" y="66" class="d-t d-c">REQUEST · Calibrate · Client ID 0x10 · Session ID 7</text>
+<text x="320" y="90" class="d-s d-c">payload: the input arguments</text>
+<rect x="490" y="100" width="120" height="26" class="d-note"/><text x="550" y="117" class="d-t d-c">runs Calibrate</text>
+<line x1="548" y1="156" x2="93" y2="156" class="k-res" marker-end="url(#ah-res)"/>
+<text x="320" y="148" class="d-t d-c">RESPONSE · Calibrate · Client ID 0x10 · Session ID 7 · E_OK</text>
+<text x="320" y="172" class="d-s d-c">payload: the output arguments</text>
+<rect x="14" y="182" width="152" height="20" class="d-ok"/><text x="90" y="196" class="d-s d-c">Session ID 7 matches: done</text>
+</svg>
+<figcaption><b>Figure 1.</b> Compare the two arrows: everything that identifies the call (Service ID, Method ID, Client ID, Session ID) is the same in both. Only the Message Type, the Return Code and the payload differ.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card k-req"><p class="tag">client</p><h3>The REQUEST</h3><p><span class="term">Message Type</span> <code class="term">REQUEST</code>. The <span class="term">payload</span> holds the input arguments in the order the method lists them. The <span class="term">Session ID</span> takes the next value.</p></div>
+  <div class="card k-res"><p class="tag">server</p><h3>The RESPONSE</h3><p>Built from the <span class="term">SOME/IP header</span> of the request: same <span class="term">Message ID</span>, same <span class="term">Client ID</span> and Session ID. Message Type <code class="term">RESPONSE</code>, the <span class="term">Return Code</span> <code class="term">E_OK</code>, the output arguments as payload.</p></div>
+  <div class="card"><p class="tag">client</p><h3>The match</h3><p>A response whose <span class="term">Request ID</span> does not match an open request is ignored. A response to a request that was not completely sent yet is ignored too.</p></div>
+</div>
+
+<h2>Waiting has a limit</h2>
+<p>Over <span class="term">UDP</span> (connectionless transport, lesson 22) a message can get lost and nobody repeats it. SOME/IP calls this reliability "maybe". So the client side waits only for a set time. If no matching response arrives, the call ends with <code class="term">E_TIMEOUT</code> (no response in time; in the RTE the call returns <code>RTE_E_TIMEOUT</code>) instead of a result, and whether to try again is up to the application.</p>
+<p>Over <span class="term">TCP</span> (connection-oriented transport that repeats lost data) a request and its response arrive "exactly once". If the TCP connection breaks, every request still waiting is treated as timed out.</p>
+<figure class="fig">
+<svg viewBox="0 0 640 170" role="img" aria-labelledby="f2t">
+<title id="f2t">State diagram of the client: from idle, sending a REQUEST enters waiting for the RESPONSE; a matching RESPONSE returns to idle with a result; the timeout returns to idle with E_TIMEOUT.</title>
+<rect x="40" y="50" width="120" height="40" rx="18" class="d-state"/><text x="100" y="74" class="d-t d-c">idle</text>
+<rect x="400" y="50" width="180" height="40" rx="18" class="d-state"/><text x="490" y="74" class="d-t d-c">waiting for RESPONSE</text>
+<line x1="160" y1="62" x2="398" y2="62" class="d-ln" marker-end="url(#ah)"/><text x="279" y="52" class="d-s d-c">send REQUEST, start the timeout</text>
+<path d="M400,82 C340,110 220,110 162,82" class="k-res" marker-end="url(#ah-res)"/><text x="280" y="126" class="d-s d-c">matching RESPONSE → result</text>
+<path d="M580,70 C625,70 625,148 540,148 L100,148 L100,93" class="k-err" marker-end="url(#ah-err)"/><text x="340" y="164" class="d-s d-c">timeout expires → E_TIMEOUT</text>
+</svg>
+<figcaption><b>Figure 2.</b> The client side has only two states per request. Follow the red path: a lost response never blocks the client for longer than the timeout allows.</figcaption>
+</figure>
+
+<h2>Who does what in the Classic Platform</h2>
+<p>The <span class="term">SWC</span> calls a <code class="term">ClientServerOperation</code> (a function of a client-server interface, with its IN, INOUT and OUT arguments) through the <span class="term">RTE</span>, as for any client-server call. For each call the RTE keeps a <span class="term">transaction handle</span> (client ID and sequence counter, which become the <span class="term">Client ID</span> and <span class="term">Session ID</span> on the wire) and monitors the timeout. On the network side it allows only one open request per client and operation at a time, so a response can always be matched; the sequence counter also lets it recognise a stale response that arrives after a timeout.</p>
+<p>The Client ID names the calling client inside its ECU. It can carry a fixed prefix so that it is unique in the whole vehicle.</p>
+
+<h2>Try it</h2>
+<p>Pick a story and step through it.</p>
+<div class="panel no-print">
+  <div class="chips" id="stories"></div>
+  <div id="seq"></div>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> In "RESPONSE lost" the server did its work, yet the client reports <code>E_TIMEOUT</code>: the client cannot tell a lost request from a lost response. In "Late RESPONSE" the old response still arrives, but its Session ID no longer matches the open request, so it is ignored.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">request/response</span></td><td>A method call with an answer: REQUEST from the client, RESPONSE (or ERROR) from the server</td></tr>
+<tr><td><code class="term">REQUEST</code>, <code class="term">RESPONSE</code></td><td>Message Types of the call and of its answer</td></tr>
+<tr><td><span class="term">Request ID</span> = <span class="term">Client ID</span> + <span class="term">Session ID</span></td><td>Who calls and which call; copied unchanged into the response</td></tr>
+<tr><td><code class="term">ClientServerOperation</code></td><td>The function an SWC calls through the RTE; on the network it becomes a method</td></tr>
+<tr><td><span class="term">transaction handle</span></td><td>Client ID and sequence counter the RTE keeps per call to match the response</td></tr>
+<tr><td><code class="term">E_TIMEOUT</code></td><td>No response in time; in the RTE <code>RTE_E_TIMEOUT</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.1.2.5, 4.2.1.2, 4.2.2 and 4.2.6.4; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_RTE.pdf">RTE specification, R20-11</a>, section 4.3.2 (timeout monitoring, response-to-request mapping).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const actors = [
+    { id: 'app', label: 'Brake SWC', sub: 'calls Calibrate' },
+    { id: 'c', label: 'Brake ECU stack', sub: 'RTE, transformer, …' },
+    { id: 's', label: 'Radar ECU', sub: 'server' }
+  ];
+  const req = (n) => ({ from: 'c', to: 's', label: 'REQUEST · Client ID 0x10 · Session ID ' + n, kind: 'req' });
+  const res = (n, lost) => ({ from: 's', to: 'c', label: 'RESPONSE · Session ID ' + n + ' · E_OK', kind: 'res', lost: !!lost });
+  const STORIES = {
+    ok: { label: 'All goes well', steps: [
+      { text: 'The SWC calls the ClientServerOperation Calibrate through the RTE, exactly as for a call inside the ECU.',
+        rows: [{ from: 'app', to: 'c', label: 'Calibrate(angle)', kind: 'mute' }] },
+      { text: 'The stack serializes the input arguments, writes the SOME/IP header (Message Type REQUEST, Client ID 0x10, next Session ID: 1) and sends it. The RTE starts the timeout for this call.',
+        rows: [req(1), { at: 'c', note: 'timeout starts' }] },
+      { text: 'The radar deserializes the arguments and runs Calibrate.',
+        rows: [{ at: 's', note: 'runs Calibrate' }] },
+      { text: 'The RESPONSE copies the Message ID and the Request ID (Client ID and Session ID) of the REQUEST. Message Type: RESPONSE. Return Code: E_OK. The output arguments are the payload.',
+        rows: [res(1)] },
+      { text: 'Session ID 1 matches the open request. The timeout stops and the SWC gets the result and the output arguments.',
+        rows: [{ at: 'c', note: 'Session ID 1 matches' }, { from: 'c', to: 'app', label: 'RTE_E_OK, outputs', kind: 'mute' }] }
+    ] },
+    lost: { label: 'RESPONSE lost', steps: [
+      { text: 'The SWC calls Calibrate.', rows: [{ from: 'app', to: 'c', label: 'Calibrate(angle)', kind: 'mute' }] },
+      { text: 'The REQUEST goes out over UDP with Session ID 1, and the timeout starts.', rows: [req(1), { at: 'c', note: 'timeout starts' }] },
+      { text: 'The radar runs Calibrate and sends the RESPONSE, but it is lost on the way. Nothing in UDP repeats it.',
+        rows: [{ at: 's', note: 'runs Calibrate' }, res(1, true)] },
+      { text: 'The timeout expires. The SWC gets RTE_E_TIMEOUT instead of a result. It cannot know that the radar actually did calibrate.',
+        rows: [{ at: 'c', note: 'timeout expires' }, { from: 'c', to: 'app', label: 'RTE_E_TIMEOUT', kind: 'err' }] }
+    ] },
+    late: { label: 'Late RESPONSE', steps: [
+      { text: 'A REQUEST with Session ID 1 goes out and the timeout starts.', rows: [req(1), { at: 'c', note: 'timeout starts' }] },
+      { text: 'The radar is slow. The timeout expires first and the SWC gets RTE_E_TIMEOUT.',
+        rows: [{ at: 'c', note: 'timeout expires' }, { from: 'c', to: 'app', label: 'RTE_E_TIMEOUT', kind: 'err' }] },
+      { text: 'The SWC tries again. The new REQUEST takes the next Session ID: 2.',
+        rows: [{ from: 'app', to: 'c', label: 'Calibrate(angle)', kind: 'mute' }, req(2)] },
+      { text: 'Now the old RESPONSE, Session ID 1, finally arrives. No open request has Session ID 1, so it is ignored.',
+        rows: [res(1), { at: 'c', note: '1 is not open: ignored' }] },
+      { text: 'The RESPONSE to the second REQUEST arrives with Session ID 2. It matches, and the SWC gets its result.',
+        rows: [res(2), { from: 'c', to: 'app', label: 'RTE_E_OK', kind: 'mute' }] }
+    ] }
+  };
+  const seq = Seq.create(document.getElementById('seq'), { actors, steps: STORIES.ok.steps, width: 760 });
+  const host = document.getElementById('stories');
+  const buttons = Object.keys(STORIES).map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = STORIES[k].label;
+    b.setAttribute('aria-pressed', k === 'ok' ? 'true' : 'false');
+    b.addEventListener('click', () => {
+      buttons.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      seq.set({ steps: STORIES[k].steps });
+    });
+    host.appendChild(b);
+    return b;
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What does the server copy from the REQUEST into its RESPONSE?',
+    options: ['The Message ID and the Request ID', 'Only the payload of the input arguments', 'Nothing; it writes a fresh new header'],
+    answer: 0,
+    why: 'Message ID and Request ID are copied; the Message Type, the Return Code and the payload are new.'
+  },
+  {
+    prompt: 'Over UDP the RESPONSE is lost. What does the calling SWC get?',
+    options: ['RTE_E_TIMEOUT once the timeout expires', 'The RESPONSE, repeated by the server', 'Nothing at all, it waits forever'],
+    answer: 0,
+    why: 'UDP gives reliability "maybe". The client-side timeout turns a missing RESPONSE into a timeout error.'
+  },
+  {
+    prompt: 'A RESPONSE arrives whose Session ID matches no open request. What happens to it?',
+    options: ['It is ignored by the client', 'It is passed to the calling SWC', 'It is answered with an ERROR'],
+    answer: 0,
+    why: 'Responses are matched by Request ID; a stale one is dropped. An ERROR is never sent back for a response.'
+  }
+]);
+</script>
+</body>
+</html>

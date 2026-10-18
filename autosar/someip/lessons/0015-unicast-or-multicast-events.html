@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unicast or multicast events · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Unicast or multicast events</h1>
+<p class="lede">With few <span class="term">subscribers</span> the server sends every event to each of them in a message of its own, by <span class="term">unicast</span>. With many, it sends one message by <span class="term">multicast</span> to a group address that all of them listen to. A configured number of subscribers decides when the server changes from one to the other.</p>
+
+<h2>Two ways to send events</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 200" role="img" aria-labelledby="f1t">
+<title id="f1t">Left, unicast: the radar ECU sends three separate Notification messages, one to each subscriber. Right, multicast: the radar ECU sends one Notification to a multicast address; the network hands it to all three subscribers that listen to that address.</title>
+<text x="155" y="16" class="d-tb d-c">Unicast</text>
+<rect x="105" y="28" width="100" height="32" class="m-app"/><text x="155" y="48" class="d-t d-c">Radar ECU</text>
+<rect x="20" y="150" width="80" height="30" class="m-app"/><text x="60" y="169" class="d-s d-c">client 1</text>
+<rect x="115" y="150" width="80" height="30" class="m-app"/><text x="155" y="169" class="d-s d-c">client 2</text>
+<rect x="210" y="150" width="80" height="30" class="m-app"/><text x="250" y="169" class="d-s d-c">client 3</text>
+<line x1="140" y1="62" x2="64" y2="147" class="k-ev" marker-end="url(#ah-ev)"/>
+<line x1="155" y1="62" x2="155" y2="147" class="k-ev" marker-end="url(#ah-ev)"/>
+<line x1="170" y1="62" x2="246" y2="147" class="k-ev" marker-end="url(#ah-ev)"/>
+<text x="155" y="196" class="d-s d-c">3 Notification messages leave the radar</text>
+<line x1="320" y1="10" x2="320" y2="196" class="d-tick"/>
+<text x="485" y="16" class="d-tb d-c">Multicast</text>
+<rect x="435" y="28" width="100" height="32" class="m-app"/><text x="485" y="48" class="d-t d-c">Radar ECU</text>
+<rect x="410" y="92" width="150" height="26" class="d-box"/><text x="485" y="109" class="d-s d-c">multicast address</text>
+<line x1="485" y1="62" x2="485" y2="89" class="k-ev" marker-end="url(#ah-ev)"/>
+<rect x="350" y="150" width="80" height="30" class="m-app"/><text x="390" y="169" class="d-s d-c">client 1</text>
+<rect x="445" y="150" width="80" height="30" class="m-app"/><text x="485" y="169" class="d-s d-c">client 2</text>
+<rect x="540" y="150" width="80" height="30" class="m-app"/><text x="580" y="169" class="d-s d-c">client 3</text>
+<line x1="470" y1="120" x2="394" y2="147" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="485" y1="120" x2="485" y2="147" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="500" y1="120" x2="576" y2="147" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<text x="485" y="196" class="d-s d-c">1 Notification leaves the radar</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Count the orange arrows leaving the radar ECU: three on the left, one on the right. On the right the grey fan-out is done by the network, not by the radar.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card k-ev"><p class="tag">unicast</p><h3>One message per subscriber</h3><p>Each <span class="term">subscriber</span> gets its own <code class="term">NOTIFICATION</code>, sent to the <span class="term">Endpoint option</span> of its <code class="term">SubscribeEventgroup</code>, over UDP or over its TCP connection.</p></div>
+  <div class="card k-ev"><p class="tag">multicast</p><h3>One message for all</h3><p>One NOTIFICATION goes to a multicast address over UDP. The <code class="term">SubscribeEventgroupAck</code> carries a <span class="term">Multicast option</span> with that address, and clients start listening to it straight away so they miss nothing. TCP cannot do this.</p></div>
+</div>
+
+<h2>The multicast threshold</h2>
+<p>Each <span class="term">event handler</span> (the server side of an <span class="term">eventgroup</span>) has a <span class="term">multicast threshold</span> (the number of subscribers from which the server sends the events of the eventgroup by multicast instead of by unicast).</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Multicast threshold</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>Always unicast; never multicast.</td></tr>
+<tr><td>1</td><td>Multicast from the first subscriber on; never unicast.</td></tr>
+<tr><td>2 or more</td><td>Unicast while there are fewer subscribers than the threshold; multicast as soon as the threshold is reached; back to unicast when subscribers leave and the count drops below it.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Two things always go by <span class="term">unicast</span>, whatever the threshold: the <span class="term">initial events</span> for a new subscriber (they are only for that client) and all the eventgroup entries themselves (<code class="term">SubscribeEventgroup</code>, Ack, Nack). A SubscribeEventgroup without a UDP <span class="term">Endpoint option</span> is refused with a <code class="term">SubscribeEventgroupNack</code>, unless the multicast threshold is 1 and the events therefore go only by multicast anyway.</p>
+
+<h2>Try it</h2>
+<p>Subscribe and unsubscribe clients, choose a multicast threshold, and send an event.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Multicast threshold
+      <select id="thr">
+        <option value="0">0: always unicast</option>
+        <option value="1">1: always multicast</option>
+        <option value="3" selected>3</option>
+        <option value="2">2</option>
+      </select>
+    </label>
+  </div>
+  <div class="chips" id="clients"></div>
+  <div class="buttons-row"><button type="button" class="primary" id="send">Send Notification · BrakeEvent</button></div>
+  <svg viewBox="0 0 640 170" id="sim" role="img" aria-label="Radar ECU and five clients; arrows show the Notification messages of the last event">
+    <rect x="270" y="8" width="100" height="32" class="m-app"/><text x="320" y="28" class="d-t d-c">Radar ECU</text>
+    <g id="arrows"></g><g id="boxes"></g>
+  </svg>
+  <p class="readout" id="out" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With <span class="term">multicast threshold</span> 3, the second <span class="term">subscriber</span> still gets its own message by <span class="term">unicast</span>, and the third switches everybody to <span class="term">multicast</span>: one message instead of three. Remove one subscriber and it switches back. The <span class="term">initial events</span> for a new subscriber always come by unicast, even while everybody else receives by multicast.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">multicast threshold</span></td><td>Number of subscribers from which the server sends the events of an eventgroup by multicast instead of by unicast; 0 means always unicast</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.2.4 (multicast option), 4.1.2.6, 4.1.3.1 and 4.1.6 (threshold, adaptive state machine); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, section 7.6.5 and the description of SdEventHandlerMulticastThreshold.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  const XS = [70, 195, 320, 445, 570];
+  const thr = document.getElementById('thr');
+  const out = document.getElementById('out');
+  const arrows = document.getElementById('arrows');
+  const boxes = document.getElementById('boxes');
+  const host = document.getElementById('clients');
+  const signed = [false, false, false, false, false];
+  function el(tag, attrs, text) { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; return n; }
+  const count = () => signed.filter(Boolean).length;
+  function mode() {
+    const t = Number(thr.value), n = count();
+    if (n === 0) return 'none';
+    if (t === 0) return 'uni';
+    if (t === 1) return 'multi';
+    return n >= t ? 'multi' : 'uni';
+  }
+  function draw(newcomer) {
+    boxes.replaceChildren();
+    arrows.replaceChildren();
+    const m = mode();
+    if (m === 'multi') {
+      boxes.appendChild(el('rect', { x: 245, y: 66, width: 150, height: 24, class: 'd-box' }));
+      boxes.appendChild(el('text', { x: 320, y: 82, class: 'd-s d-c' }, 'multicast address'));
+    }
+    XS.forEach((x, i) => {
+      boxes.appendChild(el('rect', { x: x - 50, y: 128, width: 100, height: 32, class: signed[i] ? 'm-app' : 'd-box' }));
+      boxes.appendChild(el('text', { x, y: 141, class: 'd-t d-c' }, 'client ' + (i + 1)));
+      boxes.appendChild(el('text', { x, y: 154, class: 'd-s d-c' }, signed[i] ? 'subscribed' : 'not subscribed'));
+    });
+    return m;
+  }
+  function arrowsFor(m, only) {
+    arrows.replaceChildren();
+    if (m === 'multi' && only == null) {
+      arrows.appendChild(el('line', { x1: 320, y1: 42, x2: 320, y2: 63, class: 'k-ev', 'marker-end': 'url(#ah-ev)' }));
+      XS.forEach((x, i) => { if (signed[i]) arrows.appendChild(el('line', { x1: 320, y1: 92, x2: x, y2: 125, class: 'd-ln mute', 'marker-end': 'url(#ah-mute)' })); });
+      return 1;
+    }
+    let n = 0;
+    XS.forEach((x, i) => {
+      if (!signed[i] || (only != null && only !== i)) return;
+      arrows.appendChild(el('line', { x1: 320, y1: 42, x2: x, y2: 125, class: 'k-ev', 'marker-end': 'url(#ah-ev)' }));
+      n++;
+    });
+    return n;
+  }
+  const buttons = XS.map((x, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Client ' + (i + 1);
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => {
+      signed[i] = !signed[i];
+      b.setAttribute('aria-pressed', signed[i] ? 'true' : 'false');
+      const m = draw();
+      if (signed[i]) {
+        arrowsFor('uni', i);
+        out.textContent = 'Client ' + (i + 1) + ' subscribed. Its initial events go to it alone, by unicast. ' +
+          (m === 'multi' ? 'Events now go by multicast.' : 'Events go by unicast, one message per subscriber.');
+      } else {
+        out.textContent = 'Client ' + (i + 1) + ' sent StopSubscribeEventgroup. ' + (m === 'none' ? 'No subscribers left.' : m === 'multi' ? 'Events stay on multicast.' : 'Events go by unicast, one message per subscriber.');
+      }
+    });
+    host.appendChild(b);
+    return b;
+  });
+  document.getElementById('send').addEventListener('click', () => {
+    const m = draw();
+    if (m === 'none') { out.textContent = 'No subscribers: the event is not sent at all.'; return; }
+    const n = arrowsFor(m);
+    out.textContent = count() + ' subscriber(s), multicast threshold ' + thr.value + ': ' + (m === 'multi' ? 'one Notification by multicast.' : n + ' Notification message' + (n === 1 ? '' : 's') + ' by unicast.');
+  });
+  thr.addEventListener('change', () => { draw(); out.textContent = 'Multicast threshold changed. Press "Send Notification · BrakeEvent".'; });
+  draw();
+  out.textContent = 'Subscribe a few clients, then press "Send Notification · BrakeEvent".';
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The multicast threshold is 3 and there are two subscribers. How are the events sent?',
+    options: ['By unicast to each of the two', 'Once by multicast to the group', 'Not at all until a third one'],
+    answer: 0,
+    why: 'Below the multicast threshold the server sends by unicast.'
+  },
+  {
+    prompt: 'How does a client learn the multicast address of the events?',
+    options: ['From the SubscribeEventgroupAck', 'From the OfferService entry', 'From a fixed list in its settings'],
+    answer: 0,
+    why: 'The SubscribeEventgroupAck references a Multicast option.'
+  },
+  {
+    prompt: 'Events go by multicast and a new client subscribes. How does it get the current field values?',
+    options: ['By unicast, just for this client', 'By multicast, to the whole group', 'It waits for the next change'],
+    answer: 0,
+    why: 'Initial events are always sent by unicast to the new subscriber.'
+  }
+]);
+</script>
+</body>
+</html>

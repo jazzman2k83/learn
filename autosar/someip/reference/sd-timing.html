@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Discovery timing · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">SOME/IP</p>
+<h1>Service Discovery timing</h1>
+<p class="lede">The <span class="term">Initial Wait Phase</span>, <span class="term">Repetition Phase</span> and <span class="term">Main Phase</span> of <span class="term">server</span> and <span class="term">client</span>, and every <span class="term">Sd</span> timer that shapes them, on one page.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 206" role="img" aria-labelledby="t1">
+<title id="t1">Server: Initial Wait Phase with a random wait, first OfferService, Repetition Phase with gaps of one, two and four times REPETITIONS_BASE_DELAY, Main Phase with an OfferService every CYCLIC_OFFER_DELAY. Client: Initial Wait Phase, first FindService, FindService with doubling gaps in the Repetition Phase, then Main Phase without FindService.</title>
+<text x="72" y="35" class="d-t d-r">Server</text>
+<rect x="80" y="20" width="120" height="22" class="d-box"/><text x="140" y="35" class="d-s d-c">Initial Wait Phase</text>
+<rect x="200" y="20" width="175" height="22" class="f-sd"/><text x="287" y="35" class="d-s d-c">Repetition Phase</text>
+<rect x="375" y="20" width="255" height="22" class="f-res"/><text x="502" y="35" class="d-s d-c">Main Phase · cyclic OfferService</text>
+<g class="tx-sd"><circle cx="200" cy="58" r="4.5"/><circle cx="225" cy="58" r="4.5"/><circle cx="275" cy="58" r="4.5"/><circle cx="375" cy="58" r="4.5"/><circle cx="495" cy="58" r="4.5"/><circle cx="615" cy="58" r="4.5"/></g>
+<text x="212" y="78" class="d-s d-c">1×</text><text x="250" y="78" class="d-s d-c">2×</text><text x="325" y="78" class="d-s d-c">4×</text><text x="495" y="78" class="d-s d-c">each gap: CYCLIC_OFFER_DELAY</text>
+<text x="72" y="117" class="d-t d-r">Client</text>
+<rect x="80" y="102" width="120" height="22" class="d-box"/><text x="140" y="117" class="d-s d-c">Initial Wait Phase</text>
+<rect x="200" y="102" width="175" height="22" class="f-sd"/><text x="287" y="117" class="d-s d-c">Repetition Phase</text>
+<rect x="375" y="102" width="255" height="22" class="f-res"/><text x="502" y="117" class="d-s d-c">Main Phase · no FindService</text>
+<g class="tx-sd"><rect x="195.5" y="135.5" width="9" height="9"/><rect x="220.5" y="135.5" width="9" height="9"/><rect x="270.5" y="135.5" width="9" height="9"/><rect x="370.5" y="135.5" width="9" height="9"/></g>
+<text x="212" y="160" class="d-s d-c">1×</text><text x="250" y="160" class="d-s d-c">2×</text><text x="325" y="160" class="d-s d-c">4×</text>
+<text x="10" y="184" class="d-s">circles: OfferService · squares: FindService · 1×, 2×, 4×: multiples of REPETITIONS_BASE_DELAY</text>
+<text x="10" y="200" class="d-s">any OfferService ends the client's FindService at once</text>
+</svg>
+</div>
+<figcaption><b>Timing at a glance.</b> Both sides follow the same shape: a random wait, repetitions with doubling gaps, then the Main Phase. Only the server keeps sending in the Main Phase.</figcaption>
+</figure>
+
+<h2>Server timers (SdServerTimer)</h2>
+<p>The <code class="term">SdServerTimer</code> container of an <code class="term">SdServerService</code>; the PRS constant each parameter sets is named in brackets.</p>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>Parameter</th><th>Effect</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>SdServerTimerInitialOfferDelayMin</code> / <code>…Max</code></td><td>random wait of the <span class="term">Initial Wait Phase</span> before the first <code class="term">OfferService</code> (<code class="term">INITIAL_DELAY_MIN</code> / <code>INITIAL_DELAY_MAX</code>)</td><td><a href="../lessons/0012-the-sd-phases.html">12</a></td></tr>
+<tr><td><code>SdServerTimerInitialOfferRepetitionBaseDelay</code></td><td>first gap of the <span class="term">Repetition Phase</span>; each gap doubles (<code class="term">REPETITIONS_BASE_DELAY</code>)</td><td><a href="../lessons/0012-the-sd-phases.html">12</a></td></tr>
+<tr><td><code>SdServerTimerInitialOfferRepetitionsMax</code></td><td>number of repeated OfferService entries; 0 skips the phase (<code class="term">REPETITIONS_MAX</code>)</td><td><a href="../lessons/0012-the-sd-phases.html">12</a></td></tr>
+<tr><td><code>SdServerTimerOfferCyclicDelay</code></td><td>period of the OfferService in the <span class="term">Main Phase</span>; 0 = no cyclic OfferService (<code class="term">CYCLIC_OFFER_DELAY</code>)</td><td><a href="../lessons/0012-the-sd-phases.html">12</a></td></tr>
+<tr><td><code>SdServerTimerRequestResponseMinDelay</code> / <code>…Max</code></td><td>random wait before answering a <span class="term">multicast</span> <code class="term">FindService</code> (<code class="term">REQUEST_RESPONSE_DELAY</code>)</td><td><a href="../lessons/0013-findservice.html">13</a></td></tr>
+<tr><td><code>SdServerTimerTTL</code></td><td><code class="term">TTL</code> of each OfferService, in seconds; <code>0xFFFFFF</code> = until the next reboot</td><td><a href="../lessons/0011-offerservice-and-the-ttl.html">11</a></td></tr>
+</tbody></table></div>
+
+<h2>Client timers (SdClientTimer)</h2>
+<p>The <code class="term">SdClientTimer</code> container of an <code class="term">SdClientService</code>.</p>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>Parameter</th><th>Effect</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>SdClientTimerInitialFindDelayMin</code> / <code>…Max</code></td><td>random wait of the <span class="term">Initial Wait Phase</span> before the first <code class="term">FindService</code></td><td><a href="../lessons/0013-findservice.html">13</a></td></tr>
+<tr><td><code>SdClientTimerInitialFindRepetitionsBaseDelay</code></td><td>first gap between FindService entries in the <span class="term">Repetition Phase</span>; each gap doubles</td><td><a href="../lessons/0013-findservice.html">13</a></td></tr>
+<tr><td><code>SdClientTimerInitialFindRepetitionsMax</code></td><td>number of repeated FindService entries</td><td><a href="../lessons/0013-findservice.html">13</a></td></tr>
+<tr><td><code>SdClientTimerRequestResponseMinDelay</code> / <code>…Max</code></td><td>random wait before the <code class="term">SubscribeEventgroup</code> in reply to a <span class="term">multicast</span> <code class="term">OfferService</code></td><td><a href="../lessons/0013-findservice.html">13</a></td></tr>
+<tr><td><code>SdClientTimerTTL</code></td><td><code class="term">TTL</code> of each FindService and SubscribeEventgroup</td><td><a href="../lessons/0014-subscribing-to-an-eventgroup.html">14</a></td></tr>
+<tr><td><code>SdSubscribeEventgroupRetryDelay</code> / <code>…RetryMax</code></td><td><span class="term">Subscribe retry</span>: SubscribeEventgroup again if neither <code class="term">SubscribeEventgroupAck</code> nor <code class="term">SubscribeEventgroupNack</code> arrived (needs <code>SdSubscribeEventgroupRetryEnable</code> in <code>SdGeneral</code>; <code>0xFF</code> = retry forever)</td><td><a href="../lessons/0014-subscribing-to-an-eventgroup.html">14</a></td></tr>
+</tbody></table></div>
+
+<h2>Reactions in each phase</h2>
+<div class="table-wrap"><table class="data">
+<thead><tr><th>Input</th><th>Server</th><th>Client</th></tr></thead>
+<tbody>
+<tr><td><code class="term">FindService</code> received</td><td><span class="term">Initial Wait Phase</span>: ignored · <span class="term">Repetition Phase</span> and <span class="term">Main Phase</span>: <code class="term">OfferService</code> (after the <code class="term">REQUEST_RESPONSE_DELAY</code> if the FindService was <span class="term">multicast</span>), repetition counter untouched</td><td>–</td></tr>
+<tr><td>OfferService received</td><td>–</td><td><span class="term">Not Requested</span>: noted with its <code class="term">TTL</code> · Initial Wait or Repetition Phase: no more FindService, on to the Main Phase · Main Phase: TTL renewed, <code class="term">SubscribeEventgroup</code> for each requested <span class="term">consumed eventgroup</span></td></tr>
+<tr><td><code class="term">StopOfferService</code> received</td><td>–</td><td>client service and consumed eventgroups <code class="term">DOWN</code>, <span class="term">socket connections</span> closed, no FindService</td></tr>
+<tr><td>TTL runs out</td><td>the subscription ends; the <span class="term">event handler</span> is <code class="term">RELEASED</code> if it was the last <span class="term">subscriber</span></td><td>client service DOWN, back to the Initial Wait Phase (FindService again)</td></tr>
+<tr><td><span class="term">BswM</span>: server service DOWN, client service RELEASED</td><td>StopOfferService (unless in the Initial Wait Phase), all subscriptions dropped</td><td><code class="term">StopSubscribeEventgroup</code>, client service and consumed eventgroups DOWN</td></tr>
+<tr><td>IP address lost (<code class="term">ifstatus</code> not <code>up_and_configured</code>)</td><td><span class="term">Not Ready</span>; event handlers RELEASED</td><td><code class="term">Requested_but_not_ready</code> if REQUESTED; client service and consumed eventgroups DOWN</td></tr>
+</tbody></table></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.6, 7.7 and 10.2.7–10.2.8; <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, section 4.1.4.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+</body>
+</html>

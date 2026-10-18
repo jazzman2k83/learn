@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Events · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Events</h1>
+<p class="lede">An <span class="term">event</span> is a one-way message from the <span class="term">server</span> to every <span class="term">client</span> that subscribed to its <span class="term">eventgroup</span>. Nobody answers it.</p>
+
+<h2>How an event travels</h2>
+<figure class="fig">
+<svg viewBox="0 0 640 190" role="img" aria-labelledby="f1t">
+<title id="f1t">The radar server sends a NOTIFICATION of BrakeEvent to two subscribers, the brake ECU and the display ECU, and none to the seat ECU, which is not subscribed. No message comes back.</title>
+<rect x="250" y="8" width="140" height="34" class="m-app"/><text x="320" y="29" class="d-t d-c">Radar (server)</text>
+<rect x="30" y="140" width="150" height="40" class="m-app"/><text x="105" y="158" class="d-t d-c">Brake ECU</text><text x="105" y="172" class="d-s d-c">subscriber</text>
+<rect x="245" y="140" width="150" height="40" class="m-app"/><text x="320" y="158" class="d-t d-c">Display ECU</text><text x="320" y="172" class="d-s d-c">subscriber</text>
+<rect x="460" y="140" width="150" height="40" class="d-box"/><text x="535" y="158" class="d-t d-c">Seat ECU</text><text x="535" y="172" class="d-s d-c">not subscribed</text>
+<line x1="290" y1="44" x2="120" y2="136" class="k-ev" marker-end="url(#ah-ev)"/>
+<line x1="320" y1="44" x2="320" y2="136" class="k-ev" marker-end="url(#ah-ev)"/>
+<text x="202" y="76" class="d-t d-r">NOTIFICATION · BrakeEvent</text>
+<text x="330" y="100" class="d-s">same NOTIFICATION</text>
+<text x="535" y="120" class="d-s d-c">receives nothing</text>
+</svg>
+<figcaption><b>Figure 1.</b> Arrows only point down: the event goes from the server to its subscribers, and nothing comes back. The seat ECU never sees the message.</figcaption>
+</figure>
+<p>On the wire an event travels with the <span class="term">Message Type</span> <code class="term">NOTIFICATION</code>. A receiver never sends a response and never sends an <code class="term">ERROR</code> back for an event, even if it cannot read it. Each client that receives it is a <span class="term">subscriber</span> (a client whose subscription to the eventgroup is currently accepted). Subscribing is the job of Service Discovery (lesson 14); this lesson only looks at the event itself.</p>
+
+<h2>When does the server send?</h2>
+<p><span class="term">SOME/IP</span> itself does not say when an event is sent. The specification names three common strategies:</p>
+<div class="cards">
+  <div class="card k-ev"><p class="tag">at a fixed period</p><h3>Cyclic update</h3><p>A <span class="term">cyclic update</span> (sent at a fixed period, changed or not) carries the current value, for example every 100 ms. Good for safety-related values the receiver watches.</p></div>
+  <div class="card k-ev"><p class="tag">on every change</p><h3>Update on change</h3><p>An <span class="term">update on change</span> (sent only when the value changes) goes out as soon as the value changes, for example "door opened".</p></div>
+  <div class="card k-ev"><p class="tag">on a large change</p><h3>Epsilon change</h3><p>An <span class="term">epsilon change</span> (sent only when the value changes by more than a set amount) skips the small steps since the last send.</p></div>
+</div>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="-30 0 670 190" role="img" aria-labelledby="f2t">
+<title id="f2t">Timing diagram over 12 seconds: a value line, and below it the send times for three strategies: cyclic update every second, update on change, and epsilon change for a change of more than 5.</title>
+<text x="112" y="62" class="d-t d-r">value</text>
+<path d="M120,90 H145 V86 H174.2 V84 H211.7 V60 H249.2 V58 H286.7 V56 H303.3 V30 H357.5 V28 H390.8 V50 H449.2 V48 H478.3 V46 H528.3 V90 H574.2 V88 H620" class="d-ln"/>
+<line x1="120" y1="96" x2="620" y2="96" class="d-tick"/>
+<text x="112" y="119" class="d-t d-r">cyclic update (1 s)</text>
+<line x1="120" y1="115" x2="620" y2="115" class="d-tick"/>
+<g class="tx-ev"><circle cx="161.7" cy="115" r="4.5"/><circle cx="203.3" cy="115" r="4.5"/><circle cx="245" cy="115" r="4.5"/><circle cx="286.7" cy="115" r="4.5"/><circle cx="328.3" cy="115" r="4.5"/><circle cx="370" cy="115" r="4.5"/><circle cx="411.7" cy="115" r="4.5"/><circle cx="453.3" cy="115" r="4.5"/><circle cx="495" cy="115" r="4.5"/><circle cx="536.7" cy="115" r="4.5"/><circle cx="578.3" cy="115" r="4.5"/></g>
+<text x="112" y="144" class="d-t d-r">update on change</text>
+<line x1="120" y1="140" x2="620" y2="140" class="d-tick"/>
+<g class="tx-ev"><circle cx="145" cy="140" r="4.5"/><circle cx="174.2" cy="140" r="4.5"/><circle cx="211.7" cy="140" r="4.5"/><circle cx="249.2" cy="140" r="4.5"/><circle cx="286.7" cy="140" r="4.5"/><circle cx="303.3" cy="140" r="4.5"/><circle cx="357.5" cy="140" r="4.5"/><circle cx="390.8" cy="140" r="4.5"/><circle cx="449.2" cy="140" r="4.5"/><circle cx="478.3" cy="140" r="4.5"/><circle cx="528.3" cy="140" r="4.5"/><circle cx="574.2" cy="140" r="4.5"/></g>
+<text x="112" y="169" class="d-t d-r">epsilon change (&gt; 5)</text>
+<line x1="120" y1="165" x2="620" y2="165" class="d-tick"/>
+<g class="tx-ev"><circle cx="211.7" cy="165" r="4.5"/><circle cx="303.3" cy="165" r="4.5"/><circle cx="390.8" cy="165" r="4.5"/><circle cx="528.3" cy="165" r="4.5"/></g>
+<text x="120" y="186" class="d-s">0 s</text><text x="620" y="186" class="d-s d-r">12 s</text>
+</svg>
+</div>
+<figcaption><b>Figure 2.</b> Same value, three strategies. Count the dots: 11 sends with the cyclic update, 12 with update on change, 4 with epsilon change. Epsilon change misses the small steps but catches every jump.</figcaption>
+</figure>
+<p>The receiver cannot tell which strategy the sender uses; a <code class="term">NOTIFICATION</code> looks the same either way. One server can even mix strategies for one event. In the Classic Platform the sending side decides, through when the <span class="term">SWC</span> writes the value and how the transmission of the <span class="term">PDU</span> is configured below the <span class="term">RTE</span>.</p>
+
+<h2>Optional: the Session ID of an event</h2>
+<p>An event has no client, so the <span class="term">Client ID</span> in the <span class="term">Request ID</span> is 0. With <span class="term">session handling</span> on, the <span class="term">Session ID</span> counts each <code class="term">NOTIFICATION</code>, so a receiver can spot gaps; with session handling off it stays 0 for this event.</p>
+
+<h2>Try it</h2>
+<p>The radar measures a distance that changes now and then. Choose a strategy, choose which clients are subscribed, and press "Start". You can change the subscriptions while the clock runs.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Sending strategy
+      <select id="habit">
+        <option value="cyclic">cyclic update: every second</option>
+        <option value="change" selected>update on change</option>
+        <option value="eps">epsilon change: more than 5</option>
+      </select>
+    </label>
+    <label class="inline"><input type="checkbox" id="subB" checked> Brake ECU subscribed</label>
+    <label class="inline"><input type="checkbox" id="subD"> Seat ECU subscribed</label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> The value lane is the same every run; only the NOTIFICATION lane changes with the strategy. A client that is not subscribed gets nothing, and a client that subscribes in the middle only gets events from then on: a plain <span class="term">event</span> does not repeat the old value for a new <span class="term">subscriber</span> (a <span class="term">field</span> does: its initial event, the current value sent once to a new subscriber, lesson 8).</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">subscriber</span></td><td>A client whose subscription to an eventgroup is currently accepted; it receives the events</td></tr>
+<tr><td><span class="term">cyclic update</span></td><td>An event sent at a fixed period, whether or not the value changed</td></tr>
+<tr><td><span class="term">update on change</span></td><td>An event sent only when the value changes</td></tr>
+<tr><td><span class="term">epsilon change</span></td><td>An event sent only when the value changes by more than a set amount</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.2.4 (notification events, sending strategies) and 4.2.6.2 (no error messages for events).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const CHANGES = [[0.6, 42], [1.3, 43], [2.2, 55], [3.1, 56], [4.0, 57], [4.4, 70], [5.7, 71], [6.5, 60], [7.9, 61], [8.6, 62], [9.8, 40], [10.9, 41]];
+  const habit = document.getElementById('habit');
+  const subB = document.getElementById('subB');
+  const subD = document.getElementById('subD');
+  const readout = document.getElementById('readout');
+  let value, lastSent, sends, gotB, gotD;
+  function deliver(text) {
+    sends++;
+    tl.mark('wire', text, 'k-ev');
+    if (subB.checked) { tl.mark('b', text, 'k-ev'); gotB++; }
+    if (subD.checked) { tl.mark('d', text, 'k-ev'); gotD++; }
+    readout.textContent = 'NOTIFICATION sent: ' + sends + '. Brake ECU received ' + gotB + ', seat ECU received ' + gotD + '.';
+  }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'value', label: 'Value at the radar' },
+      { id: 'wire', label: 'NOTIFICATION sent' },
+      { id: 'b', label: 'Brake ECU gets' },
+      { id: 'd', label: 'Seat ECU gets' }
+    ],
+    duration: 12,
+    axis: 2,
+    onTick(prev, now) {
+      for (const [t, v] of CHANGES) {
+        if (t > prev && t <= now) {
+          value = v;
+          tl.mark('value', String(v), 'tick');
+          if (habit.value === 'change') deliver(String(v));
+          if (habit.value === 'eps' && Math.abs(v - lastSent) > 5) { lastSent = v; deliver(String(v)); }
+        }
+      }
+      if (habit.value === 'cyclic' && Timeline.crossed(prev, now, 1) > 0 && now < 12) deliver(String(value));
+    },
+    onReset() {
+      value = 40; lastSent = 40; sends = 0; gotB = 0; gotD = 0;
+      readout.textContent = 'Start value 40. Press "Start".';
+    }
+  });
+  tl.buttons.append(Timeline.button('Start', () => { if (tl.finished()) tl.reset(); tl.start(); }, true));
+  habit.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A client cannot read an event it received. What does it send back?',
+    options: ['Nothing at all', 'An ERROR message', 'An empty RESPONSE'],
+    answer: 0,
+    why: 'No response and no ERROR is ever sent for an event.'
+  },
+  {
+    prompt: 'A client subscribes in the middle of a run to an eventgroup with a plain event. What does it get first?',
+    options: ['The next event that is sent', 'The current value at once', 'All events sent so far'],
+    answer: 0,
+    why: 'Plain events start with the next send. Only fields give a new subscriber the current value right away (initial event).'
+  },
+  {
+    prompt: 'How can a receiver tell whether an event was sent as cyclic update or update on change?',
+    options: ['It cannot tell from the message', 'The Message Type says which one', 'The Session ID shows the strategy'],
+    answer: 0,
+    why: 'The sending strategy is a choice of the sender. The NOTIFICATION looks the same either way.'
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The SOME/IP TP header · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem 1rem; margin-bottom: 0.9rem; }
+  .form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.68rem; color: var(--muted); }
+  .form-grid label.inline { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--ink); }
+  .form-grid input[type="number"], .form-grid select { width: 100%; }
+  table.data tr.picked td { background: var(--warn-soft); }
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The SOME/IP TP header</h1>
+<p class="lede">Every <span class="term">segment</span> of a segmented message carries the normal 16-byte <span class="term">SOME/IP header</span> plus the 4-byte <span class="term">SOME/IP TP header</span>: the <span class="term">Offset</span> where the segment starts in the original <span class="term">payload</span>, counted in units of 16 bytes, and the <span class="term">More Segments flag</span>, which says whether more segments follow.</p>
+
+<h2>Twenty bytes in front of each segment</h2>
+<p>A <span class="term">segment</span> repeats the <span class="term">SOME/IP header</span> of the original message with two changes, the <span class="term">Length</span> and the <span class="term">TP flag</span> in the <span class="term">Message Type</span>, and adds the <span class="term">SOME/IP TP header</span> right after it.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 230" role="img" aria-labelledby="f1t">
+<title id="f1t">A segment: the 16-byte SOME/IP header with the TP flag set in the Message Type, then the 32-bit SOME/IP TP header made of a 28-bit Offset, three reserved bits and the More Segments flag, then the segment payload.</title>
+<text x="40" y="16" class="d-s">bit 0</text><text x="180" y="16" class="d-s d-c">8</text><text x="320" y="16" class="d-s d-c">16</text><text x="460" y="16" class="d-s d-c">24</text><text x="600" y="16" class="d-s d-r">31</text>
+<text x="32" y="41" class="d-s d-r">0</text>
+<rect x="40" y="24" width="560" height="26" class="m-soad"/><text x="320" y="41" class="d-t d-c">Message ID (same as the original)</text>
+<text x="32" y="67" class="d-s d-r">4</text>
+<rect x="40" y="50" width="560" height="26" class="m-soad"/><text x="320" y="67" class="d-t d-c">Length = 8 + 4 + segment length</text>
+<text x="32" y="93" class="d-s d-r">8</text>
+<rect x="40" y="76" width="560" height="26" class="m-rte"/><text x="320" y="93" class="d-t d-c">Request ID (same as the original)</text>
+<text x="32" y="119" class="d-s d-r">12</text>
+<rect x="40" y="102" width="140" height="26" class="m-rte"/><text x="110" y="119" class="d-s d-c">Protocol Version</text>
+<rect x="180" y="102" width="140" height="26" class="m-rte"/><text x="250" y="119" class="d-s d-c">Interface Version</text>
+<rect x="320" y="102" width="140" height="26" class="m-tp"/><text x="390" y="119" class="d-s d-c">Message Type + 0x20</text>
+<rect x="460" y="102" width="140" height="26" class="m-rte"/><text x="530" y="119" class="d-s d-c">Return Code</text>
+<text x="32" y="145" class="d-s d-r">16</text>
+<rect x="40" y="128" width="490" height="26" class="m-tp"/><text x="285" y="145" class="d-t d-c">SOME/IP TP header: Offset · upper 28 bits (units of 16 bytes)</text>
+<rect x="530" y="128" width="52.5" height="26" class="m-tp"/><text x="556" y="145" class="d-s d-c">reserved</text>
+<rect x="582.5" y="128" width="17.5" height="26" class="m-tp"/><text x="591" y="145" class="d-s d-c">M</text>
+<text x="32" y="171" class="d-s d-r">20</text>
+<rect x="40" y="154" width="560" height="34" class="m-app"/><text x="320" y="175" class="d-t d-c">segment payload: a slice of the original payload</text>
+<text x="320" y="210" class="d-s d-c">M = More Segments flag: 1 on every segment except the last · reserved bits are 0 and ignored</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Message ID, Request ID, Protocol Version, Interface Version and Return Code are the same as in the original message. Only three things differ: the Length, the TP flag (0x20) in the Message Type, and the new orange row. All big-endian.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card m-tp"><p class="tag">Offset</p><h3>Units of 16 bytes</h3><p>The 32-bit word holds the byte offset with its lowest 4 bits used for flags, so offsets are always multiples of 16. <span class="term">Offset</span> value 87 means byte 87 × 16 = 1392 of the original <span class="term">payload</span>.</p></div>
+  <div class="card m-tp"><p class="tag">size</p><h3>At most 1392 bytes</h3><p>A <span class="term">UDP</span> SOME/IP payload is limited to 1400 bytes; minus the 4-byte SOME/IP TP header that leaves 1396, and the largest multiple of 16 below is 1392. Every segment except the last is a multiple of 16; all those segments are equally long.</p></div>
+  <div class="card m-tp"><p class="tag">same values</p><h3>One Session ID</h3><p><span class="term">Session handling</span> is on for segmented messages, and all segments of one original message carry its <span class="term">Session ID</span>, <span class="term">Message ID</span>, versions and <span class="term">Return Code</span>. The receiver uses them to know which segments belong together.</p></div>
+</div>
+
+<h2>The example of the specification</h2>
+<p>An original message with 5880 bytes of <span class="term">payload</span>, segmented into <span class="term">segments</span> of at most 1392 bytes:</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 120" role="img" aria-labelledby="f2t">
+<title id="f2t">5880 bytes segmented into five segments: four of 1392 bytes at Offset 0, 87, 174 and 261 in units of 16, with the More Segments flag 1, and a last segment of 312 bytes at Offset 348 with the More Segments flag 0.</title>
+<rect x="20" y="20" width="142" height="40" class="m-tp"/><text x="91" y="38" class="d-t d-c">1392</text><text x="91" y="53" class="d-s d-c">Offset 0 · M = 1</text>
+<rect x="162" y="20" width="142" height="40" class="m-tp"/><text x="233" y="38" class="d-t d-c">1392</text><text x="233" y="53" class="d-s d-c">Offset 87 · M = 1</text>
+<rect x="304" y="20" width="142" height="40" class="m-tp"/><text x="375" y="38" class="d-t d-c">1392</text><text x="375" y="53" class="d-s d-c">Offset 174 · M = 1</text>
+<rect x="446" y="20" width="142" height="40" class="m-tp"/><text x="517" y="38" class="d-t d-c">1392</text><text x="517" y="53" class="d-s d-c">Offset 261 · M = 1</text>
+<rect x="588" y="20" width="32" height="40" class="m-tp"/><text x="604" y="44" class="d-s d-c">312</text>
+<text x="620" y="76" class="d-s d-r">Offset 348 · M = 0</text>
+<text x="20" y="100" class="d-s">Length field of each full segment: 8 + 4 + 1392 = 1404 · of the last one: 8 + 4 + 312 = 324</text>
+</svg>
+</div>
+<figcaption><b>Figure 2.</b> Widths are to scale: four equal segments and a short last one. M is the More Segments flag. The Offset grows by 87 each time because 1392 / 16 = 87.</figcaption>
+</figure>
+<p class="small">The example in the R20-11 <span class="term">SOME/IP TP</span> module specification uses the same five offsets but quotes the payload as 5571 and later 5771 bytes; with 4 × 1392 + 312 the total is 5880, as in the protocol specification.</p>
+
+<h2>What the AUTOSAR module checks</h2>
+<p>The <span class="term">SOME/IP TP</span> module of the Classic Platform is deliberately simple: it does not put <span class="term">segments</span> back in order and does not ask for repeats. On reception it stops the current reassembly when a segment's <span class="term">Offset</span> does not match the bytes received so far, when the header values differ from the first segment, when a segment with the <span class="term">More Segments flag</span> 1 is not a multiple of 16 bytes, or when its receive timeout runs out. A segment with an Offset greater than 0 and no reassembly running is ignored. The upper layer (<span class="term">PduR</span>) is told about the first segment with an unknown total length and gets the rest segment by segment.</p>
+
+<h2>Try it</h2>
+<p>Pick a payload size and a largest segment size. Click a row to see that segment's 20 header bytes. Then choose what the network does with the segments.</p>
+<div class="panel no-print">
+  <div class="form-grid">
+    <label>Original payload (bytes)<input type="number" id="size" value="5880" min="1" max="100000"></label>
+    <label>Largest segment<select id="max"><option value="1392">1392 (UDP limit)</option><option value="1024">1024</option><option value="500">500 (not a multiple of 16)</option></select></label>
+    <label>Original Message Type<select id="mt"><option value="2">0x02 NOTIFICATION</option><option value="0">0x00 REQUEST</option><option value="128">0x80 RESPONSE</option></select></label>
+    <label>The network<select id="net"><option value="ok">delivers all in order</option><option value="lose">loses segment 2</option><option value="swap">swaps segments 2 and 3</option><option value="first">loses the first segment</option></select></label>
+  </div>
+  <div class="buttons-row"><button type="button" class="primary" id="go">Segment and send</button></div>
+  <div class="table-wrap"><table class="data" id="segs"><thead><tr><th>#</th><th>Byte offset</th><th>Offset</th><th>More Segments</th><th>Segment</th><th>Length</th><th>SOME/IP TP header</th></tr></thead><tbody></tbody></table></div>
+  <div id="bytes"></div>
+  <p class="readout" id="out" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With "500" the sender cannot use 500: <span class="term">segments</span> must be multiples of 16, so it uses 496. The <span class="term">SOME/IP TP header</span> of segment 2 of the example is <code>00 00 05 71</code>: 0x570 = 1392 bytes, plus the <span class="term">More Segments flag</span>. Swapping two segments is enough to make the AUTOSAR receiver give up, although every byte arrived.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, section 4.2.1.4; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransportProtocol.pdf">SOME/IP Transport Protocol, R20-11</a>, chapters 4 and 7.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/bytes.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const tbody = document.querySelector('#segs tbody');
+  const view = Bytes.create($('bytes'), { perRow: 4, fields: [] });
+  let segs = [];
+  function header(s, mt) {
+    const word = (s.off | (s.more ? 1 : 0)) >>> 0;
+    return [
+      { name: 'Message ID', bytes: [0x12, 0x34, 0x80, 0x02], cls: 'm-soad', info: 'Same as the original message.' },
+      { name: 'Length', bytes: Bytes.u32(8 + 4 + s.len), cls: 'm-soad', info: '8 + 4 (SOME/IP TP header) + ' + s.len + ' = ' + (12 + s.len) + '.' },
+      { name: 'Request ID', bytes: [0x00, 0x00, 0x00, 0x07], cls: 'm-rte', info: 'Same for all segments; session handling is on for TP.' },
+      { name: 'Protocol Version, Interface Version', bytes: [0x01, 0x01], cls: 'm-rte', info: 'Same as the original.' },
+      { name: 'Message Type', bytes: [mt | 0x20], cls: 'm-tp', info: Bytes.h(mt) + ' with the TP flag 0x20 → ' + Bytes.h(mt | 0x20) + '.' },
+      { name: 'Return Code', bytes: [0x00], cls: 'm-rte', info: 'Same as the original.' },
+      { name: 'SOME/IP TP header', bytes: Bytes.u32(word), cls: 'm-tp', info: 'Offset ' + (s.off / 16) + ' (= byte ' + s.off + '), reserved 000, More Segments flag ' + (s.more ? 1 : 0) + '. As a 32-bit word: ' + Bytes.h(word, 8) + '.' }
+    ];
+  }
+  function go() {
+    const size = Math.round(Number($('size').value));
+    if (!(size >= 1 && size <= 100000)) { $('out').textContent = 'Payload size 1–100000 bytes.'; return; }
+    const maxSel = Number($('max').value);
+    const max = Math.floor(maxSel / 16) * 16;
+    const mt = Number($('mt').value);
+    segs = [];
+    for (let off = 0; off < size; off += max) segs.push({ off, len: Math.min(max, size - off), more: off + max < size });
+    tbody.replaceChildren();
+    segs.forEach((s, i) => {
+      const tr = document.createElement('tr');
+      const word = (s.off | (s.more ? 1 : 0)) >>> 0;
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + s.off + '</td><td>' + (s.off / 16) + '</td><td>' + (s.more ? 1 : 0) + '</td><td>' + s.len + '</td><td>' + (12 + s.len) + '</td><td><code>' + Bytes.hex(Bytes.u32(word)) + '</code></td>';
+      tr.tabIndex = 0;
+      tr.style.cursor = 'pointer';
+      const pick = () => { [...tbody.children].forEach((r) => r.classList.toggle('picked', r === tr)); view.set(header(s, mt)); };
+      tr.addEventListener('click', pick);
+      tr.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
+      tbody.appendChild(tr);
+    });
+    if (tbody.children.length) tbody.children[Math.min(1, segs.length - 1)].click();
+    // receiver
+    let order = segs.map((s, i) => i);
+    const net = $('net').value;
+    if (net === 'lose' && segs.length > 1) order = order.filter((i) => i !== 1);
+    if (net === 'swap' && segs.length > 2) order = [0, 2, 1, ...order.slice(3)];
+    if (net === 'first') order = order.filter((i) => i !== 0);
+    let got = 0, running = false, msg = '';
+    for (const i of order) {
+      const s = segs[i];
+      if (s.off === 0) { running = true; got = s.len; if (!s.more) { msg = 'Single segment, delivered.'; running = false; break; } continue; }
+      if (!running) { msg = 'Segment ' + (i + 1) + ' (Offset ' + (s.off / 16) + ') arrives with no reassembly running: ignored (inconsistent sequence). Nothing is delivered.'; break; }
+      if (s.off !== got) { msg = 'Segment ' + (i + 1) + ' has Offset ' + (s.off / 16) + ' but ' + got + ' bytes = ' + (got / 16) + ' units were received: reassembly interrupted, the upper layer is told "not OK".'; running = false; break; }
+      got += s.len;
+      if (!s.more) { msg = 'All ' + segs.length + ' segments in order: ' + got + ' bytes reassembled, TP flag cleared, delivered upward.'; running = false; break; }
+    }
+    if (!msg) msg = running ? 'The last segment never comes: the receive timeout ends the reassembly.' : 'Nothing delivered.';
+    $('out').textContent = (max !== maxSel ? 'Largest segment ' + maxSel + ' is not a multiple of 16: the sender uses ' + max + '. ' : '') + segs.length + ' segment(s). Receiver: ' + msg;
+  }
+  $('go').addEventListener('click', go);
+  ['size', 'max', 'mt', 'net'].forEach((id) => $(id).addEventListener('change', go));
+  go();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The Offset field of a segment holds 174. Where does the segment start in the original payload?',
+    options: ['At byte 2784 (174 × 16)', 'At byte 174 of the payload', 'At byte 1392 of the payload'],
+    answer: 0,
+    why: 'The offset is counted in units of 16 bytes.'
+  },
+  {
+    prompt: 'Why is the largest segment 1392 bytes and not 1396?',
+    options: ['Segments must be multiples of 16', 'The UDP header needs 4 bytes', 'The TP header is 8 bytes long'],
+    answer: 0,
+    why: '1400 − 4 = 1396, and the largest multiple of 16 not above it is 1392.'
+  },
+  {
+    prompt: 'What does the AUTOSAR SOME/IP TP receiver do when segments 2 and 3 arrive swapped?',
+    options: ['Stops the reassembly', 'Sorts them by offset', 'Asks for a resend'],
+    answer: 0,
+    why: 'The module does not reorder: the offset does not match the bytes received so far, so it interrupts.'
+  }
+]);
+</script>
+</body>
+</html>

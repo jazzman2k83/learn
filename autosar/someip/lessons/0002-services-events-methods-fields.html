@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Services: events, methods and fields · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Services: events, methods and fields</h1>
+<p class="lede">A service is a set of three kinds of things: events the server sends, methods the server answers, and fields whose values the server keeps.</p>
+
+<h2>Three kinds of parts</h2>
+<p>A <span class="term">service</span> (a set of events, methods and fields that belong together) is described by a <span class="term">service interface</span> (the description of its events, methods and fields with their data types and its version). The running example of this course is a radar service. A radar ECU is its <span class="term">server</span>; a brake ECU is a <span class="term">client</span>. The example follows the one in the AUTOSAR System Template.</p>
+<div class="cards">
+  <div class="card k-ev"><p class="tag">server → clients</p><h3>Events</h3><p>An <span class="term">event</span> (a message the server sends on its own, without being asked) says that something happened or a value changed. Example: <em>BrakeEvent</em>, "obstacle ahead, brake".</p></div>
+  <div class="card k-req"><p class="tag">client → server, maybe back</p><h3>Methods</h3><p>A <span class="term">method</span> (a function of the server that a client calls) comes in two kinds. <span class="term">Request/response</span> (the client sends a request and gets a response): <em>Calibrate</em>, <em>Adjust</em>. <span class="term">Fire&amp;forget</span> (the client sends a request and nothing comes back): <em>Reset</em>, <em>LogCurrentState</em>.</p></div>
+  <div class="card k-res"><p class="tag">kept by the server</p><h3>Fields</h3><p>A <span class="term">field</span> (a value the server owns) always has a value. It has up to three parts: a <span class="term">getter</span> (clients read the value), a <span class="term">setter</span> (clients change it) and a <span class="term">notifier</span> (an event sent when the value changes). Example: <em>UpdateRate</em>.</p></div>
+</div>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f1t">
+<title id="f1t">The radar service, Service ID 0x1234, major version 1: the event BrakeEvent, the request/response methods Calibrate and Adjust, the fire&amp;forget methods Reset and LogCurrentState, and the field UpdateRate with getter, setter and notifier. BrakeEvent and the notifier of UpdateRate are in Eventgroup 1.</title>
+<rect x="10" y="10" width="620" height="230" class="d-ecu"/>
+<text x="24" y="32" class="d-tb">Radar service</text>
+<text x="24" y="48" class="d-s">Service ID 0x1234 · major version 1</text>
+<rect x="24" y="64" width="190" height="160" class="d-frame"/>
+<text x="34" y="82" class="d-t">Eventgroup 1</text>
+<rect x="36" y="92" width="166" height="40" class="f-ev"/>
+<text x="119" y="110" class="d-t d-c">BrakeEvent</text>
+<text x="119" y="124" class="d-s d-c">event</text>
+<rect x="36" y="168" width="166" height="40" class="f-ev"/>
+<text x="119" y="186" class="d-t d-c">UpdateRate notifier</text>
+<text x="119" y="200" class="d-s d-c">event of the field</text>
+<rect x="240" y="64" width="180" height="40" class="f-req"/>
+<text x="330" y="82" class="d-t d-c">Calibrate</text>
+<text x="330" y="96" class="d-s d-c">method · request/response</text>
+<rect x="240" y="112" width="180" height="40" class="f-req"/>
+<text x="330" y="130" class="d-t d-c">Adjust</text>
+<text x="330" y="144" class="d-s d-c">method · request/response</text>
+<rect x="240" y="168" width="180" height="40" class="f-req" stroke-dasharray="5 4"/>
+<text x="330" y="186" class="d-t d-c">Reset, LogCurrentState</text>
+<text x="330" y="200" class="d-s d-c">methods · fire&amp;forget</text>
+<rect x="446" y="64" width="170" height="144" class="f-res"/>
+<text x="531" y="84" class="d-tb d-c">UpdateRate</text>
+<text x="531" y="99" class="d-s d-c">field</text>
+<text x="531" y="122" class="d-t d-c">getter</text>
+<text x="531" y="134" class="d-s d-c">reads the value</text>
+<text x="531" y="154" class="d-t d-c">setter</text>
+<text x="531" y="166" class="d-s d-c">changes the value</text>
+<text x="531" y="186" class="d-t d-c">notifier</text>
+<text x="531" y="198" class="d-s d-c">event when it changes</text>
+<path d="M531,208 V230 H119 V211" class="d-ln dash" marker-end="url(#ah)"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> One service with events, methods and a field. Note the dashed arrow: the notifier of the field is an event, so it sits in an eventgroup next to the plain event.</figcaption>
+</figure>
+
+<h2>IDs, not names</h2>
+<p>On the wire nobody sends names. The service has a <span class="term">Service ID</span> (a 16-bit number, here 0x1234), and every method has a <span class="term">Method ID</span> and every event an <span class="term">Event ID</span> (16-bit numbers within the service). Method IDs come from the lower half of the range and Event IDs from the upper half, so a receiver sees at once which kind it is.</p>
+<p>The service interface also has a version. The <span class="term">major version</span> (the part that must match exactly between server and client) changes when old clients will not understand the server any more. The <span class="term">minor version</span> (the compatible part) changes for compatible extensions.</p>
+
+<h2>Events come in eventgroups</h2>
+<p>A <span class="term">client</span> does not subscribe to single events. It subscribes to an <span class="term">eventgroup</span> (a set of events and fields of one service that the server publishes together), identified by an <span class="term">Eventgroup ID</span> (a 16-bit number within the service). Every event belongs to at least one eventgroup, and an eventgroup is never empty. The notifier of a <span class="term">field</span> is an event, so it also lives in an eventgroup.</p>
+
+<h2>Service instances</h2>
+<p>A car can have the same service more than once: a front radar and a rear radar both offer the radar service. Each is a <span class="term">service instance</span> (one running copy of the service) with its own <span class="term">Instance ID</span> (a 16-bit number that tells apart instances of the same service). Clients pick the instance they want when they look for it.</p>
+<figure class="fig">
+<svg viewBox="0 0 640 130" role="img" aria-labelledby="f2t">
+<title id="f2t">Two radar ECUs each offer one instance of the radar service, Instance ID 1 and Instance ID 2. The brake ECU is a client of instance 1 and is itself the server of a different service, the brake service.</title>
+<rect x="10" y="20" width="180" height="90" class="d-ecu"/>
+<text x="100" y="40" class="d-tb d-c">Front radar ECU</text>
+<rect x="30" y="54" width="140" height="40" class="m-app"/>
+<text x="100" y="72" class="d-t d-c">Radar service</text>
+<text x="100" y="87" class="d-s d-c">Instance ID 1 · server</text>
+<rect x="230" y="20" width="180" height="90" class="d-ecu"/>
+<text x="320" y="40" class="d-tb d-c">Rear radar ECU</text>
+<rect x="250" y="54" width="140" height="40" class="m-app"/>
+<text x="320" y="72" class="d-t d-c">Radar service</text>
+<text x="320" y="87" class="d-s d-c">Instance ID 2 · server</text>
+<rect x="450" y="6" width="180" height="118" class="d-ecu"/>
+<text x="540" y="24" class="d-tb d-c">Brake ECU</text>
+<rect x="470" y="32" width="140" height="40" class="d-box"/>
+<text x="540" y="50" class="d-t d-c">Radar service</text>
+<text x="540" y="65" class="d-s d-c">Instance ID 1 · client</text>
+<rect x="470" y="78" width="140" height="40" class="m-app"/>
+<text x="540" y="96" class="d-t d-c">Brake service</text>
+<text x="540" y="111" class="d-s d-c">server</text>
+</svg>
+<figcaption><b>Figure 2.</b> Server and client are roles per service instance, not per ECU. The brake ECU is a client of radar instance 1 and, at the same time, the server of its own brake service.</figcaption>
+</figure>
+<p>The Instance ID appears when servers and clients find each other in Service Discovery (part 3). It is not repeated in every message: once found, the server's IP address and port tell the instances apart.</p>
+
+<h2>How the Classic Platform writes it down</h2>
+<p>The Classic Platform has no single "service" element. A <span class="term">service</span> is put together from ordinary port interfaces and grouped in a collection:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Part of the service</th><th>Written down as</th></tr></thead>
+<tbody>
+<tr><td>Event</td><td>A data element of a sender-receiver interface</td></tr>
+<tr><td>Method, request/response</td><td>An operation of a client-server interface</td></tr>
+<tr><td>Method, fire&amp;forget, with data</td><td>A data element of a sender-receiver interface (the client sends, the server receives)</td></tr>
+<tr><td>Method, fire&amp;forget, without data</td><td>A trigger of a trigger interface</td></tr>
+<tr><td>Field: notifier, getter, setter</td><td>A data element for the notifier, plus a client-server operation each for getter and setter</td></tr>
+</tbody>
+</table>
+</div>
+<p>So an <span class="term">SWC</span> (software component: the application software above the RTE) that uses SOME/IP still calls the usual RTE functions: write and read for events, call for methods. It does not see SOME/IP at all.</p>
+
+<h2>Try it</h2>
+<p>Here are five things the radar service does. Decide for each which kind of part it is. The figure above uses the same names.</p>
+<div class="panel no-print" id="sort"></div>
+<div class="note">
+<p><strong>Things to notice.</strong> Two questions sort every part: who starts it (server or client), and does a response come back? A <span class="term">field</span> is the only part that combines all directions: getter and setter go client to server and back, its notifier goes server to clients.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">service</span></td><td>A set of events, methods and fields that belong together</td></tr>
+<tr><td><span class="term">service interface</span></td><td>The description of a service: its events, methods, fields, data types and version</td></tr>
+<tr><td><span class="term">service instance</span></td><td>One running copy of a service, offered by one server</td></tr>
+<tr><td><span class="term">Service ID</span></td><td>16-bit number that identifies a service</td></tr>
+<tr><td><span class="term">Instance ID</span></td><td>16-bit number that tells apart instances of the same service; used in Service Discovery</td></tr>
+<tr><td><span class="term">event</span></td><td>A message the server sends on its own: something happened or a value changed</td></tr>
+<tr><td><span class="term">method</span></td><td>A function of the server that a client calls</td></tr>
+<tr><td><span class="term">request/response</span></td><td>A method call with a response</td></tr>
+<tr><td><span class="term">fire&amp;forget</span></td><td>A method call without a response</td></tr>
+<tr><td><span class="term">field</span></td><td>A value the server owns, with getter, setter and notifier</td></tr>
+<tr><td><span class="term">getter</span>, <span class="term">setter</span>, <span class="term">notifier</span></td><td>Read the value; change the value; an event sent when the value changes</td></tr>
+<tr><td><span class="term">eventgroup</span></td><td>A set of events and fields that clients subscribe to together</td></tr>
+<tr><td><span class="term">Eventgroup ID</span></td><td>16-bit number that identifies an eventgroup within a service</td></tr>
+<tr><td><span class="term">Method ID</span>, <span class="term">Event ID</span></td><td>16-bit numbers of a method or event within a service; Event IDs have the highest bit set</td></tr>
+<tr><td><span class="term">major version</span></td><td>The version part that must match exactly between server and client</td></tr>
+<tr><td><span class="term">minor version</span></td><td>The compatible version part</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, chapter 3 (terms) and sections 4.1.2.2, 4.1.2.3 and 4.2.1.3; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_TPS_SystemTemplate.pdf">System Template, R20-11</a>, section 10.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const KINDS = [
+    { id: 'event', label: 'Event' },
+    { id: 'rr', label: 'Method: request/response' },
+    { id: 'ff', label: 'Method: fire&forget' },
+    { id: 'field', label: 'Field' }
+  ];
+  const ITEMS = [
+    { name: 'BrakeEvent', text: 'The radar tells every subscribed client: obstacle ahead, brake now.', kind: 'event',
+      why: 'The server starts it and no response comes back: an event.' },
+    { name: 'Calibrate', text: 'The brake ECU asks the radar to calibrate and waits for "done" or "failed".', kind: 'rr',
+      why: 'The client starts it and waits for the result: a request/response method.' },
+    { name: 'Reset', text: 'The brake ECU tells the radar to reset. Nothing comes back.', kind: 'ff',
+      why: 'The client starts it and expects nothing back: a fire&forget method.' },
+    { name: 'UpdateRate', text: 'How often the radar measures. Clients can read it, change it, and are told when it changes.', kind: 'field',
+      why: 'It always has a value, with getter, setter and notifier: a field.' },
+    { name: 'Adjust', text: 'The brake ECU sends new mounting angles; the radar replies with the angles it accepted.', kind: 'rr',
+      why: 'Data goes to the server and a result comes back: a request/response method.' }
+  ];
+  const host = document.getElementById('sort');
+  let right = 0, done = 0;
+  const score = document.createElement('p');
+  score.className = 'feedback';
+  ITEMS.forEach((it) => {
+    const box = document.createElement('div');
+    box.style.margin = '0 0 1rem';
+    const p = document.createElement('p');
+    p.innerHTML = '<strong>' + it.name + '.</strong> ' + it.text;
+    p.style.margin = '0 0 0.4rem';
+    const row = document.createElement('div');
+    row.className = 'chips';
+    row.style.margin = '0';
+    const fb = document.createElement('p');
+    fb.className = 'feedback';
+    fb.setAttribute('aria-live', 'polite');
+    const buttons = KINDS.map((k) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = k.label;
+      b.addEventListener('click', () => {
+        const ok = k.id === it.kind;
+        buttons.forEach((x) => { x.disabled = true; });
+        b.setAttribute('aria-pressed', 'true');
+        fb.className = 'feedback ' + (ok ? 'good' : 'bad');
+        fb.textContent = (ok ? 'Right. ' : 'Not quite: it is "' + KINDS.find((x) => x.id === it.kind).label + '". ') + it.why;
+        done++; if (ok) right++;
+        score.textContent = right + ' of ' + done + ' right' + (done === ITEMS.length ? '. Done.' : '.');
+      });
+      row.appendChild(b);
+      return b;
+    });
+    box.append(p, row, fb);
+    host.appendChild(box);
+  });
+  const again = document.createElement('button');
+  again.type = 'button';
+  again.textContent = 'Start again';
+  again.addEventListener('click', () => {
+    right = 0; done = 0; score.textContent = '';
+    host.querySelectorAll('.chips button').forEach((b) => { b.disabled = false; b.removeAttribute('aria-pressed'); });
+    host.querySelectorAll('.feedback').forEach((f) => { if (f !== score) { f.textContent = ''; f.className = 'feedback'; } });
+  });
+  host.append(score, again);
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A client wants the events of a service. What does it subscribe to?',
+    options: ['An eventgroup of that service', 'Each single event by its name', 'The whole service with methods'],
+    answer: 0,
+    why: 'Clients subscribe to eventgroups. Every event is in at least one eventgroup.'
+  },
+  {
+    prompt: 'Two radars offer the same radar service. What tells the two instances apart?',
+    options: ['Instance ID and IP address', 'A different Service ID each', 'The names of their events'],
+    answer: 0,
+    why: 'Both use the same Service ID. The Instance ID is used when finding them; after that the IP address and port tell them apart.'
+  },
+  {
+    prompt: 'How is an event of a service written down in the Classic Platform?',
+    options: ['As a data element of a sender-receiver interface', 'As an operation of a client-server interface', 'As a special SOME/IP port of the component'],
+    answer: 0,
+    why: 'An event is a sender-receiver data element. Request/response methods are client-server operations.'
+  }
+]);
+</script>
+</body>
+</html>

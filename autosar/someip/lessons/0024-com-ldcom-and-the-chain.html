@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COM, LdCom and the transformer chain · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>COM, LdCom and the transformer chain</h1>
+<p class="lede">Between the <span class="term">RTE</span> and the <span class="term">PDU Router</span>, SOME/IP data is just one byte array. The RTE may run more than one <span class="term">transformer</span> to build it, and either <span class="term">COM</span> or the leaner <span class="term">LdCom</span> carries it on.</p>
+
+<h2>A chain of transformers</h2>
+<p>The <span class="term">SOME/IP transformer</span> is not always alone. The <span class="term">RTE</span> can run a <span class="term">transformer chain</span> (several transformers run one after the other on the data of one communication): the first one does the <span class="term">serialization</span> into bytes, the next ones work on those bytes. A common second transformer is the <span class="term">E2E transformer</span> (end-to-end protection: it adds a check value and a counter so the receiver can detect corrupted, lost or repeated data).</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 210" role="img" aria-labelledby="f1t">
+<title id="f1t">Sending: the SWC's value goes to the SOME/IP transformer, which produces the SOME/IP header from the Request ID on plus the payload; the E2E transformer adds an E2E header between SOME/IP header and payload; COM or LdCom carries the result. Receiving runs the transformer chain in reverse: E2E check first, then SOME/IP deserialization.</title>
+<text x="10" y="18" class="d-tb">sending: in chain order</text>
+<rect x="10" y="28" width="100" height="40" class="m-app"/><text x="60" y="45" class="d-t d-c">SWC</text><text x="60" y="60" class="d-s d-c">value</text>
+<rect x="150" y="28" width="130" height="40" class="m-rte"/><text x="215" y="45" class="d-t d-c">SOME/IP</text><text x="215" y="60" class="d-s d-c">1st: serializes</text>
+<rect x="320" y="28" width="130" height="40" class="m-rte"/><text x="385" y="45" class="d-t d-c">E2E</text><text x="385" y="60" class="d-s d-c">2nd: protects</text>
+<rect x="490" y="28" width="130" height="40" class="m-com"/><text x="555" y="45" class="d-t d-c">COM or LdCom</text><text x="555" y="60" class="d-s d-c">one byte array</text>
+<line x1="112" y1="48" x2="148" y2="48" class="d-ln" marker-end="url(#ah)"/>
+<line x1="282" y1="48" x2="318" y2="48" class="d-ln" marker-end="url(#ah)"/>
+<line x1="452" y1="48" x2="488" y2="48" class="d-ln" marker-end="url(#ah)"/>
+<text x="10" y="102" class="d-tb">receiving: in reverse order</text>
+<rect x="10" y="112" width="100" height="40" class="m-app"/><text x="60" y="129" class="d-t d-c">SWC</text><text x="60" y="144" class="d-s d-c">value</text>
+<rect x="150" y="112" width="130" height="40" class="m-rte"/><text x="215" y="129" class="d-t d-c">SOME/IP</text><text x="215" y="144" class="d-s d-c">2nd: deserializes</text>
+<rect x="320" y="112" width="130" height="40" class="m-rte"/><text x="385" y="129" class="d-t d-c">E2E</text><text x="385" y="144" class="d-s d-c">1st: checks</text>
+<rect x="490" y="112" width="130" height="40" class="m-com"/><text x="555" y="129" class="d-t d-c">COM or LdCom</text><text x="555" y="144" class="d-s d-c">one byte array</text>
+<line x1="148" y1="132" x2="112" y2="132" class="d-ln" marker-end="url(#ah)"/>
+<line x1="318" y1="132" x2="282" y2="132" class="d-ln" marker-end="url(#ah)"/>
+<line x1="488" y1="132" x2="452" y2="132" class="d-ln" marker-end="url(#ah)"/>
+<rect x="150" y="174" width="120" height="26" class="m-rte"/><text x="210" y="191" class="d-s d-c">SOME/IP header</text>
+<rect x="270" y="174" width="100" height="26" class="d-ok"/><text x="320" y="191" class="d-s d-c">E2E header</text>
+<rect x="370" y="174" width="250" height="26" class="m-app"/><text x="495" y="191" class="d-s d-c">payload</text>
+<text x="10" y="191" class="d-s">the byte array</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Follow the arrows: left to right when sending, right to left when receiving, so the last transformer applied is the first one undone. The bottom row shows where the E2E header sits by default: right after the SOME/IP header (from the Request ID on; SoAd adds the Message ID and the Length later), before the payload.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card m-rte"><p class="tag">rule 1</p><h3>SOME/IP comes first</h3><p>The SOME/IP transformer turns structured data into bytes, so it must be the first transformer when sending and the last when receiving. All later transformers take bytes in and give bytes out.</p></div>
+  <div class="card m-rte"><p class="tag">rule 2</p><h3>The RTE runs the chain</h3><p>It calls each transformer in order with buffers it provides, inside the RTE call of the <span class="term">SWC</span> (or around the runnable for implicit access). A hard transformer error in any of them stops the data from being delivered.</p></div>
+  <div class="card m-rte"><p class="tag">alternative</p><h3>COM Based Transformer</h3><p>For small signal-oriented networks there is a different first transformer, the <span class="term">COM Based Transformer</span> (it serializes data exactly like COM would lay out its signals). It cannot be used for methods; SOME/IP services use the SOME/IP transformer.</p></div>
+</div>
+
+<h2>COM or LdCom</h2>
+<p>Whatever the <span class="term">transformer chain</span> produced is handed down as one byte-array signal (<code class="term">UINT8_N</code> or <code class="term">UINT8_DYN</code>), the only signal in its <span class="term">I-PDU</span>. Two modules can carry it: <span class="term">COM</span> and <span class="term">LdCom</span>.</p>
+<div class="table-wrap">
+<table class="data compare">
+<thead><tr><th></th><th>COM</th><th>LdCom</th></tr></thead>
+<tbody>
+<tr><td>What it carries</td><td>A UINT8_N (fixed length) or UINT8_DYN (dynamic length) signal</td><td>Exactly one signal per I-PDU, fixed or dynamic length</td></tr>
+<tr><td>Extras</td><td>All COM features: transmission modes, repetitions, deadline monitoring, filters, update bits, …</td><td>None: no transmission modes, no deadline monitoring, no filters, no endianness conversion; it never starts a transmission on its own</td></tr>
+<tr><td>Data buffer</td><td>Kept in COM's own buffer</td><td>No buffer of its own; it passes calls straight through between the RTE and the PDU Router</td></tr>
+<tr><td>Large I-PDUs</td><td>Through the normal (IF) path or the transport protocol (TP) path</td><td>Through the normal (IF) path or the transport protocol (TP) path</td></tr>
+</tbody>
+</table>
+</div>
+<p>Which one is used follows from the system description: if the signal's I-PDU is handled by LdCom, the RTE talks to LdCom; otherwise to COM. During a transmission through the TP path, the RTE locks the data until the transmission is confirmed; a second write in that time is refused as "busy".</p>
+
+<h2>Try it</h2>
+<p>Build a transformer chain and pick COM or LdCom. The panel lists what happens on a transmission, one module call after the other.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label class="inline"><input type="checkbox" id="e2e"> add the E2E transformer</label>
+    <label>Module below the RTE
+      <select id="carrier">
+        <option value="com">COM</option>
+        <option value="ldcom">LdCom</option>
+      </select>
+    </label>
+    <label>I-PDU size
+      <select id="big">
+        <option value="no">normal (IF path)</option>
+        <option value="yes">large (TP path)</option>
+      </select>
+    </label>
+  </div>
+  <div class="pkt" id="arr"></div>
+  <ol class="log" id="steps" style="list-style:decimal;padding-left:1.6rem"></ol>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Adding the <span class="term">E2E transformer</span> adds one more step on each side and one more header in the byte array, but nothing changes below the <span class="term">RTE</span>: <span class="term">COM</span> or <span class="term">LdCom</span> still see one byte array. With LdCom and the TP path, the data stays with the RTE and is copied out part by part, which is why the RTE must lock it until the transmission is confirmed.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">transformer chain</span></td><td>The transformers the RTE runs one after the other on the data of one communication, for example SOME/IP then E2E</td></tr>
+<tr><td><span class="term">E2E transformer</span></td><td>Transformer for end-to-end protection: adds a check value and a counter so the receiver detects corrupted, lost or repeated data</td></tr>
+<tr><td><span class="term">COM Based Transformer</span></td><td>An alternative first transformer that lays data out like COM signals; not for methods</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_RTE.pdf">RTE, R20-11</a>, sections 4.3.1.16 and 4.10; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_LargeDataCOM.pdf">Large Data COM, R20-11</a>, chapters 1, 4 and 7; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, chapter 7; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R20-11</a> (data transformation examples); <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol, R20-11</a>, section 4.1.2 (position of the E2E header).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const e2e = document.getElementById('e2e'), carrier = document.getElementById('carrier'), big = document.getElementById('big');
+  const arr = document.getElementById('arr'), steps = document.getElementById('steps');
+  function draw() {
+    const E = e2e.checked, L = carrier.value === 'ldcom', B = big.value === 'yes';
+    const name = L ? 'LdCom' : 'COM';
+    arr.innerHTML = '<div class="cell m-rte"><b>SOME/IP header</b>by SOME/IP</div>' +
+      (E ? '<div class="cell m-com"><b>E2E header</b>by E2E</div>' : '') +
+      '<div class="cell m-app grow"><b>payload</b>serialized data</div>';
+    const s = [];
+    s.push('The SWC writes the value through the RTE.');
+    s.push('The RTE calls the SOME/IP transformer: value in, byte array out (SOME/IP header from the Request ID on, plus payload).');
+    if (E) s.push('The RTE calls the E2E transformer: byte array in, protected byte array out.');
+    if (L) {
+      s.push('The RTE asks LdCom to transmit the I-PDU; LdCom passes the request straight to the PDU Router.');
+      if (B) {
+        s.push('The RTE locks its data. The transport protocol below (for example SOME/IP TP) asks for the bytes in parts; each request goes through LdCom to the RTE, which copies the next part.');
+        s.push('When the last part is confirmed, LdCom tells the RTE, which unlocks the data.');
+      } else {
+        s.push('The PDU Router passes the I-PDU to SoAd. When it has been sent, LdCom passes the TxConfirmation to the RTE.');
+      }
+    } else {
+      s.push('The RTE hands the byte array to COM as one UINT8_N or UINT8_DYN signal; COM keeps it in its own buffer.');
+      s.push(B ? 'COM transmits the I-PDU through the TP path of the PDU Router; the lower module fetches the bytes from COM in parts.'
+               : 'COM passes the I-PDU to the PDU Router, according to its transmission mode, and the PDU Router passes it to SoAd.');
+    }
+    s.push('On the receiving ECU the same transformer chain runs backwards: ' + (E ? 'E2E check first, then SOME/IP deserialization.' : 'SOME/IP deserialization.'));
+    steps.innerHTML = s.map((t) => '<li>' + t + '</li>').join('');
+  }
+  [e2e, carrier, big].forEach((x) => x.addEventListener('change', draw));
+  draw();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'In a chain with SOME/IP and E2E, which transformer runs first on the receiving side?',
+    options: ['The E2E transformer', 'The SOME/IP transformer', 'Both at the same time'],
+    answer: 0,
+    why: 'Receivers run the chain in reverse order: E2E check, then SOME/IP deserialization.'
+  },
+  {
+    prompt: 'What does LdCom offer compared to COM?',
+    options: ['A lean path with no extras', 'More timing and filter options', 'Its own serialization of data'],
+    answer: 0,
+    why: 'LdCom skips buffers, transmission modes, filters and conversions; it just passes one signal per I-PDU.'
+  },
+  {
+    prompt: 'Why must the SOME/IP transformer be the first in the transformer chain when sending?',
+    options: ['It turns structured data into bytes', 'It adds the check value and counter', 'It chooses between COM and LdCom'],
+    answer: 0,
+    why: 'It is a serializer; every later transformer works on the byte array it produces.'
+  }
+]);
+</script>
+</body>
+</html>

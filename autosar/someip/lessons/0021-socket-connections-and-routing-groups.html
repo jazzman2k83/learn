@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Socket connections and routing groups · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Socket connections and routing groups</h1>
+<p class="lede">Inside <span class="term">SoAd</span> every network partner gets a <span class="term">socket connection</span>, and every route through it can be switched on and off by a <span class="term">routing group</span>. <span class="term">Sd</span> fills in the partners' addresses and switches the routing groups; that is how a <code class="term">SubscribeEventgroup</code> turns into actual event flow.</p>
+
+<h2>Socket connections</h2>
+<p>A <span class="term">socket connection</span> connects one local port of the ECU with one partner: its IP address and port, over UDP or TCP. Socket connections with the same local port and settings form a <span class="term">socket connection group</span> (socket connections that share one local port and protocol), one socket connection per partner. A socket connection can start with a <span class="term">wildcard remote address</span> (any address: the partner is not known yet) and get the real address later.</p>
+<div class="cards">
+  <div class="card m-soad"><p class="tag">filled by Sd</p><h3>From Endpoint options</h3><p>When an <code class="term">OfferService</code> or a <code class="term">SubscribeEventgroup</code> brings an <span class="term">Endpoint option</span>, Sd writes that address into a free socket connection of the right group that still has the wildcard remote address, or finds the socket connection that already has it.</p></div>
+  <div class="card m-soad"><p class="tag">filled on arrival</p><h3>From the first message</h3><p>A UDP socket connection with the wildcard remote address can also take the address of the first accepted message that arrives through it. This is how a server's socket connection learns which client is calling.</p></div>
+  <div class="card m-soad"><p class="tag">opened by Sd</p><h3>Open and close</h3><p>Sd asks SoAd to open the socket connections of a <span class="term">service instance</span> when it starts using it, and to close them when it stops. A TCP socket connection on the client side opens the TCP connection.</p></div>
+</div>
+
+<h2>Routing groups</h2>
+<p>A <span class="term">routing group</span> works like a named switch attached to routes: a <span class="term">PDU route</span> (the way of a PDU from PduR out to its socket connections) or a <span class="term">socket route</span>, which takes a received message from a socket connection up to a module by its <span class="term">header ID</span>. When all routing groups of a route are off, nothing flows on it. A routing group attached to a <span class="term">socket connection group</span> has a separate on/off for each socket connection, so it can be on for one partner and off for another.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 270" role="img" aria-labelledby="f1t">
+<title id="f1t">Inside SoAd on the radar: the BrakeEvent PDU from PduR fans out to three socket connections of one socket connection group. Routing group Eventgroup 1 has its own state per socket connection: on for the brake ECU and the display ECU, which subscribed, off for a socket connection with the wildcard remote address. Sd switches the routing group; the socket connections lead to TcpIp sockets.</title>
+<rect x="10" y="10" width="620" height="250" class="d-frame"/>
+<text x="20" y="28" class="d-s">inside SoAd (radar ECU)</text>
+<rect x="30" y="100" width="130" height="40" class="m-pdur"/><text x="95" y="118" class="d-t d-c">BrakeEvent PDU</text><text x="95" y="132" class="d-s d-c">from PduR</text>
+<rect x="390" y="50" width="230" height="40" class="m-soad"/><text x="505" y="67" class="d-t d-c">socket connection 1</text><text x="505" y="81" class="d-s d-c">brake ECU · 192.168.0.20 : 40001</text>
+<rect x="390" y="100" width="230" height="40" class="m-soad"/><text x="505" y="117" class="d-t d-c">socket connection 2</text><text x="505" y="131" class="d-s d-c">display ECU · 192.168.0.30 : 40001</text>
+<rect x="390" y="150" width="230" height="40" class="d-box"/><text x="505" y="167" class="d-t d-c">socket connection 3</text><text x="505" y="181" class="d-s d-c">wildcard remote address · unused</text>
+<path d="M162,120 C220,120 230,70 300,70" class="d-ln"/>
+<line x1="162" y1="120" x2="300" y2="120" class="d-ln"/>
+<path d="M162,120 C220,120 230,170 300,170" class="d-ln mute"/>
+<rect x="300" y="60" width="44" height="20" class="d-ok"/><text x="322" y="74" class="d-s d-c">on</text>
+<rect x="300" y="110" width="44" height="20" class="d-ok"/><text x="322" y="124" class="d-s d-c">on</text>
+<rect x="300" y="160" width="44" height="20" class="d-box"/><text x="322" y="174" class="d-s d-c">off</text>
+<line x1="344" y1="70" x2="388" y2="70" class="k-ev" marker-end="url(#ah-ev)"/>
+<line x1="344" y1="120" x2="388" y2="120" class="k-ev" marker-end="url(#ah-ev)"/>
+<rect x="250" y="214" width="130" height="30" class="m-sd"/><text x="315" y="233" class="d-t d-c">Sd</text>
+<path d="M300,212 L300,190" class="d-ln dash" marker-end="url(#ah)"/>
+<text x="392" y="208" class="d-s">on per socket connection with</text><text x="392" y="222" class="d-s">SubscribeEventgroup; off with</text><text x="392" y="236" class="d-s">StopSubscribeEventgroup</text><text x="392" y="250" class="d-s">or when the TTL runs out</text>
+<text x="322" y="44" class="d-s d-c">routing group "Eventgroup 1"</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> One PDU in, two PDUs out: routing group "Eventgroup 1" is on for socket connections 1 and 2 only. Sd turned it on when each client subscribed; it turns it off for a socket connection when that client sends a StopSubscribeEventgroup or its TTL runs out.</figcaption>
+</figure>
+
+<h2>Which routing groups Sd uses</h2>
+<p>A <span class="term">triggering routing group</span> (a routing group that makes SoAd send at once, fetching the data from the module above) is how a new subscriber gets its <span class="term">initial event</span> without the server SWC writing the value again. The table lists all of them.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Side</th><th>Routing group for</th><th>Turned on</th></tr></thead>
+<tbody>
+<tr><td>Server</td><td>the methods of a <span class="term">service instance</span></td><td>when the instance starts its phases, so REQUESTs can arrive</td></tr>
+<tr><td>Server</td><td>the events of an <span class="term">eventgroup</span>, per socket connection</td><td>for each client that subscribes, by UDP or TCP</td></tr>
+<tr><td>Server</td><td>the events of an eventgroup, by <span class="term">multicast</span></td><td>when the number of subscribers reaches the <span class="term">multicast threshold</span></td></tr>
+<tr><td>Server</td><td><span class="term">triggering routing group</span> for initial events, per socket connection</td><td>used once per new subscriber: SoAd fetches the current value from the module above and sends it to that socket connection only</td></tr>
+<tr><td>Client</td><td>the methods of a service instance</td><td>when the instance is <span class="term">AVAILABLE</span></td></tr>
+<tr><td>Client</td><td>the events of an eventgroup (UDP, TCP)</td><td>when it subscribes</td></tr>
+<tr><td>Client</td><td>the events of an eventgroup (multicast)</td><td>when the <code class="term">SubscribeEventgroupAck</code> brings a <span class="term">Multicast option</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Responses find their way back</h2>
+<p>On the server, REQUESTs from several clients arrive through different socket connections of one <span class="term">socket connection group</span>. The RTE keeps the <span class="term">PDU meta data</span> of each <span class="term">REQUEST</span> (extra data that travels with a PDU; here the socket connection ID) and hands it back with the <span class="term">RESPONSE</span>, so SoAd sends the RESPONSE through that same socket connection to the right client.</p>
+
+<h2>Try it</h2>
+<p>You are inside the radar's SoAd. Let clients subscribe and stop, send BrakeEvent, and receive a REQUEST.</p>
+<div class="panel no-print">
+  <div class="buttons-row">
+    <button type="button" id="subB">Brake ECU: SubscribeEventgroup</button>
+    <button type="button" id="subD">Display ECU: SubscribeEventgroup</button>
+    <button type="button" id="stopB">Brake ECU: StopSubscribeEventgroup</button>
+    <button type="button" class="primary" id="news">Send BrakeEvent</button>
+    <button type="button" id="call">Display ECU: REQUEST Calibrate</button>
+    <button type="button" id="reset">Start again</button>
+  </div>
+  <div class="table-wrap">
+  <table class="data" id="doors"><thead><tr><th>Socket connection</th><th>Remote address</th><th>Routing group "Eventgroup 1"</th><th>Routing group "methods"</th></tr></thead><tbody></tbody></table>
+  </div>
+  <ul class="log" id="log" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Sending BrakeEvent before any <code class="term">SubscribeEventgroup</code> produces no PDU at all: the <span class="term">routing group</span> is off for every <span class="term">socket connection</span>. The <span class="term">initial event</span> goes out through the <span class="term">triggering routing group</span> to the new subscriber's socket connection only. The REQUEST from the display ECU is answered through the socket connection it came in by.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">socket connection group</span></td><td>Socket connections that share one local port and protocol (UDP or TCP), one per partner</td></tr>
+<tr><td><span class="term">wildcard remote address</span></td><td>A remote address of "any": the partner is not known yet; Sd or the first message fills it in</td></tr>
+<tr><td><span class="term">PDU route</span></td><td>The way of a PDU from PduR out to one or more socket connections</td></tr>
+<tr><td><span class="term">triggering routing group</span></td><td>A routing group that makes SoAd send at once, fetching the data from the module above; used for initial events</td></tr>
+<tr><td><span class="term">PDU meta data</span></td><td>Extra data that travels with a PDU, here the socket connection ID, so a RESPONSE goes back to the right client</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor, R20-11</a>, sections 7.1, 7.2.1, 7.2.3, 7.6, 7.9 and 7.10; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.2.4, 7.6.4 (fan out) and 7.7.5 (fan in); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_RTE.pdf">RTE, R20-11</a>, section 4.3.2.6; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_TPS_SystemTemplate.pdf">System Template, R20-11</a>, section 10.2.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const PARTNERS = { B: { name: 'brake ECU', addr: '192.168.0.20 : 40001' }, D: { name: 'display ECU', addr: '192.168.0.30 : 40001' } };
+  const EG = 'routing group "Eventgroup 1"', MG = 'routing group "methods"';
+  let socons;
+  const tbody = document.querySelector('#doors tbody');
+  const logEl = document.getElementById('log');
+  function say(t) { const li = document.createElement('li'); li.textContent = t; logEl.prepend(li); }
+  function reset() {
+    socons = [{ who: null, ev: false, methods: true }, { who: null, ev: false, methods: true }, { who: null, ev: false, methods: true }];
+    logEl.replaceChildren();
+    say('The radar offers its service instance: Sd opened the socket connections and turned on ' + MG + '. All remote addresses are still the wildcard.');
+    draw();
+  }
+  function draw() {
+    tbody.replaceChildren();
+    socons.forEach((d, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + (d.who ? PARTNERS[d.who].name + ' · ' + PARTNERS[d.who].addr : 'wildcard (any)') + '</td>' +
+        '<td><span class="state-pill ' + (d.ev ? 'on' : 'off') + '">' + (d.ev ? 'on' : 'off') + '</span></td>' +
+        '<td><span class="state-pill ' + (d.methods ? 'on' : 'off') + '">' + (d.methods ? 'on' : 'off') + '</span></td>';
+      tbody.appendChild(tr);
+    });
+  }
+  function soconOf(who) { return socons.findIndex((d) => d.who === who); }
+  function claim(who) {
+    let k = soconOf(who);
+    if (k < 0) {
+      k = socons.findIndex((d) => !d.who);
+      if (k < 0) { say('No socket connection with the wildcard remote address is left: Sd answers with a SubscribeEventgroupNack.'); return -1; }
+      socons[k].who = who;
+      say('Sd writes the address from the ' + PARTNERS[who].name + '\'s Endpoint option into socket connection ' + (k + 1) + '.');
+    }
+    return k;
+  }
+  function subscribe(who) {
+    const k = claim(who);
+    if (k < 0) return;
+    if (socons[k].ev) { say('The ' + PARTNERS[who].name + ' renews its subscription: ' + EG + ' stays on, no initial event is sent.'); return; }
+    socons[k].ev = true;
+    say('SubscribeEventgroup from the ' + PARTNERS[who].name + ': Sd turns ' + EG + ' on for socket connection ' + (k + 1) + ' and sends the SubscribeEventgroupAck.');
+    say('Sd uses the triggering routing group of socket connection ' + (k + 1) + ': SoAd fetches the current UpdateRate from above and sends it as initial event to the ' + PARTNERS[who].name + ' only.');
+    draw();
+  }
+  document.getElementById('subB').addEventListener('click', () => subscribe('B'));
+  document.getElementById('subD').addEventListener('click', () => subscribe('D'));
+  document.getElementById('stopB').addEventListener('click', () => {
+    const k = soconOf('B');
+    if (k < 0 || !socons[k].ev) { say('The brake ECU is not subscribed.'); return; }
+    socons[k].ev = false;
+    say('StopSubscribeEventgroup from the brake ECU: Sd turns ' + EG + ' off for socket connection ' + (k + 1) + '.');
+    socons[k].who = null;
+    say('Socket connection ' + (k + 1) + ' is no longer used by Sd: its remote address goes back to the wildcard.');
+    draw();
+  });
+  document.getElementById('news').addEventListener('click', () => {
+    const on = socons.map((d, i) => (d.ev ? i : -1)).filter((i) => i >= 0);
+    if (!on.length) { say('BrakeEvent reaches SoAd, but ' + EG + ' is off for every socket connection: nothing is sent.'); return; }
+    say('BrakeEvent: SoAd sends ' + on.length + ' PDU' + (on.length === 1 ? '' : 's') + ', through ' + on.map((i) => 'socket connection ' + (i + 1) + ' (' + PARTNERS[socons[i].who].name + ')').join(' and ') + '.');
+  });
+  document.getElementById('call').addEventListener('click', () => {
+    let k = soconOf('D');
+    if (k < 0) {
+      k = socons.findIndex((d) => !d.who);
+      if (k < 0) { say('No socket connection with the wildcard remote address is left: the REQUEST cannot be accepted.'); return; }
+      socons[k].who = 'D';
+      say('A REQUEST arrives from 192.168.0.30. SoAd takes socket connection ' + (k + 1) + ', which still has the wildcard remote address, and fills in the client\'s address.');
+    } else say('A REQUEST arrives from the display ECU through socket connection ' + (k + 1) + '.');
+    say(MG.charAt(0).toUpperCase() + MG.slice(1) + ' is on: the REQUEST goes up. The RTE keeps socket connection ' + (k + 1) + ' as PDU meta data with the call.');
+    say('The RESPONSE comes down with that PDU meta data: SoAd sends it through socket connection ' + (k + 1) + ' to the display ECU.');
+    draw();
+  });
+  document.getElementById('reset').addEventListener('click', reset);
+  reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Who turns on the routing group that lets events flow to one particular client?',
+    options: ['Sd, when that client subscribes', 'SoAd, when the event arrives', 'The SWC, when it sends the event'],
+    answer: 0,
+    why: 'Sd turns on the routing group for that socket connection when it accepts the SubscribeEventgroup.'
+  },
+  {
+    prompt: 'How does a server get the initial event of a field to a new subscriber only?',
+    options: ['Sd triggers a send on that socket connection', 'The SWC writes the value once more', 'COM repeats the last PDU to everyone'],
+    answer: 0,
+    why: 'Sd uses the triggering routing group for that one socket connection; SoAd fetches the data from the module above.'
+  },
+  {
+    prompt: 'Several clients call the same method. How does each RESPONSE reach the right client?',
+    options: ['Through the socket connection of its REQUEST', 'It is sent to all subscribed clients', 'Each client filters by its own address'],
+    answer: 0,
+    why: 'The RTE keeps the socket connection ID (PDU meta data) with the REQUEST and passes it with the RESPONSE.'
+  }
+]);
+</script>
+</body>
+</html>

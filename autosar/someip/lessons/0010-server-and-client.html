@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Server and client · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Server and client</h1>
+<p class="lede">For each <span class="term">service instance</span>, one ECU is the <span class="term">server</span> and others are <span class="term">clients</span>. Each role comes with its own duties, from power-up to shutdown.</p>
+
+<h2>Two roles, one service instance</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 242" role="img" aria-labelledby="f1t">
+<title id="f1t">The radar ECU is the server of radar instance 1: it sends OfferService and answers FindService, serves Eventgroup 1 through its event handler and provides the methods Calibrate and Adjust. The brake ECU is a client: it wants radar instance 1, subscribes to Eventgroup 1 as a consumed eventgroup and calls Calibrate. Arrows between them: OfferService and FindService, SubscribeEventgroup, SubscribeEventgroupAck, Notification, REQUEST and RESPONSE.</title>
+<rect x="10" y="10" width="220" height="222" class="d-ecu"/>
+<text x="120" y="30" class="d-tb d-c">Radar ECU · server</text>
+<rect x="20" y="44" width="200" height="46" class="m-sd"/><text x="120" y="63" class="d-t d-c">offers radar instance 1</text><text x="120" y="79" class="d-s d-c">OfferService, answers FindService</text>
+<rect x="20" y="100" width="200" height="60" class="f-ev"/><text x="120" y="124" class="d-t d-c">event handler</text><text x="120" y="141" class="d-s d-c">Eventgroup 1 · keeps the subscribers</text>
+<rect x="20" y="170" width="200" height="52" class="f-req"/><text x="120" y="191" class="d-t d-c">provides Calibrate, Adjust</text><text x="120" y="207" class="d-s d-c">runs the methods</text>
+<rect x="410" y="10" width="220" height="222" class="d-ecu"/>
+<text x="520" y="30" class="d-tb d-c">Brake ECU · client</text>
+<rect x="420" y="44" width="200" height="46" class="m-sd"/><text x="520" y="63" class="d-t d-c">wants radar instance 1</text><text x="520" y="79" class="d-s d-c">FindService if needed</text>
+<rect x="420" y="100" width="200" height="60" class="f-ev"/><text x="520" y="124" class="d-t d-c">consumed eventgroup</text><text x="520" y="141" class="d-s d-c">Eventgroup 1 · subscribes, renews</text>
+<rect x="420" y="170" width="200" height="52" class="f-req"/><text x="520" y="191" class="d-t d-c">calls Calibrate</text><text x="520" y="207" class="d-s d-c">waits for the RESPONSE</text>
+<line x1="222" y1="66" x2="418" y2="66" class="k-sd" marker-start="url(#ah-sd)" marker-end="url(#ah-sd)"/><text x="320" y="60" class="d-s d-c">OfferService · FindService</text>
+<line x1="418" y1="114" x2="222" y2="114" class="k-sd" marker-end="url(#ah-sd)"/><text x="320" y="109" class="d-s d-c">SubscribeEventgroup</text>
+<line x1="222" y1="134" x2="418" y2="134" class="k-sd" marker-end="url(#ah-sd)"/><text x="320" y="129" class="d-s d-c">SubscribeEventgroupAck</text>
+<line x1="222" y1="154" x2="418" y2="154" class="k-ev" marker-end="url(#ah-ev)"/><text x="320" y="149" class="d-s d-c">Notification</text>
+<line x1="418" y1="188" x2="222" y2="188" class="k-req" marker-end="url(#ah-req)"/><text x="320" y="183" class="d-s d-c">REQUEST</text>
+<line x1="222" y1="210" x2="418" y2="210" class="k-res" marker-end="url(#ah-res)"/><text x="320" y="205" class="d-s d-c">RESPONSE</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read across each row: every duty on one side has a partner duty on the other. The pink arrows are Service Discovery, the next part of the course.</figcaption>
+</figure>
+<p>Roles belong to a <span class="term">service instance</span>, not to an ECU. The brake ECU of this example is the <span class="term">client</span> of the radar and, at the same time, the <span class="term">server</span> of its own brake service.</p>
+
+<h2>The duties</h2>
+<p>Both roles talk through <span class="term">Sd</span>, the subject of the next part. A few SD entries carry most of it: <code class="term">OfferService</code> (from the server: "this service instance is available here", valid for a <code class="term">TTL</code>, a time to live, and repeated), <code class="term">FindService</code> (from the client: "who offers this service?"), <code class="term">SubscribeEventgroup</code> (from the client: "send me the events of this eventgroup"), answered by <code class="term">SubscribeEventgroupAck</code> (accepted) or <code class="term">SubscribeEventgroupNack</code> (refused), and <code class="term">StopOfferService</code> (the service instance is no longer available).</p>
+<div class="cards">
+  <div class="card m-app"><p class="tag">server</p><h3>Offer and serve</h3><p>Send OfferService while the service instance is available, answer FindService, accept or refuse each SubscribeEventgroup, send <span class="term">events</span> only to <span class="term">subscribers</span> (and the <span class="term">initial event</span> of each <span class="term">field</span> to each new subscriber), answer each <code class="term">REQUEST</code>, and send StopOfferService when going away.</p></div>
+  <div class="card m-app"><p class="tag">client</p><h3>Find and use</h3><p>Send FindService when the service is needed and not yet known, subscribe to the wanted <span class="term">eventgroups</span> and renew the subscriptions, open the TCP connection if the service uses TCP, call <span class="term">methods</span> and handle timeouts, and drop everything when the server sends StopOfferService.</p></div>
+</div>
+<p>Note the one duty that is easy to miss: if a service instance uses TCP, it is always the client that opens the connection, before subscribing, and the client that closes it.</p>
+
+<h2>From power-up to shutdown</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Moment and messages</th><th>Radar ECU (server)</th><th>Brake ECU (client)</th></tr></thead>
+<tbody>
+<tr><td>1 · Power-up<br><span class="small">nothing is sent yet</span></td><td>Waits. It may offer only when its IP address is assigned and <span class="term">BswM</span> has set the service to AVAILABLE.</td><td>Waits. It may send FindService only when its IP address is assigned and BswM has set the client service to <span class="term">REQUESTED</span>.</td></tr>
+<tr><td>2 · Start<br><span class="chip k-sd">OfferService</span> <span class="chip k-sd">FindService</span> by <span class="term">multicast</span></td><td>After a short random wait it sends OfferService "radar instance 1, reach me here", and repeats it from then on.</td><td>Nothing is known about the radar yet, so after a short random wait it sends FindService "who offers the radar service?".</td></tr>
+<tr><td>3 · Found<br><span class="chip k-sd">OfferService</span> by <span class="term">unicast</span></td><td>It receives the FindService and answers with an OfferService sent directly to the brake ECU.</td><td>It receives the OfferService, learns the radar's address and stops sending FindService. If the service used TCP, it would open the connection now.</td></tr>
+<tr><td>4 · Subscribe<br><span class="chip k-sd">SubscribeEventgroup</span> <span class="chip k-sd">SubscribeEventgroupAck</span> <span class="chip k-ev">initial event</span></td><td>It checks the SubscribeEventgroup, adds the brake ECU to the subscribers of Eventgroup 1, sends SubscribeEventgroupAck, and sends the initial event of each field in the eventgroup to the brake ECU.</td><td>It wants Eventgroup 1 and sends SubscribeEventgroup, telling the radar where to send the events.</td></tr>
+<tr><td>5 · Running<br><span class="chip k-ev">NOTIFICATION</span> <span class="chip k-req">REQUEST</span> <span class="chip k-res">RESPONSE</span></td><td>It sends events to every subscriber and answers REQUESTs.</td><td>It receives events and calls methods, waiting for each RESPONSE with a timeout.</td></tr>
+<tr><td>6 · Renewal<br><span class="chip k-sd">OfferService</span> <span class="chip k-sd">SubscribeEventgroup</span> <span class="chip k-sd">SubscribeEventgroupAck</span></td><td>It keeps sending OfferService at its regular pace. A subscription that is not renewed expires when its TTL runs out.</td><td>It answers each OfferService by renewing its subscription, so it never expires.</td></tr>
+<tr><td>7 · Shutdown<br><span class="chip k-sd">StopOfferService</span></td><td>The service is going away. It sends StopOfferService and forgets all subscriptions.</td><td>It receives the StopOfferService, forgets its subscriptions and the service, and sends no FindService; it waits for a new OfferService.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>How AUTOSAR names the two sides</h2>
+<p>The <span class="term">Sd</span> module of an ECU keeps one configuration container per service instance and role. An <code class="term">SdServerService</code> (one service instance this ECU offers as server) lists its <span class="term">event handlers</span> (the server side of an eventgroup, which keeps the subscribers) and the methods it provides. An <code class="term">SdClientService</code> (one service instance this ECU uses as client) lists its <span class="term">consumed eventgroups</span> (the client side of an eventgroup, which subscribes) and the methods it calls.</p>
+<div class="note">
+<p><strong>Things to notice.</strong> The server never needs to know in advance who its clients are; it learns them from each <code>SubscribeEventgroup</code>. The client never needs to know the server's address in advance; it learns it from the <code>OfferService</code>.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">server</span>, <span class="term">client</span></td><td>The roles for one service instance: the server provides it, clients use it</td></tr>
+<tr><td><code class="term">SdServerService</code></td><td>Sd container for a service instance this ECU offers</td></tr>
+<tr><td><code class="term">SdClientService</code></td><td>Sd container for a service instance this ECU uses</td></tr>
+<tr><td><span class="term">event handler</span></td><td>Server side of an eventgroup: keeps its subscribers</td></tr>
+<tr><td><span class="term">consumed eventgroup</span></td><td>Client side of an eventgroup: the one it subscribes to</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.4, 4.1.6 and 6.2 (server and client behaviour); <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, section 4.2.1.2 (TCP opened by the client); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, section 7.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A service instance uses TCP. Who opens the TCP connection?',
+    options: ['The client, before it subscribes', 'The server, after the subscription', 'Whichever side happens to start first'],
+    answer: 0,
+    why: 'The client opens the TCP connection, at the latest before it subscribes to an eventgroup over TCP, and closes it again.'
+  },
+  {
+    prompt: 'How does the server learn where to send the events?',
+    options: ['From the endpoint in each SubscribeEventgroup', 'From a fixed list in its own configuration', 'From the FindService entries of the clients'],
+    answer: 0,
+    why: 'Each SubscribeEventgroup carries the client\'s address and port for the events.'
+  },
+  {
+    prompt: 'Can one ECU be server and client at the same time?',
+    options: ['Yes, for different service instances', 'No, every ECU has one fixed role', 'Only if it has two Ethernet ports'],
+    answer: 0,
+    why: 'Roles belong to service instances; an ECU can serve one and use another.'
+  }
+]);
+</script>
+</body>
+</html>

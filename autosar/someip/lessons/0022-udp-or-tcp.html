@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UDP or TCP · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>UDP or TCP</h1>
+<p class="lede">SOME/IP messages can travel over UDP (connectionless) or over TCP (connection-oriented). UDP is lean and fast but may lose a message; TCP never loses one but may make everything behind it wait.</p>
+
+<h2>Two ways to carry a message</h2>
+<div class="cards">
+  <div class="card m-ip"><p class="tag">UDP</p><h3>Lean and quick</h3><p><span class="term">UDP</span> (connectionless transport: each datagram travels on its own) does not repeat anything: a lost datagram is simply gone. Fine when the next value comes soon anyway, as with a <span class="term">cyclic update</span>.</p></div>
+  <div class="card m-ip"><p class="tag">TCP</p><h3>Reliable, in order</h3><p><span class="term">TCP</span> (connection-oriented transport) carries a stream of bytes over a connection between two ECUs. Lost data is repeated, order is kept, duplicates are removed. Messages can be much larger.</p></div>
+</div>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 210" role="img" aria-labelledby="f1t">
+<title id="f1t">Six messages sent at equal intervals; message 3 is lost. Over UDP messages 1, 2, 4, 5, 6 arrive on time and 3 never arrives. Over TCP message 3 is repeated later, and messages 4, 5 and 6 are held back until 3 has arrived, so all arrive in order but late.</title>
+<text x="112" y="34" class="d-t d-r">sent</text>
+<line x1="120" y1="30" x2="620" y2="30" class="d-tick"/>
+<g class="tx-ev"><circle cx="150" cy="30" r="5"/><circle cx="210" cy="30" r="5"/><circle cx="270" cy="30" r="5"/><circle cx="330" cy="30" r="5"/><circle cx="390" cy="30" r="5"/><circle cx="450" cy="30" r="5"/></g>
+<text x="150" y="20" class="d-s d-c">1</text><text x="210" y="20" class="d-s d-c">2</text><text x="270" y="20" class="d-s d-c">3</text><text x="330" y="20" class="d-s d-c">4</text><text x="390" y="20" class="d-s d-c">5</text><text x="450" y="20" class="d-s d-c">6</text>
+<text x="112" y="94" class="d-t d-r">UDP: arrives</text>
+<line x1="120" y1="90" x2="620" y2="90" class="d-tick"/>
+<g class="tx-ev"><circle cx="165" cy="90" r="5"/><circle cx="225" cy="90" r="5"/><circle cx="345" cy="90" r="5"/><circle cx="405" cy="90" r="5"/><circle cx="465" cy="90" r="5"/></g>
+<path d="M279,84 l12,12 m0,-12 l-12,12" class="d-cross"/>
+<text x="285" y="112" class="d-s d-c">3 is gone</text>
+<text x="112" y="164" class="d-t d-r">TCP: delivered</text>
+<line x1="120" y1="160" x2="620" y2="160" class="d-tick"/>
+<g class="tx-ev"><circle cx="165" cy="160" r="5"/><circle cx="225" cy="160" r="5"/><circle cx="500" cy="160" r="5"/><circle cx="512" cy="160" r="5"/><circle cx="524" cy="160" r="5"/><circle cx="536" cy="160" r="5"/></g>
+<path d="M240,176 H496" class="d-ln dash" marker-end="url(#ah)"/>
+<text x="368" y="192" class="d-s d-c">3 is repeated; 4, 5, 6 wait behind it</text>
+<text x="120" y="206" class="d-s">time →</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Compare the two lower rows after the loss. UDP delivers 4, 5 and 6 on time and never delivers 3. TCP delivers all six, in order, but 4, 5 and 6 arrive late together.</figcaption>
+</figure>
+
+<h2>Which one to use</h2>
+<p>The protocol specification gives a short guideline:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Situation</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td>The receiver must react fast even when something is lost (well under 100 ms), for example cyclic values</td><td><span class="term">UDP</span></td></tr>
+<tr><td>Big data (more than about 1400 bytes) and no hard timing need when something goes wrong</td><td><span class="term">TCP</span></td></tr>
+<tr><td>Big data and a hard timing need when something goes wrong</td><td>UDP with <span class="term">SOME/IP TP</span>, which cuts the message into segments (lesson 23)</td></tr>
+<tr><td>Very large data such as files</td><td>Another transfer mechanism; SOME/IP may carry just a handle to it</td></tr>
+</tbody>
+</table>
+</div>
+<p>The choice is made per <span class="term">event</span> and per <span class="term">method</span>, not per <span class="term">service</span>: a service can use UDP for some of them and TCP for others. One event, though, is not sent over both.</p>
+
+<h2>Rules for TCP</h2>
+<div class="cards">
+  <div class="card m-app"><p class="tag">one per instance</p><h3>One connection</h3><p>A <span class="term">service instance</span> uses at most one <span class="term">TCP</span> connection between <span class="term">client</span> and <span class="term">server</span> for all its REQUESTs, RESPONSEs and events, plus at most one UDP <span class="term">socket connection</span> and one <span class="term">multicast</span> address.</p></div>
+  <div class="card m-app"><p class="tag">client opens</p><h3>The client opens and closes</h3><p>The client opens the connection before its first <span class="term">REQUEST</span> or <code class="term">SubscribeEventgroup</code> over TCP, re-opens it when it breaks, and closes it when it no longer needs the service. The server does not close it when it stops offering its services; it leaves that to the client.</p></div>
+  <div class="card k-err"><p class="tag">broken connection</p><h3>Open calls time out</h3><p>When the TCP connection is lost, every REQUEST still waiting for its <span class="term">RESPONSE</span> is treated as timed out (<code class="term">E_TIMEOUT</code>).</p></div>
+</div>
+<p>Two smaller points. The specification recommends switching off <span class="term">Nagle's algorithm</span> (TCP collecting small writes before sending them together), to keep reaction times short. And because TCP is one long byte stream, a receiver that loses track of where messages start needs help: a sender may insert a <span class="term">Magic Cookie</span> message (a fixed SOME/IP message that marks a message boundary) now and then, mainly so that test tools can find the message boundaries again.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> With UDP the loss costs exactly one message and nothing else. With TCP it costs time for every message behind the lost one, until the repeat has arrived. That waiting is why fast-reacting data prefers <span class="term">UDP</span>, and why big data with hard timing uses UDP with <span class="term">SOME/IP TP</span> instead of <span class="term">TCP</span>.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">UDP</span></td><td>Connectionless transport: fast and lean, but a lost datagram is not repeated</td></tr>
+<tr><td><span class="term">TCP</span></td><td>Connection-oriented transport: lost data is repeated and order is kept, at the cost of delay</td></tr>
+<tr><td><span class="term">Nagle's algorithm</span></td><td>TCP collecting small writes before sending them together; SOME/IP recommends switching it off</td></tr>
+<tr><td><span class="term">Magic Cookie</span></td><td>A fixed SOME/IP message a sender may insert into a TCP stream so receivers can find the message boundaries again</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, sections 4.1.2.10, 4.2.1 (UDP and TCP binding, magic cookies), 4.2.6.4 and 6.1 (choosing the transport protocol); <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, section 4.1.2.6.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A service instance uses TCP. Who opens the connection, and when?',
+    options: ['The client, before its first use', 'The server, with its OfferService', 'The server, at the first Subscribe'],
+    answer: 0,
+    why: 'The client opens the TCP connection before its first REQUEST or SubscribeEventgroup over TCP, and re-opens it when it fails.'
+  },
+  {
+    prompt: 'The TCP connection breaks while two REQUESTs wait for their RESPONSE. What happens to them?',
+    options: ['They are treated as timed out', 'They are answered after reconnect', 'They are sent again over UDP'],
+    answer: 0,
+    why: 'Outstanding REQUESTs are handled as timeouts when the TCP connection is lost.'
+  },
+  {
+    prompt: 'Big data must be sent and a lost segment must not delay the rest. What does the guideline suggest?',
+    options: ['UDP with SOME/IP TP', 'TCP with large buffers', 'UDP without segments'],
+    answer: 0,
+    why: 'UDP with SOME/IP TP for large data with hard latency needs; TCP when there is no such need.'
+  }
+]);
+</script>
+</body>
+</html>

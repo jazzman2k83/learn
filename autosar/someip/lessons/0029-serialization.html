@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serialization: how data is laid out · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem 1rem; margin-bottom: 0.9rem; }
+  .form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.68rem; color: var(--muted); }
+  .form-grid label.inline { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--ink); }
+  .form-grid input[type="text"], .form-grid input[type="number"], .form-grid select { width: 100%; }
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Serialization: how data is laid out</h1>
+<p class="lede"><span class="term">Serialization</span> writes the data of the <span class="term">SWC</span> into the <span class="term">payload</span> byte by byte, in the order of the data type, with no gaps added on its own. A length field in front of variable-length data (it says how many bytes follow) lets a receiver find its way.</p>
+
+<h2>Basic data types</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Type</th><th>Bytes</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>boolean</td><td>1</td><td>FALSE 0, TRUE 1; a receiver looks only at the lowest bit</td></tr>
+<tr><td>uint8 / sint8</td><td>1</td><td>signed types in two's complement</td></tr>
+<tr><td>uint16 / sint16</td><td>2</td><td></td></tr>
+<tr><td>uint32 / sint32, float32</td><td>4</td><td>floats as IEEE 754 binary32</td></tr>
+<tr><td>uint64 / sint64, float64</td><td>8</td><td>floats as IEEE 754 binary64</td></tr>
+<tr><td>enumeration, bitfield</td><td>1, 2 or 4</td><td>sent as the unsigned integer underneath</td></tr>
+</tbody>
+</table>
+</div>
+<p>The byte order of the <span class="term">payload</span> is set by configuration. In the Classic Platform one setting, <code class="term">byteOrder</code> (the configured byte order of the payload) of the <code>SOMEIPTransformationDescription</code>, applies to all parameters: <code>mostSignificantByteFirst</code> (<span class="term">big-endian</span>), <code>mostSignificantByteLast</code> (<span class="term">little-endian</span>: the least significant byte goes first) or <code>opaque</code>. Length fields and the type fields of unions, like the <span class="term">SOME/IP header</span>, are always big-endian.</p>
+
+<h2>Structures, strings, arrays</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f1t">
+<title id="f1t">Three byte layouts. A struct: optional length field, then its members in order. A dynamic UTF-8 string: length field, BOM EF BB BF, the characters, a terminating zero. A dynamic array: length field in bytes, then the elements.</title>
+<text x="10" y="22" class="d-tb">struct</text>
+<rect x="10" y="30" width="90" height="34" class="m-soad"/><text x="55" y="45" class="d-s d-c">length field</text><text x="55" y="58" class="d-s d-c">(optional)</text>
+<rect x="100" y="30" width="110" height="34" class="m-app"/><text x="155" y="51" class="d-t d-c">member 1</text>
+<rect x="210" y="30" width="110" height="34" class="m-app"/><text x="265" y="51" class="d-t d-c">member 2</text>
+<rect x="320" y="30" width="190" height="34" class="m-app"/><text x="415" y="51" class="d-t d-c">member 3 (a struct: depth-first)</text>
+<text x="520" y="51" class="d-s">no gaps added</text>
+<text x="10" y="102" class="d-tb">dynamic string</text>
+<rect x="10" y="110" width="90" height="34" class="m-soad"/><text x="55" y="125" class="d-s d-c">length field</text><text x="55" y="138" class="d-s d-c">default 4 bytes</text>
+<rect x="100" y="110" width="90" height="34" class="m-rte"/><text x="145" y="125" class="d-s d-c">BOM</text><text x="145" y="138" class="d-s d-c">EF BB BF</text>
+<rect x="190" y="110" width="200" height="34" class="m-app"/><text x="290" y="131" class="d-t d-c">characters</text>
+<rect x="390" y="110" width="60" height="34" class="m-rte"/><text x="420" y="131" class="d-s d-c">00</text>
+<path d="M100,150 v6 h350 v-6" class="d-ln mute"/><text x="275" y="170" class="d-s d-c">counted by the length field (BOM and terminator included, the field itself not)</text>
+<text x="10" y="196" class="d-tb">dynamic array</text>
+<rect x="10" y="204" width="90" height="34" class="m-soad"/><text x="55" y="219" class="d-s d-c">length field</text><text x="55" y="232" class="d-s d-c">in bytes</text>
+<rect x="100" y="204" width="80" height="34" class="m-app"/><text x="140" y="225" class="d-t d-c">element 1</text>
+<rect x="180" y="204" width="80" height="34" class="m-app"/><text x="220" y="225" class="d-t d-c">element 2</text>
+<rect x="260" y="204" width="80" height="34" class="m-app"/><text x="300" y="225" class="d-t d-c">…</text>
+<rect x="340" y="204" width="80" height="34" class="m-app"/><text x="380" y="225" class="d-t d-c">element n</text>
+<text x="430" y="225" class="d-s">length = n × element size</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The green boxes are length fields: always in front, never counting themselves. A receiver that does not know a member can skip it by its length field.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card"><p class="tag">struct</p><h3>Members in order</h3><p>Written member after member, depth-first through nested structs. An optional <span class="term">length field</span> of 1, 2 or 4 bytes may come first (<code>sizeOfStructLengthFields</code>); in the Classic Platform it is switched on per signal, and then every struct and nested struct gets one.</p></div>
+  <div class="card"><p class="tag">string</p><h3>BOM and terminator</h3><p>Strings start with a <span class="term">BOM</span> (byte order mark: bytes that name the encoding; UTF-8 <code>EF BB BF</code>, UTF-16BE <code>FE FF</code>, UTF-16LE <code>FF FE</code>) and end with a zero (two zero bytes for UTF-16). Fixed-length strings are filled up with zeros; dynamic ones get a length field, 4 bytes unless configured to 1 or 2 (<code>sizeOfStringLengthFields</code>).</p></div>
+  <div class="card"><p class="tag">array</p><h3>Length in bytes</h3><p>A fixed array carries exactly n elements, optionally behind a length field. A dynamic array has a length field (1, 2 or 4 bytes, default 4, <code>sizeOfArrayLengthFields</code>) giving its size in bytes. In multidimensional arrays every inner array has its own length field.</p></div>
+  <div class="card"><p class="tag">union</p><h3>Length, type, data</h3><p>By default a 4-byte length field (<code>sizeOfUnionLengthFields</code>), a 4-byte type field (which member of the union follows), then the data, optionally followed by <span class="term">padding</span> (filler bytes, for example so that every member takes the same 4 bytes and the following data stays aligned). The length field counts data and padding only; the receiver skips whatever follows the data of the selected member. Type 0 means "empty".</p></div>
+</div>
+<p>The Classic Platform option <code class="term">implementsLegacyStringSerialization</code> (legacy string serialization: strings without BOM and terminator) sends strings as plain bytes; the specification itself warns that it will be removed and recommends byte arrays instead.</p>
+
+<h2>Alignment</h2>
+<p><span class="term">Alignment</span> (starting an element at a byte position that is a multiple of a set size) is not automatic for fixed-length data: SOME/IP never adds <span class="term">padding</span> after it; if a member must be aligned, the data type itself needs a padding element. After variable-length data that is not the last element, padding is added up to the configured <code>alignment</code> (8 to 256 bits), and the position is counted from the start of the SOME/IP message, <span class="term">SOME/IP header</span> included. The value of padding bytes is not defined.</p>
+
+<h2>TLV for extensible data</h2>
+<p>A struct can also be sent with <span class="term">TLV</span> serialization (tag, length, value: a 2-byte tag in front of every member). The tag holds 1 reserved bit, a 3-bit <span class="term">wire type</span> (how the size of the member is coded) and a 12-bit <span class="term">Data ID</span> (the number of the member). Wire types 0–3 mean a basic data type of 8, 16, 32 or 64 bits (no length field); 4 means a complex value with the configured length field; 5, 6, 7 a complex value with a 1-, 2- or 4-byte length field. A receiver skips members whose Data ID it does not know, so members can be added anywhere and optional members become possible.</p>
+
+<h2>Try it</h2>
+<p>A struct <em>Object</em> = { uint16 distance; sint8 angle; string name; uint8[] points }, sent as a NOTIFICATION. Change values and settings and click bytes to see what they are. Byte numbers count from the start of the SOME/IP message.</p>
+<div class="panel no-print">
+  <div class="form-grid">
+    <label>distance (0–65535)<input type="number" id="dist" value="42" min="0" max="65535"></label>
+    <label>angle (−128–127)<input type="number" id="ang" value="-3" min="-128" max="127"></label>
+    <label>name<input type="text" id="name" value="car"></label>
+    <label>points (comma list, 0–255)<input type="text" id="pts" value="1,2,3"></label>
+    <label>byteOrder of the payload<select id="bo"><option value="be">mostSignificantByteFirst</option><option value="le">mostSignificantByteLast</option></select></label>
+    <label>sizeOfStructLengthFields<select id="sl"><option value="0">none</option><option value="1">1 byte</option><option value="2">2 bytes</option><option value="4">4 bytes</option></select></label>
+    <label>sizeOfStringLengthFields<select id="strl"><option value="4">4 bytes (default)</option><option value="2">2 bytes</option><option value="1">1 byte</option></select></label>
+    <label>sizeOfArrayLengthFields<select id="arl"><option value="4">4 bytes (default)</option><option value="2">2 bytes</option><option value="1">1 byte</option></select></label>
+    <label>string format<select id="sf"><option value="std">SOME/IP: BOM + terminator</option><option value="legacy">legacy string serialization</option></select></label>
+    <label>alignment after variable-length data<select id="al"><option value="0">none</option><option value="4">32 bit</option><option value="8">64 bit</option></select></label>
+  </div>
+  <div class="buttons-row"><button type="button" class="primary" id="go">Serialize</button></div>
+  <div id="bytes"></div>
+  <p class="readout" id="out" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Switch the byte order: distance changes from <code>00 2A</code> to <code>2A 00</code>, but the length fields stay big-endian. The name "car" takes 3 + 3 + 1 = 7 bytes plus its length field. Turn on 32-bit alignment: padding appears after the name (variable, not last) but never after the points (last element) or after distance (fixed size).</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">length field</span></td><td>A field in front of a struct, string, array or union that says how many bytes follow; it never counts itself and is always big-endian</td></tr>
+<tr><td><span class="term">little-endian</span></td><td>Least significant byte first; a possible byte order of the payload, never of the SOME/IP header</td></tr>
+<tr><td><code class="term">byteOrder</code></td><td>Configured byte order of the payload: mostSignificantByteFirst, mostSignificantByteLast or opaque</td></tr>
+<tr><td><span class="term">BOM</span></td><td>Byte order mark at the start of every SOME/IP string; it names the encoding (UTF-8 <code>EF BB BF</code>)</td></tr>
+<tr><td><code class="term">implementsLegacyStringSerialization</code></td><td>Legacy option: strings without BOM and terminator</td></tr>
+<tr><td><span class="term">alignment</span></td><td>Start position rule for the data after variable-length data, counted from the start of the message (8 to 256 bits)</td></tr>
+<tr><td><span class="term">padding</span></td><td>Filler bytes with undefined value, added for alignment; in a union, the bytes after the data that the length field still covers</td></tr>
+<tr><td><span class="term">TLV</span></td><td>Tag, length, value: serialization with a tag in front of every member, so members can be added or left out</td></tr>
+<tr><td><span class="term">wire type</span></td><td>3 bits of the TLV tag: how the size of the member is coded</td></tr>
+<tr><td><span class="term">Data ID</span></td><td>12 bits of the TLV tag: the number of the member</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPProtocol.pdf">SOME/IP Protocol Specification, R20-11</a>, section 4.1.4; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, sections 7.2.2 and 7.2.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/bytes.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const view = Bytes.create($('bytes'), { perRow: 8, fields: [] });
+  function lenField(n, size) { return size === 1 ? Bytes.u8(n) : size === 2 ? Bytes.u16(n) : Bytes.u32(n); }
+  function utf8(s) { return Array.from(new TextEncoder().encode(s)); }
+  function go() {
+    const out = $('out');
+    const dist = Math.round(Number($('dist').value)), ang = Math.round(Number($('ang').value));
+    const pts = $('pts').value.trim() === '' ? [] : $('pts').value.split(',').map((x) => Math.round(Number(x.trim())));
+    if (!(dist >= 0 && dist <= 65535) || !(ang >= -128 && ang <= 127) || pts.some((p) => !(p >= 0 && p <= 255))) {
+      out.textContent = 'Values out of range: distance 0–65535, angle −128–127, points 0–255.';
+      return;
+    }
+    const le = $('bo').value === 'le';
+    const sl = Number($('sl').value), strl = Number($('strl').value), arl = Number($('arl').value), al = Number($('al').value);
+    const legacy = $('sf').value === 'legacy';
+    const members = [];
+    const d = Bytes.u16(dist);
+    members.push({ name: 'distance (uint16)', bytes: le ? Bytes.le(d) : d, cls: 'm-app', info: dist + ', written ' + (le ? 'least significant byte first.' : 'most significant byte first.') });
+    members.push({ name: 'angle (sint8)', bytes: [ang & 0xFF], cls: 'm-app', info: ang + ' in two\'s complement' + (ang < 0 ? ' (' + (ang & 0xFF) + ' as unsigned).' : '.') });
+    const chars = utf8($('name').value);
+    const body = legacy ? chars : [0xEF, 0xBB, 0xBF, ...chars, 0x00];
+    if (strl < 4 && body.length >= Math.pow(256, strl)) { out.textContent = 'The name is too long for a ' + strl + '-byte length field.'; return; }
+    members.push({ name: 'name: length field', bytes: lenField(body.length, strl), cls: 'm-soad', info: body.length + ' bytes follow (' + (legacy ? 'characters only' : 'BOM 3 + characters ' + chars.length + ' + terminator 1') + '). Always big-endian; does not count itself.' });
+    if (!legacy) members.push({ name: 'name: byte order mark', bytes: [0xEF, 0xBB, 0xBF], cls: 'm-rte', info: 'UTF-8 BOM (byte order mark).' });
+    members.push({ name: 'name: characters', bytes: chars, cls: 'm-app', info: chars.length ? '"' + $('name').value + '" in UTF-8.' : 'Empty name.' });
+    if (!legacy) members.push({ name: 'name: terminator', bytes: [0x00], cls: 'm-rte', info: 'The "\\0" that ends every SOME/IP string.' });
+    // alignment after the variable-length name (it is not the last element); offsets from message start
+    const headerLen = 16;
+    let pos = headerLen + (sl ? sl : 0) + members.reduce((s, m) => s + m.bytes.length, 0);
+    if (al > 0 && pos % al) {
+      const n = al - (pos % al);
+      members.push({ name: 'padding', bytes: new Array(n).fill(0), cls: 'pad', info: n + ' byte(s) so the next element starts at message byte ' + (pos + n) + ', a multiple of ' + al + '. The value of padding bytes is not defined; shown as 00.' });
+    }
+    if (arl < 4 && pts.length >= Math.pow(256, arl)) { out.textContent = 'Too many points for a ' + arl + '-byte length field.'; return; }
+    members.push({ name: 'points: length field', bytes: lenField(pts.length, arl), cls: 'm-soad', info: pts.length + ' bytes of elements (uint8 each). Big-endian.' });
+    members.push({ name: 'points: elements', bytes: pts, cls: 'm-app', info: pts.length ? pts.join(', ') + '. Last element: no padding after it.' : 'Empty array.' });
+    const structLen = members.reduce((s, m) => s + m.bytes.length, 0);
+    const fields = [];
+    const payloadLen = structLen + sl;
+    const header = [0x12, 0x34, 0x80, 0x02, ...Bytes.u32(8 + payloadLen), 0, 0, 0, 0, 1, 1, 2, 0];
+    fields.push({ name: 'SOME/IP header', bytes: header, cls: 'pad', info: 'Bytes 0–15: NOTIFICATION, Message ID 0x12348002, Length ' + (8 + payloadLen) + '. Alignment is counted from byte 0.' });
+    if (sl) fields.push({ name: 'struct length field', bytes: lenField(structLen, sl), cls: 'm-soad', info: structLen + ' bytes of struct follow. Big-endian.' });
+    fields.push(...members);
+    view.set(fields);
+    out.textContent = 'Payload: ' + payloadLen + ' bytes · whole message: ' + (16 + payloadLen) + ' bytes · Length field of the header: ' + (8 + payloadLen) + '.';
+  }
+  $('go').addEventListener('click', go);
+  ['dist', 'ang', 'name', 'pts', 'bo', 'sl', 'strl', 'arl', 'sf', 'al'].forEach((id) => $(id).addEventListener('change', go));
+  go();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A dynamic UTF-8 string holds "ab". What does its length field say?',
+    options: ['6 bytes: BOM, a, b, zero', '2 bytes: just a and b', '10 bytes: field included'],
+    answer: 0,
+    why: 'BOM (3) + characters (2) + terminator (1) = 6; the length field does not count itself.'
+  },
+  {
+    prompt: 'Payload byte order is set to little-endian. How is a 2-byte array length field of 3 written?',
+    options: ['00 03, still big-endian', '03 00, little-endian too', '03, a single byte only'],
+    answer: 0,
+    why: 'Length fields and union type fields are always big-endian (network byte order).'
+  },
+  {
+    prompt: 'Alignment is 32 bit. After which element can padding be added automatically?',
+    options: ['A variable one, not the last', 'Any fixed-size basic datatype', 'The very last element only'],
+    answer: 0,
+    why: 'Padding follows variable-length data that is not last; never fixed-length data.'
+  }
+]);
+</script>
+</body>
+</html>

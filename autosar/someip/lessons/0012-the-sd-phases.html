@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Initial Wait, Repetition and Main Phase · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Initial Wait, Repetition and Main Phase</h1>
+<p class="lede">When a <span class="term">service instance</span> becomes available, the server does not send its <code class="term">OfferService</code> at one fixed pace. It first waits a little, then repeats the offer quickly with growing gaps, then settles into a slow, steady rhythm: three phases, each with its own timing.</p>
+
+<h2>Wait, repeat, settle</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 178" role="img" aria-labelledby="f1t">
+<title id="f1t">Timing diagram over 12 seconds. Initial Wait Phase from 0 to 1 second, first OfferService at 1 second. Repetition Phase: OfferService at 1.5, 2.5 and 4.5 seconds, gaps doubling 0.5, 1 and 2 seconds. Main Phase from 4.5 seconds: OfferService every 2 seconds at 6.5, 8.5 and 10.5.</title>
+<text x="120" y="12" class="d-s">Initial Wait Phase</text>
+<path d="M140.8,15 v6" class="d-ln mute"/>
+<g transform="translate(0,10)">
+<rect x="120" y="14" width="41.7" height="22" class="d-box"/>
+<rect x="161.7" y="14" width="145.8" height="22" class="f-sd"/><text x="234.6" y="29" class="d-s d-c">Repetition Phase</text>
+<rect x="307.5" y="14" width="312.5" height="22" class="f-res"/><text x="463.8" y="29" class="d-s d-c">Main Phase</text>
+<text x="112" y="74" class="d-t d-r">OfferService</text>
+<line x1="120" y1="70" x2="620" y2="70" class="d-tick"/>
+<g class="tx-sd"><circle cx="161.7" cy="70" r="5"/><circle cx="182.5" cy="70" r="5"/><circle cx="224.2" cy="70" r="5"/><circle cx="307.5" cy="70" r="5"/><circle cx="390.8" cy="70" r="5"/><circle cx="474.2" cy="70" r="5"/><circle cx="557.5" cy="70" r="5"/></g>
+<path d="M161.7,86 v6 h20.8 v-6" class="d-ln mute"/><text x="172" y="106" class="d-s d-c">0.5</text>
+<path d="M182.5,86 v6 h41.7 v-6" class="d-ln mute"/><text x="203.4" y="120" class="d-s d-c">1</text>
+<path d="M224.2,86 v6 h83.3 v-6" class="d-ln mute"/><text x="265.8" y="106" class="d-s d-c">2 s</text>
+<path d="M307.5,86 v6 h83.3 v-6" class="d-ln mute"/><text x="349.2" y="106" class="d-s d-c">2 s</text>
+<path d="M390.8,86 v6 h83.4 v-6" class="d-ln mute"/><text x="432.5" y="106" class="d-s d-c">2 s</text>
+<text x="140.8" y="140" class="d-s d-c">random</text>
+<text x="120" y="160" class="d-s">0 s</text><text x="620" y="160" class="d-s d-r">12 s</text>
+</g>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read the gaps under the dots: 0.5, 1, 2 seconds in the Repetition Phase (each gap doubles), then a steady 2 seconds in the Main Phase. The first <code class="term">OfferService</code> comes after a random wait. Values are an example.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card"><p class="tag">phase 1</p><h3>Initial Wait Phase</h3><p>The <span class="term">Initial Wait Phase</span> (a random wait before the first message) lasts between <code class="term">INITIAL_DELAY_MIN</code> and <code class="term" data-term="INITIAL_DELAY_MIN">INITIAL_DELAY_MAX</code>; then the first <code class="term">OfferService</code> goes out. Many ECUs start together after power-up; the random wait spreads their messages out, and gives <span class="term">Sd</span> time to collect several <span class="term">entries</span> into one <span class="term">SD message</span>.</p></div>
+  <div class="card k-sd"><p class="tag">phase 2</p><h3>Repetition Phase</h3><p>In the <span class="term">Repetition Phase</span> (quick repeats with doubling gaps) the server offers again after <code class="term">REPETITIONS_BASE_DELAY</code> (the first gap), then after twice that, four times that, and so on, <code class="term">REPETITIONS_MAX</code> times (the number of repeats). Clients that start a bit later find the service instance very fast, without flooding the network.</p></div>
+  <div class="card k-res"><p class="tag">phase 3</p><h3>Main Phase</h3><p>In the <span class="term">Main Phase</span> (the steady last phase) the server offers every <code class="term">CYCLIC_OFFER_DELAY</code> (the period) for as long as the service instance is available. With <code>CYCLIC_OFFER_DELAY</code> = 0, no more offers are sent in this phase.</p></div>
+</div>
+<p>With <code class="term">REPETITIONS_MAX</code> = 0 the Repetition Phase is skipped: the first <code class="term">OfferService</code> is followed directly by the Main Phase.</p>
+
+<h2>FindService during the phases</h2>
+<p>A client may send a <code class="term">FindService</code> (the client's question "who offers this service?", lesson 13) while the server is in one of these phases.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Phase</th><th>A FindService arrives</th></tr></thead>
+<tbody>
+<tr><td>Initial Wait Phase</td><td>Ignored. The first OfferService is coming anyway.</td></tr>
+<tr><td>Repetition Phase</td><td>Answered with an extra OfferService. The repetition counter and the running gap are not touched.</td></tr>
+<tr><td>Main Phase</td><td>Answered with an OfferService, normally by unicast to the client that asked.</td></tr>
+</tbody>
+</table>
+</div>
+<p>An answer to a <span class="term">multicast</span> <code>FindService</code> is sent after <code class="term">REQUEST_RESPONSE_DELAY</code> (a random wait between a minimum and a maximum), so that a busy network is not flooded with simultaneous answers. Lesson 13 shows this delay from the client's side.</p>
+
+<h2>Going back to the start</h2>
+<p>If the <span class="term">service instance</span> stops being available, the server sends a <code class="term">StopOfferService</code> (unless it was still in the <span class="term">Initial Wait Phase</span>) and leaves the phases. If the ECU loses its IP address, for example because the link went down, the phases also end; when the address comes back, the server starts again with the Initial Wait Phase.</p>
+
+<h2>Try it</h2>
+<p>Choose the settings and press "Start". The Phase lane shows the Initial Wait Phase in grey, the Repetition Phase in pink and the Main Phase in green. Use "Send FindService" during each phase to see the different reactions.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>INITIAL_DELAY_MIN / MAX
+      <select id="init">
+        <option value="0.5,1.5">random 0.5–1.5 s</option>
+        <option value="1,1">always 1 s</option>
+        <option value="0,0">none</option>
+      </select>
+    </label>
+    <label>REPETITIONS_BASE_DELAY
+      <select id="base">
+        <option value="0.5">0.5 s</option>
+        <option value="1">1 s</option>
+      </select>
+    </label>
+    <label>REPETITIONS_MAX
+      <select id="reps">
+        <option value="3">3</option>
+        <option value="2">2</option>
+        <option value="0">0 (no Repetition Phase)</option>
+      </select>
+    </label>
+    <label>CYCLIC_OFFER_DELAY
+      <select id="cyc">
+        <option value="2">2 s</option>
+        <option value="3">3 s</option>
+        <option value="0">0 (no cyclic offers)</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> A <code class="term">FindService</code> in the <span class="term">Initial Wait Phase</span> gets no answer of its own; one in the <span class="term">Repetition Phase</span> gets an extra <code class="term">OfferService</code>, but the next regular offer stays where it was. With <code class="term">CYCLIC_OFFER_DELAY</code> 0 the server falls silent after the repetitions; clients then rely on a long <code class="term">TTL</code> and on <code>FindService</code>.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Initial Wait Phase</span></td><td>Random wait before the first OfferService</td></tr>
+<tr><td><code class="term">INITIAL_DELAY_MIN</code>, <code class="term" data-term="INITIAL_DELAY_MIN">INITIAL_DELAY_MAX</code></td><td>Bounds of that random wait</td></tr>
+<tr><td><span class="term">Repetition Phase</span></td><td>Quick repeats of the offer, each gap twice the one before</td></tr>
+<tr><td><code class="term">REPETITIONS_BASE_DELAY</code></td><td>The first gap of the Repetition Phase</td></tr>
+<tr><td><code class="term">REPETITIONS_MAX</code></td><td>Number of repeats; 0 skips the phase</td></tr>
+<tr><td><span class="term">Main Phase</span></td><td>Steady offers for as long as the service instance is available</td></tr>
+<tr><td><code class="term">CYCLIC_OFFER_DELAY</code></td><td>Period of the offers in the Main Phase; 0 means none</td></tr>
+<tr><td><code class="term">REQUEST_RESPONSE_DELAY</code></td><td>Random wait (min, max) before answering a multicast FindService</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.4.1, 4.1.4.2, 4.1.4.3 and 4.1.4.5; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, section 7.6 (where the protocol text is ambiguous about the first offer of the main phase, the course follows the module specification: one interval after the main phase starts).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const DUR = 14;
+  const sel = (id) => document.getElementById(id);
+  const readout = sel('readout');
+  let plan, phase, pending, phaseStart, rrDelay;
+  const AVAILABLE_AT = 0.2;
+  const PHASE = { wait: 'Initial Wait Phase', rep: 'Repetition Phase', main: 'Main Phase' };
+  // name a phase span only where the name fits (553 px for DUR seconds, about 5.5 px per character)
+  function fit(t0, t1, ph) { return (t1 - t0) * 553 / DUR > PHASE[ph].length * 5.5 + 8 ? PHASE[ph] : ''; }
+  function build() {
+    const [mn, mx] = sel('init').value.split(',').map(Number);
+    const base = Number(sel('base').value), reps = Number(sel('reps').value), cyc = Number(sel('cyc').value);
+    const p = [];
+    let t = AVAILABLE_AT + mn + Math.random() * (mx - mn);
+    p.push({ t, what: 'offer', phaseAfter: reps > 0 ? 'rep' : 'main' });
+    for (let k = 0; k < reps; k++) {
+      t += base * Math.pow(2, k);
+      p.push({ t, what: 'offer', phaseAfter: k === reps - 1 ? 'main' : 'rep' });
+    }
+    if (cyc > 0) for (let c = t + cyc; c < DUR; c += cyc) p.push({ t: c, what: 'offer', phaseAfter: 'main' });
+    return p;
+  }
+  function enter(newPhase, t) {
+    if (phase === newPhase) return;
+    const cls = { wait: 'f-mute', rep: 'f-sd', main: 'f-res' };
+    if (phase) tl.span('phase', phaseStart, t, cls[phase], fit(phaseStart, t, phase));
+    phase = newPhase; phaseStart = t;
+  }
+  const tl = Timeline.create(sel('tl'), {
+    lanes: [
+      { id: 'phase', label: 'Phase' },
+      { id: 'multi', label: 'OfferService' },
+      { id: 'find', label: 'FindService arrives' },
+      { id: 'uni', label: 'Unicast answer' }
+    ],
+    duration: DUR,
+    axis: 2,
+    onTick(prev, now) {
+      if (prev < AVAILABLE_AT && now >= AVAILABLE_AT) { enter('wait', AVAILABLE_AT); readout.textContent = 'Service instance available: the Initial Wait Phase starts.'; }
+      for (const e of plan) {
+        if (e.t > prev && e.t <= now) {
+          tl.markAt('multi', e.t, '', 'k-sd');
+          enter(e.phaseAfter, e.t);
+        }
+      }
+      for (const a of pending) {
+        if (!a.done && a.t <= now) { a.done = true; tl.markAt('uni', a.t, 'OfferService', 'k-sd'); }
+      }
+      if (now >= DUR && phase) tl.span('phase', phaseStart, DUR, { wait: 'f-mute', rep: 'f-sd', main: 'f-res' }[phase], fit(phaseStart, DUR, phase));
+    },
+    onReset() {
+      plan = build(); phase = null; pending = []; phaseStart = 0;
+      readout.textContent = 'Press "Start". The service instance becomes available at 0.2 s.';
+    }
+  });
+  tl.buttons.append(
+    Timeline.button('Start', () => { if (tl.finished()) tl.reset(); tl.start(); }, true),
+    Timeline.button('Send FindService', () => {
+      if (!tl.running()) { readout.textContent = 'Start the clock first.'; return; }
+      const now = tl.now();
+      tl.mark('find', 'FindService', 'k-sd');
+      if (!phase || phase === 'wait') {
+        readout.textContent = 'FindService during the Initial Wait Phase: ignored. The first OfferService is on its way anyway.';
+      } else {
+        rrDelay = 0.2 + Math.random() * 0.4;
+        pending.push({ t: now + rrDelay, done: false });
+        readout.textContent = 'FindService during the ' + (phase === 'rep' ? 'Repetition' : 'Main') + ' Phase: answered by OfferService after REQUEST_RESPONSE_DELAY (' + rrDelay.toFixed(2) + ' s). The regular offers do not move.';
+      }
+    })
+  );
+  ['init', 'base', 'reps', 'cyc'].forEach((id) => sel(id).addEventListener('change', () => tl.reset()));
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'REPETITIONS_BASE_DELAY is 0.5 s and REPETITIONS_MAX is 3. What are the gaps between the offers of the Repetition Phase?',
+    options: ['0.5 s, then 1 s, then 2 s', '0.5 s, then 0.5 s, then 0.5 s', '0.5 s, then 1.5 s, then 3 s'],
+    answer: 0,
+    why: 'Each gap doubles: REPETITIONS_BASE_DELAY, then 2 ×, then 4 × that value.'
+  },
+  {
+    prompt: 'Why does the first OfferService wait a random time?',
+    options: ['To spread out the start of many ECUs', 'To let clients send FindService first', 'To measure how fast the network is'],
+    answer: 0,
+    why: 'Spreading out ECUs that start together avoids bursts, and lets Sd collect several entries into one SD message.'
+  },
+  {
+    prompt: 'A FindService arrives during the Repetition Phase. What happens to the repetition counter?',
+    options: ['Nothing; it stays as it was', 'It starts again from zero', 'It counts the answer as one'],
+    answer: 0,
+    why: 'The extra OfferService does not change the counter or the running gap.'
+  }
+]);
+</script>
+</body>
+</html>

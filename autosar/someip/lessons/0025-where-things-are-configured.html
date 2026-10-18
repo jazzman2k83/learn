@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where things are configured · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Where things are configured</h1>
+<p class="lede">SOME/IP is described twice: once for the whole car in the <span class="term">system description</span> (the network model all ECUs share), and once for each ECU in the <span class="term">ECU configuration</span> (the containers and parameters of its basic software modules). Most ECU settings are the system description seen from one ECU.</p>
+
+<h2>Two layers of description</h2>
+<p>The <span class="term">system description</span> (the model of the whole network, written with the AUTOSAR System Template) covers which services exist, which ECU provides or consumes which <span class="term">service instance</span>, which IDs the messages carry, how data is serialized, and the <span class="term">Sd</span> timing. It is the shared plan every ECU must agree on. The part of it that concerns one ECU is that ECU's <span class="term">ECU extract</span> (the system description cut down to one ECU).</p>
+<p>The <span class="term">ECU configuration</span> (ECUC: the containers and parameters each basic software module of one ECU reads) is per ECU and per module: the configuration of <span class="term">Sd</span>, <span class="term">SoAd</span>, <span class="term">PduR</span>, <span class="term">COM</span>, <span class="term">SOME/IP TP</span>, <span class="term">TcpIp</span> and <span class="term">EthIf</span>. It holds the ECU's share of the plan, plus purely local choices such as <span class="term">main function</span> periods and buffer sizes.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 330" role="img" aria-labelledby="f1t">
+<title id="f1t">Left, the system description: service interfaces as Collections, ISignals with SOME/IP transformation settings, PDUs with their header IDs, ProvidedServiceInstance and ConsumedServiceInstance with EventHandler, ConsumedEventGroup and PduActivationRoutingGroup, Service Discovery timing, network addresses. Right, the ECU configuration per module: RTE, COM or LdCom, PduR, SOME/IP TP, SoAd, Sd, TcpIp, EthIf. Arrows show which part of the system description ends up in which module.</title>
+<text x="150" y="18" class="d-tb d-c">System description (whole car)</text>
+<text x="500" y="18" class="d-tb d-c">ECU configuration (one ECU)</text>
+<rect x="20" y="30" width="260" height="34" class="d-box"/><text x="150" y="46" class="d-t d-c">service interface (Collection)</text><text x="150" y="59" class="d-s d-c">events, methods, fields as port interfaces</text>
+<rect x="20" y="70" width="260" height="34" class="d-box"/><text x="150" y="86" class="d-t d-c">ISignals + SOME/IP transformation</text><text x="150" y="99" class="d-s d-c">message type, interface version, byte order …</text>
+<rect x="20" y="110" width="260" height="34" class="d-box"/><text x="150" y="126" class="d-t d-c">PDUs and their header IDs</text><text x="150" y="139" class="d-s d-c">SoConIPduIdentifier per method and event</text>
+<rect x="20" y="150" width="260" height="48" class="d-box"/><text x="150" y="166" class="d-t d-c">Provided- / ConsumedServiceInstance</text><text x="150" y="180" class="d-s d-c">EventHandler, ConsumedEventGroup,</text><text x="150" y="192" class="d-s d-c">PduActivationRoutingGroup with its PDUs</text>
+<rect x="20" y="204" width="260" height="34" class="d-box"/><text x="150" y="220" class="d-t d-c">Service Discovery timing</text><text x="150" y="233" class="d-s d-c">initial delay, repetitions, cyclic delay, TTL</text>
+<rect x="20" y="244" width="260" height="34" class="d-box"/><text x="150" y="260" class="d-t d-c">network addresses and ports</text><text x="150" y="273" class="d-s d-c">IP address, UDP/TCP port, VLAN</text>
+<rect x="420" y="30" width="160" height="26" class="m-rte"/><text x="500" y="47" class="d-t d-c">RTE <tspan class="d-s">· no transformer ECUC</tspan></text>
+<rect x="420" y="62" width="160" height="26" class="m-com"/><text x="500" y="79" class="d-t d-c">COM / LdCom</text>
+<rect x="420" y="94" width="160" height="26" class="m-pdur"/><text x="500" y="111" class="d-t d-c">PduR</text>
+<rect x="420" y="126" width="160" height="26" class="m-tp"/><text x="500" y="143" class="d-t d-c">SOME/IP TP</text>
+<rect x="420" y="158" width="160" height="26" class="m-soad"/><text x="500" y="175" class="d-t d-c">SoAd</text>
+<rect x="420" y="190" width="160" height="26" class="m-sd"/><text x="500" y="207" class="d-t d-c">Sd</text>
+<rect x="420" y="222" width="160" height="26" class="m-ip"/><text x="500" y="239" class="d-t d-c">TcpIp</text>
+<rect x="420" y="254" width="160" height="26" class="m-eth"/><text x="500" y="271" class="d-t d-c">EthIf</text>
+<line x1="282" y1="47" x2="418" y2="43" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="87" x2="418" y2="45" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="87" x2="418" y2="75" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="127" x2="418" y2="107" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="127" x2="418" y2="171" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="174" x2="418" y2="203" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="174" x2="418" y2="175" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="221" x2="418" y2="205" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="261" x2="418" y2="235" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="261" x2="418" y2="267" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<line x1="282" y1="261" x2="418" y2="173" class="d-ln mute" marker-end="url(#ah-mute)"/>
+<text x="320" y="310" class="d-s d-c">The configuration tools derive each ECU's share; local choices are added in the ECU configuration only.</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Follow the arrows into SoAd and Sd: most of their settings come from the service instances, the header IDs and the addresses on the left. Note the top right box: the SOME/IP transformer has no ECU configuration of its own.</figcaption>
+</figure>
+
+<h2>The system description, part by part</h2>
+<div class="cards">
+  <div class="card m-app"><p class="tag">lesson 2</p><h3>Service interface</h3><p>The Classic Platform has no service interface element of its own. A Collection groups the sender-receiver, client-server and trigger interfaces that make up one <span class="term">service</span>, with sub-collections for <span class="term">fields</span> and <span class="term">fire&amp;forget</span> methods.</p></div>
+  <div class="card m-rte"><p class="tag">lessons 4, 20, 24</p><h3>SOME/IP transformation</h3><p>Each ISignal that carries SOME/IP data points to a <span class="term">transformer chain</span> whose first step is the <span class="term">SOME/IP transformer</span>. General settings (byte order, alignment, interface version) are in the <code class="term">SOMEIPTransformationDescription</code> (the transformer settings shared by all signals); per-signal settings (message type, session handling on or off, size of length fields) are in the <code class="term">SOMEIPTransformationISignalProps</code> (the transformer settings of one signal).</p></div>
+  <div class="card m-soad"><p class="tag">lessons 20, 21</p><h3>Header IDs</h3><p>For every <span class="term">PDU</span> sent over a socket, a <code class="term">SoConIPduIdentifier</code> (the entry that binds a PDU to a socket and gives its header ID) holds the <span class="term">header ID</span> that SoAd writes in front: <span class="term">Service ID</span> plus <span class="term">Method ID</span> or <span class="term">Event ID</span>. Header IDs must be unique per address and direction; a request and its response may share one.</p></div>
+  <div class="card m-sd"><p class="tag">lessons 10–15</p><h3>Service instances</h3><p>A <code class="term">ProvidedServiceInstance</code> (a service instance this ECU offers) has Service ID, <span class="term">Instance ID</span>, versions, its local <code class="term">ApplicationEndpoint</code>s (UDP and/or TCP port plus IP address), its <code class="term">EventHandler</code>s (one per <span class="term">eventgroup</span>, with Eventgroup ID and <span class="term">multicast threshold</span>) and a routing group for its methods. A <code class="term">ConsumedServiceInstance</code> (a service instance this ECU uses) lists the <code class="term">ConsumedEventGroup</code>s it subscribes to.</p></div>
+  <div class="card m-soad"><p class="tag">lesson 21</p><h3>PduActivationRoutingGroup</h3><p>Each <code class="term">PduActivationRoutingGroup</code> (a <span class="term">routing group</span> as seen in the system description) names the PDUs it enables, over UDP or TCP, and for events its eventGroupControlType: unicast events, multicast events, <span class="term">initial events</span> for a new <span class="term">subscriber</span>, or both unicast kinds together.</p></div>
+  <div class="card m-sd"><p class="tag">lessons 11–14</p><h3>Service Discovery timing</h3><p>Server timing (initial delay, repetitions, <code class="term">CYCLIC_OFFER_DELAY</code>, <code class="term">TTL</code> of the <code class="term">OfferService</code>, request-response delay) and client timing (initial delay, repetitions, TTL of the <code class="term">FindService</code>) per service instance, plus subscription TTL and <span class="term">Subscribe retry</span> per eventgroup.</p></div>
+</div>
+<p>Older releases described SOME/IP sockets as socket connection bundles. In R20-11 that part of the model is marked obsolete; the sockets come from the ApplicationEndpoints of the service instances instead. You may still meet the old form in existing projects.</p>
+
+<h2>The ECU configuration, module by module</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Module</th><th>Holds for SOME/IP</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="chip m-rte">RTE</span></td><td>Which transformer functions run for which signal; no module configuration for the <span class="term">SOME/IP transformer</span> itself, its settings come from the system description</td><td>24</td></tr>
+<tr><td><span class="chip m-com">COM / LdCom</span></td><td>The <span class="term">I-PDU</span> with one byte-array signal; NORMAL or TP</td><td>27</td></tr>
+<tr><td><span class="chip m-pdur">PduR</span></td><td>Routing paths: from COM to SoAd, through SOME/IP TP when needed</td><td>27</td></tr>
+<tr><td><span class="chip m-tp">SOME/IP TP</span></td><td>Which PDUs are <span class="term" data-term="segmentation">segmented</span>, the separation time between <span class="term">segments</span> and the receive timeout</td><td>27</td></tr>
+<tr><td><span class="chip m-soad">SoAd</span></td><td><span class="term">Socket connections</span> and <span class="term">socket connection groups</span>, header IDs, transmit and receive routes, <span class="term">routing groups</span></td><td>27</td></tr>
+<tr><td><span class="chip m-sd">Sd</span></td><td><code class="term">SdServerService</code> and <code class="term">SdClientService</code> with their eventgroups, timers, its own <span class="term">SD message</span> PDUs, references to SoAd socket connection groups and routing groups</td><td>26</td></tr>
+<tr><td><span class="chip m-ip">TcpIp</span>, <span class="chip m-eth">EthIf</span></td><td>Local addresses, controllers and VLANs, <span class="term">frame owners</span></td><td>27</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Try it</h2>
+<p>Pick a part of the system description to see where it ends up in the ECU configuration.</p>
+<div class="panel no-print">
+  <div class="chips" id="parts"></div>
+  <div class="table-wrap">
+  <table class="data" id="map"><thead><tr><th>In the system description</th><th>In the ECU configuration</th></tr></thead><tbody></tbody></table>
+  </div>
+  <p class="small" id="note"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Almost every <span class="term">Sd</span> parameter has a twin in the system description, often with nearly the same name. The <span class="term">header ID</span> appears twice in SoAd, once for transmission and once for reception. The PduActivationRoutingGroups of the system description become SoAd <span class="term">routing groups</span> that Sd's containers reference.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">system description</span></td><td>The model of the whole network (System Template): services, service instances, PDUs, header IDs, Sd timing, addresses</td></tr>
+<tr><td><span class="term">ECU extract</span></td><td>The part of the system description that concerns one ECU</td></tr>
+<tr><td><span class="term">ECU configuration</span> (ECUC)</td><td>The containers and parameters of each basic software module of one ECU</td></tr>
+<tr><td><code class="term">ProvidedServiceInstance</code> / <code class="term">ConsumedServiceInstance</code></td><td>A service instance this ECU offers / uses; becomes <code>SdServerService</code> / <code>SdClientService</code></td></tr>
+<tr><td><code class="term">EventHandler</code> / <code class="term">ConsumedEventGroup</code></td><td>Server / client side of an eventgroup; becomes <code>SdEventHandler</code> / <code>SdConsumedEventGroup</code></td></tr>
+<tr><td><code class="term">PduActivationRoutingGroup</code></td><td>A routing group with its PDUs and, for events, its eventGroupControlType; becomes a SoAd routing group</td></tr>
+<tr><td><code class="term">SoConIPduIdentifier</code></td><td>Binds a PDU to a socket and gives its header ID</td></tr>
+<tr><td><code class="term">SOMEIPTransformationDescription</code></td><td>Transformer settings shared by all signals: byte order, alignment, interface version</td></tr>
+<tr><td><code class="term">SOMEIPTransformationISignalProps</code></td><td>Transformer settings of one signal: message type, session handling, size of length fields</td></tr>
+<tr><td><code class="term">ApplicationEndpoint</code></td><td>The local UDP or TCP port of a service instance, together with its IP address</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_TPS_SystemTemplate.pdf">System Template, R20-11</a>, sections 6.7 (service instances, Service Discovery configuration), 10 and Appendix E (obsolete socket connection model); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, chapter 7 (no module-specific EcuC).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const MAP = {
+    psi: { label: 'ProvidedServiceInstance', rows: [
+      ['ProvidedServiceInstance', 'Sd: SdServerService'],
+      ['serviceIdentifier, instanceIdentifier', 'SdServerServiceId, SdServerServiceInstanceId'],
+      ['majorVersion, minorVersion', 'SdServerServiceMajorVersion, SdServerServiceMinorVersion'],
+      ['autoAvailable', 'SdServerServiceAutoAvailable'],
+      ['loadBalancingPriority, loadBalancingWeight', 'SdServerServiceLoadBalancingPriority, …Weight'],
+      ['localUnicastAddress (UDP and/or TCP)', 'SoAd socket connection groups, referenced by SdServerServiceUdpRef / SdServerServiceTcpRef'],
+      ['methodActivationRoutingGroup', 'SoAd routing group, referenced by SdProvidedMethods / SdServerServiceActivationRef']
+    ], note: 'ApplicationEndpoint.maxNumberOfConnections tells how many clients with a dynamic address may connect: SoAd gets one socket connection with a wildcard remote address per potential client.' },
+    eh: { label: 'EventHandler', rows: [
+      ['EventHandler', 'Sd: SdEventHandler'],
+      ['eventGroupIdentifier', 'SdEventHandlerEventGroupId'],
+      ['multicastThreshold', 'SdEventHandlerMulticastThreshold'],
+      ['eventMulticastAddress', 'the SoAd socket connection for multicast events (SdEventHandlerMulticast / SdMulticastEventSoConRef)'],
+      ['pduActivationRoutingGroup: activationUnicast', 'SoAd routing group in SdEventHandlerUdp or SdEventHandlerTcp / SdEventActivationRef'],
+      ['pduActivationRoutingGroup: triggerUnicast', 'SoAd routing group in SdEventHandlerUdp or SdEventHandlerTcp / SdEventTriggeringRef'],
+      ['pduActivationRoutingGroup: activationMulticast', 'SoAd routing group in SdEventHandlerMulticast / SdEventActivationRef']
+    ], note: 'A field notifier sent by unicast uses either two routing groups (activationUnicast and triggerUnicast) or one routing group of type activationAndTriggerUnicast.' },
+    csi: { label: 'ConsumedServiceInstance', rows: [
+      ['ConsumedServiceInstance', 'Sd: SdClientService'],
+      ['serviceIdentifier, instanceIdentifier', 'SdClientServiceId, SdClientServiceInstanceId'],
+      ['majorVersion, minorVersion (may be ANY)', 'SdClientServiceMajorVersion, SdClientServiceMinorVersion'],
+      ['autoRequire', 'SdClientServiceAutoRequire'],
+      ['localUnicastAddress (UDP and/or TCP)', 'SoAd socket connection groups, referenced by SdClientServiceUdpRef / SdClientServiceTcpRef'],
+      ['methodActivationRoutingGroup', 'SoAd routing group, referenced by SdConsumedMethods / SdClientServiceActivationRef']
+    ], note: 'A remoteUnicastAddress is only used when the partner\'s address is fixed by configuration instead of learned through Service Discovery.' },
+    ceg: { label: 'ConsumedEventGroup', rows: [
+      ['ConsumedEventGroup', 'Sd: SdConsumedEventGroup'],
+      ['eventGroupIdentifier', 'SdConsumedEventGroupId'],
+      ['autoRequire', 'SdConsumedEventGroupAutoRequire'],
+      ['eventMulticastAddress', 'SoAd socket connection group for receiving multicast events, SdConsumedEventGroupMulticastGroupRef'],
+      ['pduActivationRoutingGroup', 'SoAd routing groups: SdConsumedEventGroupUdpActivationRef, …TcpActivationRef, …MulticastActivationRef']
+    ], note: '' },
+    hid: { label: 'SoConIPduIdentifier', rows: [
+      ['SoConIPduIdentifier.headerId (transmission)', 'SoAd: SoAdTxPduHeaderId in SoAdPduRouteDest'],
+      ['SoConIPduIdentifier.headerId (reception)', 'SoAd: SoAdRxPduHeaderId in SoAdSocketRoute'],
+      ['SoConIPduIdentifier.pduTriggering', 'the PDU of the route: SoAdTxPduRef / SoAdRxPduRef'],
+      ['pduCollectionSemantics, …Trigger, …Timeout', 'SoAdTxPduCollectionSemantics, SoAdTxUdpTriggerMode, SoAdTxUdpTriggerTimeout']
+    ], note: 'Header IDs must be unique per address and direction; a request and its response may use the same header ID because they travel in opposite directions.' },
+    xf: { label: 'SOME/IP transformation', rows: [
+      ['TransformationTechnology: protocol SOMEIP, version 1, class serializer', 'RTE runs the SOME/IP transformer for this signal'],
+      ['SOMEIPTransformationDescription: byteOrder, alignment, interfaceVersion', 'no ECUC of the transformer; the generated transformer uses these values'],
+      ['SOMEIPTransformationISignalProps: messageType, sessionHandlingSR, size of length fields', 'no ECUC of the transformer; per signal'],
+      ['ISignal of type byte array', 'COM signal UINT8_N / UINT8_DYN or an LdCom I-PDU']
+    ], note: 'The SOME/IP transformer has no module-specific ECU configuration: its whole configuration comes from the transformation description and the per-signal properties.' },
+    timing: { label: 'Service Discovery timing', rows: [
+      ['SomeipSdServerServiceInstanceConfig (initial offer behaviour, offerCyclicDelay, requestResponseDelay, serviceOfferTimeToLive)', 'Sd: SdServerTimer'],
+      ['SomeipSdClientServiceInstanceConfig (initial find behaviour, serviceFindTimeToLive)', 'Sd: SdClientTimer'],
+      ['SomeipSdServerEventGroupTimingConfig (requestResponseDelay)', 'Sd: SdServerTimer referenced by SdEventHandlerTimerRef'],
+      ['SomeipSdClientEventGroupTimingConfig (timeToLive, retry delay and max, requestResponseDelay)', 'Sd: SdClientTimer referenced by SdConsumedEventGroupTimerRef']
+    ], note: 'Timers are separate containers so several service instances can share one; instances that share a timer and start together also share its random initial delay.' }
+  };
+  const parts = document.getElementById('parts');
+  const tbody = document.querySelector('#map tbody');
+  const note = document.getElementById('note');
+  const keys = Object.keys(MAP);
+  const buttons = keys.map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = MAP[k].label;
+    b.addEventListener('click', () => show(k));
+    parts.appendChild(b);
+    return b;
+  });
+  function show(k) {
+    buttons.forEach((b, i) => b.setAttribute('aria-pressed', keys[i] === k ? 'true' : 'false'));
+    tbody.replaceChildren();
+    MAP[k].rows.forEach(([a, b]) => {
+      const tr = document.createElement('tr');
+      const ta = document.createElement('td'); ta.innerHTML = '<code>' + a + '</code>';
+      const tb = document.createElement('td'); tb.innerHTML = '<code>' + b + '</code>';
+      tr.append(ta, tb);
+      tbody.appendChild(tr);
+    });
+    note.textContent = MAP[k].note;
+  }
+  show('psi');
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Where are the settings of the SOME/IP transformer (byte order, message type) kept?',
+    options: ['In the system description only', 'In its own ECU configuration', 'In the Sd module containers'],
+    answer: 0,
+    why: 'The SOME/IP transformer has no module-specific EcuC; its configuration is the transformation description and the per-signal props.'
+  },
+  {
+    prompt: 'A ProvidedServiceInstance in the system description becomes which Sd container?',
+    options: ['SdServerService', 'SdClientService', 'SdEventHandler'],
+    answer: 0,
+    why: 'ProvidedServiceInstance corresponds to SdServerService; its EventHandlers to SdEventHandler.'
+  },
+  {
+    prompt: 'A header ID for transmission ends up in which SoAd container?',
+    options: ['The PDU route destination', 'The socket connection group', 'The routing group itself'],
+    answer: 0,
+    why: 'SoAdTxPduHeaderId sits in SoAdPduRouteDest; for reception, SoAdRxPduHeaderId sits in SoAdSocketRoute.'
+  }
+]);
+</script>
+</body>
+</html>

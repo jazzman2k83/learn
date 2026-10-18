@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who writes which header field · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>Who writes which header field</h1>
+<p class="lede">The <span class="term">SOME/IP header</span> is written by two modules far apart in the stack: the <span class="term">SOME/IP transformer</span> near the top and <span class="term">SoAd</span> near the bottom. For segmented messages (<span class="term">SOME/IP TP</span>) and for <span class="term">SOME/IP-SD message</span>s, two more modules join in.</p>
+
+<h2>The split</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 246" role="img" aria-labelledby="f1t">
+<title id="f1t">The SOME/IP header fields coloured by their writer: Message ID and Length by SoAd; Request ID, Protocol Version, Interface Version, Message Type and Return Code by the SOME/IP transformer, or by Sd for SD messages. SOME/IP TP sets the TP flag in the Message Type and adds the SOME/IP TP header with Offset and More Segments flag.</title>
+<rect x="20" y="20" width="600" height="30" class="m-soad"/><text x="320" y="40" class="d-t d-c">1 · Message ID (Service ID + Method ID or Event ID)</text>
+<rect x="20" y="50" width="600" height="30" class="m-soad"/><text x="320" y="70" class="d-t d-c">2 · Length</text>
+<rect x="20" y="80" width="600" height="30" class="m-rte"/><text x="320" y="100" class="d-t d-c">3 · Request ID (Client ID + Session ID)</text>
+<rect x="20" y="110" width="150" height="44" class="m-rte"/><text x="95" y="129" class="d-t d-c">4 · Protocol</text><text x="95" y="145" class="d-t d-c">Version</text>
+<rect x="170" y="110" width="150" height="44" class="m-rte"/><text x="245" y="129" class="d-t d-c">5 · Interface</text><text x="245" y="145" class="d-t d-c">Version</text>
+<rect x="320" y="110" width="150" height="44" class="m-rte"/><text x="395" y="129" class="d-t d-c">6 · Message Type</text><text x="395" y="145" class="d-s d-c">+ TP flag: SOME/IP TP</text>
+<rect x="470" y="110" width="150" height="44" class="m-rte"/><text x="545" y="129" class="d-t d-c">7 · Return</text><text x="545" y="145" class="d-t d-c">Code</text>
+<rect x="20" y="158" width="600" height="30" class="m-tp"/><text x="320" y="178" class="d-t d-c">SOME/IP TP header, segments only: Offset · More Segments flag</text>
+<rect x="20" y="192" width="600" height="30" class="m-app"/><text x="320" y="212" class="d-t d-c">payload</text>
+<text x="20" y="240" class="d-s">green: SoAd · purple: SOME/IP transformer (Sd for SD messages) · orange: SOME/IP TP</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Two colours cover a normal message: green on top, purple below. The orange row exists only in the segments of a segmented message.</figcaption>
+</figure>
+
+<div class="cards">
+  <div class="card m-soad"><p class="tag">SoAd</p><h3>Message ID and Length</h3><p>Each PDU route in <span class="term">SoAd</span> has a configured <span class="term">header ID</span> (the 32-bit ID that SoAd writes in front of the PDU; for SOME/IP it is the <span class="term">Message ID</span>). SoAd writes it and the <span class="term">Length</span> in front of the <span class="term">PDU</span> as its <span class="term">SoAd PDU header</span> when sending, and uses it to pick the route when receiving.</p></div>
+  <div class="card m-rte"><p class="tag">SOME/IP transformer</p><h3>Request ID to Return Code</h3><p>Written during <span class="term">serialization</span>. For a <span class="term">REQUEST</span> and its <span class="term">RESPONSE</span>, the <span class="term">Client ID</span> and <span class="term">Session ID</span> come from the RTE's <span class="term">transaction handle</span>. For events and fire&amp;forget calls the transformer counts the Session ID itself, or writes 0 if <span class="term">session handling</span> is off. The <span class="term">Message Type</span> and the <span class="term">Interface Version</span> come from the transformer configuration of the signal.</p></div>
+  <div class="card m-tp"><p class="tag">SOME/IP TP</p><h3>TP flag and SOME/IP TP header</h3><p>Only for <span class="term">segmentation</span>: SOME/IP TP sets the <span class="term">TP flag</span> (a bit in the Message Type that marks a segment) and adds the <span class="term">SOME/IP TP header</span> (where the segment starts, and whether more follow). On the receiving side it removes both after reassembling the message.</p></div>
+  <div class="card m-sd"><p class="tag">Sd</p><h3>Its own messages</h3><p>For <span class="term">SOME/IP-SD message</span>s, <span class="term">Sd</span> writes the header fields from the Request ID to the Return Code, and the content; SoAd adds the Message ID and the Length with the fixed header ID 0xFFFF8100 (Service ID 0xFFFF, Method ID 0x8100).</p></div>
+</div>
+<p>Why the split? It lets SoAd sort and route messages by header ID without knowing anything about SOME/IP data, and it keeps the ID configuration in one place, next to the <span class="term">socket connection</span>s. It also explains a gap noted in lesson 9: SoAd does not check versions and cannot answer an unknown Message ID; the transformer checks versions but never sees a message whose ID SoAd could not place.</p>
+
+<h2>Try it</h2>
+<p>Pick a kind of message, then click a header field to see who writes it and who checks it.</p>
+<div class="panel no-print">
+  <div class="chips" id="kinds"></div>
+  <div id="boxes" style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.25rem"></div>
+  <p class="field-info" id="info" aria-live="polite">Click a header field.</p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> The <span class="term">Message ID</span> and the <span class="term">Length</span> are always green, whatever the kind. The <span class="term">Request ID</span> changes source with the kind: RTE values for a REQUEST, copied for a RESPONSE, the transformer's own Session ID counter for a NOTIFICATION. A <span class="term">segment</span> keeps all header fields of the original message except the Length and the TP flag.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">header ID</span></td><td>The 32-bit ID that SoAd writes in front of a PDU and routes by; for SOME/IP it is the Message ID</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransformer.pdf">SOME/IP Transformer, R20-11</a>, sections 7.2.3 and 7.3; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SocketAdaptor.pdf">Socket Adaptor, R20-11</a>, sections 4.1 and 7.3; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_SOMEIPTransportProtocol.pdf">SOME/IP TP, R20-11</a>, section 7.2.2; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, section 7.2.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const KINDS = {
+    ev: 'Notification · BrakeEvent', req: 'REQUEST · Calibrate', res: 'RESPONSE · Calibrate', seg: 'Segment', sd: 'SOME/IP-SD message'
+  };
+  const BOXES = [
+    { id: 1, name: '1 · Message ID', span: 2 },
+    { id: 2, name: '2 · Length', span: 2 },
+    { id: 3, name: '3 · Request ID', span: 2 },
+    { id: 4, name: '4 · Protocol Version', span: 1 },
+    { id: 5, name: '5 · Interface Version', span: 1 },
+    { id: 6, name: '6 · Message Type', span: 1 },
+    { id: 7, name: '7 · Return Code', span: 1 },
+    { id: 8, name: 'SOME/IP TP header', span: 2 }
+  ];
+  function owner(kind, box) {
+    if (box === 1 || box === 2) return ['m-soad', 'SoAd'];
+    if (box === 8) return kind === 'seg' ? ['m-tp', 'SOME/IP TP'] : [null, '–'];
+    if (kind === 'sd') return ['m-sd', 'Sd'];
+    if (kind === 'seg' && box === 6) return ['m-tp', 'transformer, TP flag by SOME/IP TP'];
+    return ['m-rte', 'SOME/IP transformer'];
+  }
+  const TEXT = {
+    ev: {
+      1: 'SoAd writes the configured header ID of the PDU route: radar Service ID + Event ID of BrakeEvent. The receiving SoAd uses it to pick the route, then removes the Message ID and the Length.',
+      2: 'SoAd writes the length of the PDU it got from PduR: from the Request ID to the end of the payload.',
+      3: 'The transformer: Client ID 0 (an event has no caller) and its own Session ID counter if session handling is on, otherwise 0. Receivers do not check it for events.',
+      4: 'The transformer writes 0x01. The receiving transformer checks it.',
+      5: 'The transformer writes the major version of the service interface from its configuration. The receiving transformer checks it.',
+      6: 'The transformer writes NOTIFICATION, from the transformer configuration of this signal. The receiving transformer checks that the Message Type is as expected.',
+      7: 'The transformer writes E_OK: only a RESPONSE or an ERROR carries another Return Code.',
+      8: 'Not present: the message is not segmented.'
+    },
+    req: {
+      1: 'SoAd writes the header ID configured for this method: radar Service ID + Method ID of Calibrate.',
+      2: 'SoAd writes the length of the PDU.',
+      3: 'The transformer copies the Client ID and the Session ID from the RTE\'s transaction handle of this call. The Client ID is configured per client; the Session ID counts per call.',
+      4: 'The transformer writes 0x01; the server\'s transformer checks it.',
+      5: 'The transformer writes the Interface Version; the server\'s transformer checks it and, with an autonomous error reaction, answers E_WRONG_INTERFACE_VERSION.',
+      6: 'The transformer writes REQUEST.',
+      7: 'E_OK: a REQUEST always carries E_OK.',
+      8: 'Not present.'
+    },
+    res: {
+      1: 'SoAd on the server writes the header ID configured for the response route: the same Service ID and Method ID as the REQUEST.',
+      2: 'SoAd writes the length of the PDU.',
+      3: 'Copied: the server\'s RTE kept the transaction handle of the REQUEST and hands it back to the transformer for the RESPONSE.',
+      4: 'The transformer writes 0x01; the client\'s transformer checks it.',
+      5: 'The transformer writes the Interface Version (the same as in the REQUEST).',
+      6: 'The transformer writes RESPONSE, or ERROR when the call failed.',
+      7: 'The transformer writes the Return Code: E_OK, an ApplicationError mapped into its range, or an error found while deserializing the REQUEST.',
+      8: 'Not present.'
+    },
+    seg: {
+      1: 'SoAd writes the header ID, the same as for the original message.',
+      2: 'SoAd writes the length of this segment\'s PDU; SOME/IP TP built the segment, so it includes the SOME/IP TP header.',
+      3: 'The same as in the original message: SOME/IP TP copies the Request ID to the Return Code from the original message into every segment.',
+      4: 'Copied from the original message.',
+      5: 'Copied from the original message.',
+      6: 'Copied, with the TP flag set by SOME/IP TP. The receiving SOME/IP TP clears the flag again after reassembly.',
+      7: 'Copied from the original message.',
+      8: 'Added by SOME/IP TP: the Offset (where this segment starts in the original payload) and the More Segments flag. Removed again by the receiving SOME/IP TP.'
+    },
+    sd: {
+      1: 'SoAd writes the fixed header ID 0xFFFF8100 on the Service Discovery route.',
+      2: 'SoAd writes the length of the PDU.',
+      3: 'Sd writes Client ID 0 and its Session ID counter for this partner. The reboot flag of lesson 16 follows right after the SOME/IP header, in the SD header.',
+      4: 'Sd writes 0x01.',
+      5: 'Sd writes 0x01.',
+      6: 'Sd writes NOTIFICATION: SOME/IP-SD messages are sent like events.',
+      7: 'Sd writes E_OK.',
+      8: 'Not present.'
+    }
+  };
+  let kind = 'ev', box = null;
+  const kinds = document.getElementById('kinds');
+  const boxesEl = document.getElementById('boxes');
+  const info = document.getElementById('info');
+  const kb = Object.keys(KINDS).map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = KINDS[k];
+    b.addEventListener('click', () => { kind = k; draw(); });
+    kinds.appendChild(b);
+    return b;
+  });
+  function draw() {
+    kb.forEach((b, i) => b.setAttribute('aria-pressed', Object.keys(KINDS)[i] === kind ? 'true' : 'false'));
+    boxesEl.replaceChildren();
+    BOXES.forEach((bx) => {
+      const [cls, who] = owner(kind, bx.id);
+      const d = document.createElement('button');
+      d.type = 'button';
+      d.style.gridColumn = 'span ' + bx.span;
+      d.style.textAlign = 'left';
+      d.innerHTML = '<span class="chip ' + (cls || '') + '">' + bx.name + '</span> <small>' + who + '</small>';
+      if (box === bx.id) d.setAttribute('aria-pressed', 'true');
+      d.addEventListener('click', () => { box = bx.id; draw(); });
+      boxesEl.appendChild(d);
+    });
+    if (box) info.innerHTML = '<strong>' + KINDS[kind] + ', ' + BOXES.find((b) => b.id === box).name + ':</strong> ' + TEXT[kind][box];
+  }
+  draw();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module writes the Length of a normal SOME/IP message?',
+    options: ['SoAd', 'The SOME/IP transformer', 'PduR'],
+    answer: 0,
+    why: 'SoAd writes the header ID (the Message ID) and the Length in front of the PDU as its SoAd PDU header.'
+  },
+  {
+    prompt: 'Where do the Client ID and Session ID of a RESPONSE come from?',
+    options: ['From the REQUEST, kept by the RTE', 'From a new counter on the server', 'From the SoAd configuration'],
+    answer: 0,
+    why: 'The server RTE keeps the transaction handle of the REQUEST and gives it to the transformer for the RESPONSE.'
+  },
+  {
+    prompt: 'For a SOME/IP-SD message, who writes the header fields from the Request ID to the Return Code?',
+    options: ['The Sd module itself', 'The SOME/IP transformer', 'The BswM module'],
+    answer: 0,
+    why: 'Sd builds its own messages apart from the Message ID and the Length, which SoAd adds with the fixed header ID 0xFFFF8100.'
+  }
+]);
+</script>
+</body>
+</html>

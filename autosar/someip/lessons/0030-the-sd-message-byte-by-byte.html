@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The SD message, byte by byte · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem 1rem; margin-bottom: 0.9rem; }
+  .form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.68rem; color: var(--muted); }
+  .form-grid label.inline { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--ink); }
+  .form-grid input[type="text"], .form-grid select { width: 100%; }
+  ul.checks { list-style: none; padding: 0; margin: 0.5rem 0 0; font-size: 0.85rem; }
+  ul.checks li { margin: 0.2rem 0; }
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The SD message, byte by byte</h1>
+<p class="lede">A <span class="term">SOME/IP-SD message</span> is a SOME/IP <code class="term">NOTIFICATION</code> with a fixed <span class="term">SOME/IP header</span>, a Flags byte, an array of 16-byte <span class="term">entries</span> and an array of <span class="term">options</span>.</p>
+
+<h2>The frame of every SD message</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 300" role="img" aria-labelledby="f1t">
+<title id="f1t">SOME/IP-SD message in 32-bit rows: Message ID 0xFFFF8100; Length; Request ID with Client ID 0 and Session ID; Protocol Version 1, Interface Version 1, Message Type 0x02, Return Code 0; Flags byte and 24 reserved bits; length of the entries array; the entries; length of the options array; the options.</title>
+<text x="40" y="16" class="d-s">bit 0</text><text x="180" y="16" class="d-s d-c">8</text><text x="320" y="16" class="d-s d-c">16</text><text x="460" y="16" class="d-s d-c">24</text><text x="600" y="16" class="d-s d-r">31</text>
+<text x="32" y="41" class="d-s d-r">0</text>
+<rect x="40" y="24" width="560" height="26" class="m-soad"/><text x="320" y="41" class="d-t d-c">Message ID = 0xFFFF 8100</text>
+<text x="32" y="67" class="d-s d-r">4</text>
+<rect x="40" y="50" width="560" height="26" class="m-soad"/><text x="320" y="67" class="d-t d-c">Length</text>
+<text x="32" y="93" class="d-s d-r">8</text>
+<rect x="40" y="76" width="280" height="26" class="m-sd"/><text x="180" y="93" class="d-t d-c">Client ID = 0x0000</text>
+<rect x="320" y="76" width="280" height="26" class="m-sd"/><text x="460" y="93" class="d-t d-c">Session ID (1…0xFFFF)</text>
+<text x="32" y="119" class="d-s d-r">12</text>
+<rect x="40" y="102" width="140" height="26" class="m-sd"/><text x="110" y="119" class="d-s d-c">Protocol Version 0x01</text>
+<rect x="180" y="102" width="140" height="26" class="m-sd"/><text x="250" y="119" class="d-s d-c">Interface Version 0x01</text>
+<rect x="320" y="102" width="140" height="26" class="m-sd"/><text x="390" y="119" class="d-s d-c">Message Type 0x02</text>
+<rect x="460" y="102" width="140" height="26" class="m-sd"/><text x="530" y="119" class="d-s d-c">Return Code 0x00</text>
+<text x="32" y="145" class="d-s d-r">16</text>
+<rect x="40" y="128" width="140" height="26" class="m-sd"/><text x="110" y="145" class="d-s d-c">Flags</text>
+<rect x="180" y="128" width="420" height="26" class="d-box"/><text x="390" y="145" class="d-s d-c">Reserved (24 bit)</text>
+<text x="32" y="171" class="d-s d-r">20</text>
+<rect x="40" y="154" width="560" height="26" class="m-sd"/><text x="320" y="171" class="d-t d-c">Length of Entries Array in Bytes</text>
+<text x="32" y="199" class="d-s d-r">24</text>
+<rect x="40" y="180" width="560" height="32" class="f-sd"/><text x="320" y="200" class="d-t d-c">Entries: 16 bytes each</text>
+<rect x="40" y="212" width="560" height="26" class="m-sd"/><text x="320" y="229" class="d-t d-c">Length of Options Array in Bytes</text>
+<rect x="40" y="238" width="560" height="32" class="d-box"/><text x="320" y="258" class="d-t d-c">Options: variable length each</text>
+<text x="320" y="292" class="d-s d-c">green: written by SoAd as PDU header (header ID 0xFFFF8100) · pink: written by Sd</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The first 16 bytes are an ordinary SOME/IP header with fixed values. From byte 16 on comes the SOME/IP-SD part: the Flags byte, then the entries array and the options array, each behind its own 4-byte length field.</figcaption>
+</figure>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Bit of the Flags byte</th><th>Name</th><th>Value sent</th></tr></thead>
+<tbody>
+<tr><td>0x80 (highest)</td><td><span class="term">Reboot flag</span></td><td>1 after a reboot until the <span class="term">Session ID</span> wraps (lesson 16)</td></tr>
+<tr><td>0x40</td><td><span class="term">Unicast flag</span></td><td>always 1: "I can receive <span class="term">unicast</span> SOME/IP-SD messages"; kept for compatibility</td></tr>
+<tr><td>0x20</td><td><span class="term">Explicit Initial Data Control flag</span></td><td>always 1: "I honour the <span class="term">Initial Data Requested flag</span>"</td></tr>
+<tr><td>others</td><td>undefined</td><td>0 when sending, ignored when receiving</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Entries</h2>
+<p>Every <span class="term">entry</span> is 16 bytes long and comes in one of two formats: a <span class="term">service entry</span> (Type 1 format, for <code class="term">FindService</code> and <code class="term">OfferService</code>) or an <span class="term">eventgroup entry</span> (Type 2 format, for <code class="term">SubscribeEventgroup</code> and <code class="term">SubscribeEventgroupAck</code>). Each entry points to its options through two <span class="term">option runs</span> (a start index into the options array plus a number of options).</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 448" role="img" aria-labelledby="f2t">
+<title id="f2t">Two entry formats of 16 bytes each. Service entry (Type 1): Type, Index 1st options, Index 2nd options, # of opt 1 and # of opt 2 in four bits each; Service ID, Instance ID; Major Version, TTL 24 bit; Minor Version 32 bit. Eventgroup entry (Type 2): the same first 12 bytes, then a reserved byte, a byte with the Initial Data Requested flag, three reserved bits and a 4-bit Counter, then the Eventgroup ID.</title>
+<text x="40" y="18" class="d-tb">Service entry (Type 1)</text>
+<text x="40" y="34" class="d-s">FindService 0x00 · OfferService 0x01 · StopOfferService: OfferService with TTL 0</text>
+<text x="32" y="61" class="d-s d-r">0</text>
+<text x="32" y="91" class="d-s d-r">4</text>
+<text x="32" y="121" class="d-s d-r">8</text>
+<text x="32" y="151" class="d-s d-r">12</text>
+<rect x="40" y="42" width="140" height="30" class="f-sd"/>
+<text x="110" y="61" class="d-s d-c">Type</text>
+<rect x="180" y="42" width="140" height="30" class="f-sd"/>
+<text x="250" y="61" class="d-s d-c">Index 1st options</text>
+<rect x="320" y="42" width="140" height="30" class="f-sd"/>
+<text x="390" y="61" class="d-s d-c">Index 2nd options</text>
+<rect x="460" y="42" width="70" height="30" class="f-sd"/>
+<text x="495" y="61" class="d-s d-c"># of opt 1</text>
+<rect x="530" y="42" width="70" height="30" class="f-sd"/>
+<text x="565" y="61" class="d-s d-c"># of opt 2</text>
+<rect x="40" y="72" width="280" height="30" class="m-app"/>
+<text x="180" y="91" class="d-s d-c">Service ID</text>
+<rect x="320" y="72" width="280" height="30" class="m-app"/>
+<text x="460" y="91" class="d-s d-c">Instance ID</text>
+<rect x="40" y="102" width="140" height="30" class="m-app"/>
+<text x="110" y="121" class="d-s d-c">Major Version</text>
+<rect x="180" y="102" width="420" height="30" class="f-sd"/>
+<text x="390" y="121" class="d-s d-c">TTL · 24 bit, seconds</text>
+<rect x="40" y="132" width="560" height="30" class="m-app"/>
+<text x="320" y="151" class="d-s d-c">Minor Version · 32 bit</text>
+<text x="40" y="188" class="d-tb">Eventgroup entry (Type 2)</text>
+<text x="40" y="204" class="d-s">SubscribeEventgroup 0x06 · SubscribeEventgroupAck 0x07 · Stop and Nack: TTL 0</text>
+<text x="32" y="231" class="d-s d-r">0</text>
+<text x="32" y="261" class="d-s d-r">4</text>
+<text x="32" y="291" class="d-s d-r">8</text>
+<text x="32" y="321" class="d-s d-r">12</text>
+<rect x="40" y="212" width="140" height="30" class="f-sd"/>
+<text x="110" y="231" class="d-s d-c">Type</text>
+<rect x="180" y="212" width="140" height="30" class="f-sd"/>
+<text x="250" y="231" class="d-s d-c">Index 1st options</text>
+<rect x="320" y="212" width="140" height="30" class="f-sd"/>
+<text x="390" y="231" class="d-s d-c">Index 2nd options</text>
+<rect x="460" y="212" width="70" height="30" class="f-sd"/>
+<text x="495" y="231" class="d-s d-c"># of opt 1</text>
+<rect x="530" y="212" width="70" height="30" class="f-sd"/>
+<text x="565" y="231" class="d-s d-c"># of opt 2</text>
+<rect x="40" y="242" width="280" height="30" class="m-app"/>
+<text x="180" y="261" class="d-s d-c">Service ID</text>
+<rect x="320" y="242" width="280" height="30" class="m-app"/>
+<text x="460" y="261" class="d-s d-c">Instance ID</text>
+<rect x="40" y="272" width="140" height="30" class="m-app"/>
+<text x="110" y="291" class="d-s d-c">Major Version</text>
+<rect x="180" y="272" width="420" height="30" class="f-sd"/>
+<text x="390" y="291" class="d-s d-c">TTL · 24 bit, seconds</text>
+<rect x="40" y="302" width="140" height="30" class="d-box"/>
+<text x="110" y="321" class="d-s d-c">Reserved</text>
+<rect x="180" y="302" width="17.5" height="30" class="f-sd"/>
+<rect x="197.5" y="302" width="52.5" height="30" class="d-box"/>
+<text x="223.75" y="321" class="d-s d-c">Reserved</text>
+<rect x="250" y="302" width="70" height="30" class="f-sd"/>
+<text x="285" y="321" class="d-s d-c">Counter</text>
+<rect x="320" y="302" width="280" height="30" class="m-app"/>
+<text x="460" y="321" class="d-s d-c">Eventgroup ID</text>
+<path d="M188.75,332 V342" class="d-ln mute"/>
+<text x="184" y="354" class="d-s">Initial Data Requested flag (1 bit) · Reserved (3 bit) · Counter (4 bit)</text>
+<text x="40" y="392" class="d-s">Any: Instance ID 0xFFFF, Major Version 0xFF, Minor Version 0xFFFFFFFF. TTL 0xFFFFFF: until the next reboot.</text>
+<text x="40" y="410" class="d-s">Option runs: # of opt 1 options from Index 1st options, # of opt 2 options from Index 2nd options.</text>
+<text x="40" y="428" class="d-s">Counter: tells apart subscriptions of one client to one eventgroup that differ only in endpoint; 0 if unused.</text>
+</svg>
+</div>
+<figcaption><b>Figure 2.</b> The first 12 bytes of both formats are the same; only the last 4 differ: the Minor Version in a service entry; the Initial Data Requested flag, the Counter and the Eventgroup ID in an eventgroup entry. Two option runs let one entry share common options with other entries and still have its own.</figcaption>
+</figure>
+<p class="small">Specification note: the R20-11 Service Discovery module specification still draws the 12 bits before the Counter as reserved and does not mention the Initial Data Requested flag or the Explicit Initial Data Control flag; the R20-11 protocol specification defines both. The course follows the protocol specification.</p>
+
+<h2>Options</h2>
+<p>Every <span class="term">option</span> starts with a 2-byte Length (counting everything after the Type byte, so the reserved byte too), a 1-byte Type, and a byte whose top bit is the <span class="term">Discardable flag</span> (set if a receiver that does not know this option may ignore it).</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Type</th><th>Option</th><th>Length</th><th>Content after the 4-byte start</th></tr></thead>
+<tbody>
+<tr><td><code>0x01</code></td><td><span class="term">Configuration option</span></td><td>variable</td><td>name=value strings, each behind a 1-byte length, ending with a zero byte</td></tr>
+<tr><td><code>0x02</code></td><td><span class="term">Load Balancing option</span></td><td>0x0005</td><td>priority (2 bytes, lower = preferred), weight (2 bytes)</td></tr>
+<tr><td><code>0x04</code></td><td>IPv4 <span class="term">Endpoint option</span></td><td>0x0009</td><td>IPv4 address (4), reserved (1), protocol (1: 0x06 TCP, 0x11 UDP), port (2)</td></tr>
+<tr><td><code>0x06</code></td><td>IPv6 Endpoint option</td><td>0x0015</td><td>IPv6 address (16), reserved, protocol, port</td></tr>
+<tr><td><code>0x14</code></td><td>IPv4 <span class="term">Multicast option</span></td><td>0x0009</td><td><span class="term">multicast</span> address, reserved, protocol 0x11 (UDP only), port</td></tr>
+<tr><td><code>0x16</code></td><td>IPv6 Multicast option</td><td>0x0015</td><td>as above, 16-byte address</td></tr>
+<tr><td><code>0x24</code></td><td>IPv4 <span class="term">SD Endpoint option</span></td><td>0x0009</td><td>the sender's Sd address and port; first option, never referenced by an entry</td></tr>
+<tr><td><code>0x26</code></td><td>IPv6 SD Endpoint option</td><td>0x0015</td><td>as above for IPv6</td></tr>
+</tbody>
+</table>
+</div>
+<p>The SOME/IP-SD port is 30490 (<code>0x771A</code>) by default. An <code class="term">OfferService</code> references one Endpoint option per transport protocol it serves; a <code class="term">SubscribeEventgroup</code> references the client's Endpoint options; a <code class="term">SubscribeEventgroupAck</code> references at most one Multicast option; a <code class="term">FindService</code> references no Endpoint options.</p>
+<p class="small">Specification note: one passage of the R20-11 protocol specification gives 0x0015 as length of the IPv4 SD Endpoint option; its figure and the module specification give 0x0009, which matches the 9 bytes that follow.</p>
+
+<h2>Try it</h2>
+<p>Build a SOME/IP-SD message, or paste one and decode it. The preset "Example from the specification" is the example PDU of the protocol specification (a FindService and an OfferService for a non-SOME/IP service).</p>
+<div class="panel no-print">
+  <div class="chips" id="kinds"></div>
+  <div class="form-grid">
+    <label>Session ID (hex)<input type="text" id="ses" value="0001"></label>
+    <label class="inline"><input type="checkbox" id="reboot" checked> Reboot flag</label>
+    <label class="inline"><input type="checkbox" id="tcp" checked> OfferService: also a TCP Endpoint option</label>
+    <label class="inline"><input type="checkbox" id="init" checked> SubscribeEventgroup and Ack: Initial Data Requested flag</label>
+    <label class="inline"><input type="checkbox" id="mc"> SubscribeEventgroupAck: Multicast option</label>
+  </div>
+  <div class="buttons-row"><button type="button" class="primary" id="build">Build</button></div>
+  <div class="form-grid"><label>Bytes to decode (hex)<input type="text" id="raw" value=""></label></div>
+  <div class="buttons-row"><button type="button" id="decode">Decode these bytes</button></div>
+  <div id="bytes"></div>
+  <ul class="checks" id="sum" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> A StopOfferService differs from the OfferService only in the three TTL bytes. A SubscribeEventgroupNack differs from the Ack only in its TTL and the missing options. In the OfferService, the single entry points to options 0 and 1 with Index 1st options 0 and # of opt 1 = 2. Decode the specification's example: its Configuration option carries "otherserv=internaldiag" behind the length byte 0x16 (22).</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Unicast flag</span></td><td>Bit 0x40 of the Flags byte: the sender can receive unicast SOME/IP-SD messages; always 1</td></tr>
+<tr><td><span class="term">Explicit Initial Data Control flag</span></td><td>Bit 0x20 of the Flags byte: the sender honours the Initial Data Requested flag; always 1</td></tr>
+<tr><td><span class="term">service entry</span></td><td>Entry format Type 1 for FindService and OfferService: ends with the Minor Version</td></tr>
+<tr><td><span class="term">eventgroup entry</span></td><td>Entry format Type 2 for SubscribeEventgroup and its Ack: ends with flag, Counter and Eventgroup ID</td></tr>
+<tr><td><span class="term">option run</span></td><td>The options an entry uses: a start index into the options array (Index 1st or 2nd options) and a number (# of opt 1 or 2)</td></tr>
+<tr><td><span class="term">Counter</span></td><td>4 bits of an eventgroup entry that tell apart subscriptions of one client to one eventgroup; 0 if unused</td></tr>
+<tr><td><span class="term">Discardable flag</span></td><td>Top bit of the fourth byte of an option: a receiver that does not know the option may ignore it</td></tr>
+<tr><td><span class="term">Configuration option</span></td><td>Option 0x01: name=value strings for extra configuration</td></tr>
+<tr><td><span class="term">Load Balancing option</span></td><td>Option 0x02: priority and weight for choosing between several service instances</td></tr>
+<tr><td><span class="term">SD Endpoint option</span></td><td>Option 0x24 (IPv6 0x26): the address and port of the sender's Sd; never referenced by an entry</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.2 to 4.1.3 and the example of 4.1.5 (whose figure writes the configuration option length as "0x0025"; its 25 bytes are 0x0019, used here); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.3 and 7.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/bytes.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const ENTRY = { 0x00: 'FindService', 0x01: 'OfferService', 0x06: 'SubscribeEventgroup', 0x07: 'SubscribeEventgroupAck' };
+  const OPT = { 0x01: 'Configuration option', 0x02: 'Load Balancing option', 0x04: 'IPv4 Endpoint option', 0x06: 'IPv6 Endpoint option', 0x14: 'IPv4 Multicast option', 0x16: 'IPv6 Multicast option', 0x24: 'IPv4 SD Endpoint option', 0x26: 'IPv6 SD Endpoint option' };
+  const SPEC_EXAMPLE = 'FF FF 81 00 00 00 00 5C 00 00 00 01 01 01 02 00 80 00 00 00 00 00 00 20 ' +
+    '00 00 00 00 10 01 FF FF FF 00 0E 10 FF FF FF FF ' +
+    '01 00 00 20 FF FE 00 01 01 00 00 03 00 00 00 32 ' +
+    '00 00 00 28 00 09 04 00 C0 A8 00 01 00 06 1A 91 ' +
+    '00 19 01 00 16 6F 74 68 65 72 73 65 72 76 3D 69 6E 74 65 72 6E 61 6C 64 69 61 67 00';
+  const KINDS = ['OfferService', 'StopOfferService', 'FindService', 'SubscribeEventgroup', 'SubscribeEventgroupAck', 'SubscribeEventgroupNack', 'Example from the specification'];
+  let kind = 'OfferService';
+  const view = Bytes.create($('bytes'), { perRow: 4, fields: [] });
+  const sum = $('sum');
+  const ip4 = (a) => a.split('.').map(Number);
+  function endpoint(type, addr, proto, port) { return [0x00, 0x09, type, 0x00, ...ip4(addr), 0x00, proto, ...Bytes.u16(port)]; }
+
+  function build() {
+    if (kind === 'Example from the specification') { $('raw').value = SPEC_EXAMPLE; decode(); return; }
+    const ses = parseInt($('ses').value, 16);
+    if (!(ses >= 1 && ses <= 0xFFFF)) { sum.innerHTML = '<li><span class="no">✗</span> Session ID must be 0001–FFFF (never 0 in SD).</li>'; return; }
+    const flags = ($('reboot').checked ? 0x80 : 0) | 0x40 | 0x20;
+    let entry, opts = [];
+    const svc = Bytes.u16(0x1234), inst = Bytes.u16(0x0001);
+    const I = $('init').checked ? 0x80 : 0x00;
+    if (kind === 'OfferService' || kind === 'StopOfferService') {
+      opts.push(endpoint(0x04, '192.168.0.10', 0x11, 30501));
+      if ($('tcp').checked) opts.push(endpoint(0x04, '192.168.0.10', 0x06, 30501));
+      entry = [0x01, 0x00, 0x00, (opts.length << 4), ...svc, ...inst, 0x01, ...Bytes.u24(kind === 'OfferService' ? 3 : 0), ...Bytes.u32(0)];
+    } else if (kind === 'FindService') {
+      entry = [0x00, 0x00, 0x00, 0x00, ...svc, 0xFF, 0xFF, 0xFF, ...Bytes.u24(3), 0xFF, 0xFF, 0xFF, 0xFF];
+    } else if (kind === 'SubscribeEventgroup') {
+      opts.push(endpoint(0x04, '192.168.0.20', 0x11, 40001));
+      entry = [0x06, 0x00, 0x00, 0x10, ...svc, ...inst, 0x01, ...Bytes.u24(3), 0x00, I | 0x00, 0x00, 0x01];
+    } else if (kind === 'SubscribeEventgroupAck') {
+      if ($('mc').checked) opts.push(endpoint(0x14, '239.0.0.1', 0x11, 30502));
+      entry = [0x07, 0x00, 0x00, (opts.length << 4), ...svc, ...inst, 0x01, ...Bytes.u24(3), 0x00, I, 0x00, 0x01];
+    } else {
+      entry = [0x07, 0x00, 0x00, 0x00, ...svc, ...inst, 0x01, ...Bytes.u24(0), 0x00, I, 0x00, 0x01];
+    }
+    const optBytes = opts.flat();
+    const sdPart = [flags, 0, 0, 0, ...Bytes.u32(entry.length), ...entry, ...Bytes.u32(optBytes.length), ...optBytes];
+    const msg = [0xFF, 0xFF, 0x81, 0x00, ...Bytes.u32(8 + sdPart.length), 0x00, 0x00, ...Bytes.u16(ses), 0x01, 0x01, 0x02, 0x00, ...sdPart];
+    $('raw').value = Bytes.hex(msg);
+    decode();
+  }
+
+  function decode() {
+    sum.replaceChildren();
+    const add = (ok, t) => { const li = document.createElement('li'); li.innerHTML = (ok === null ? '· ' : ok ? '<span class="ok">✓</span> ' : '<span class="no">✗</span> ') + t; sum.appendChild(li); };
+    const b = Bytes.parse($('raw').value);
+    if (!b) { add(false, 'Not valid hex.'); return; }
+    if (b.length < 28) { add(false, b.length + ' bytes: a SOME/IP-SD message has at least 16 + 12 bytes. Discarded.'); view.set([{ name: 'too short', bytes: b, cls: 'pad' }]); return; }
+    const u32 = (i) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+    const u16 = (i) => (b[i] << 8) | b[i + 1];
+    const u24 = (i) => (b[i] << 16) | (b[i + 1] << 8) | b[i + 2];
+    const F = [];
+    F.push({ name: 'Message ID', bytes: b.slice(0, 4), cls: 'm-soad', info: u32(0) === 0xFFFF8100 ? '0xFFFF8100: SOME/IP-SD.' : 'Not 0xFFFF8100: not a SOME/IP-SD message.' });
+    F.push({ name: 'Length', bytes: b.slice(4, 8), cls: 'm-soad', info: u32(4) + ' bytes from byte 8 to the end.' });
+    F.push({ name: 'Client ID', bytes: b.slice(8, 10), cls: 'm-sd', info: 'Always 0x0000 for SOME/IP-SD (unless a Client ID prefix is configured).' });
+    F.push({ name: 'Session ID', bytes: b.slice(10, 12), cls: 'm-sd', info: u16(10) + ': counts every SOME/IP-SD message to this partner; never 0.' });
+    F.push({ name: 'Protocol Version, Interface Version, Message Type, Return Code', bytes: b.slice(12, 16), cls: 'm-sd', info: 'Must be 01 01 02 00.' });
+    const fl = b[16];
+    F.push({ name: 'Flags', bytes: [fl], cls: 'm-sd', info: 'Reboot flag ' + ((fl & 0x80) ? 1 : 0) + ' · Unicast flag ' + ((fl & 0x40) ? 1 : 0) + ' · Explicit Initial Data Control flag ' + ((fl & 0x20) ? 1 : 0) + '.' });
+    F.push({ name: 'Reserved', bytes: b.slice(17, 20), cls: 'pad', info: 'Ignored by receivers.' });
+    const el = u32(20);
+    F.push({ name: 'Length of Entries Array', bytes: b.slice(20, 24), cls: 'm-sd', info: el + ' bytes = ' + (el / 16) + ' entr' + (el === 16 ? 'y' : 'ies') + '.' });
+    add(u32(0) === 0xFFFF8100, 'Message ID ' + Bytes.h(u32(0), 8) + '.');
+    add(u32(4) + 8 === b.length, 'Length ' + u32(4) + ' + 8 = ' + (u32(4) + 8) + ' bytes, ' + b.length + ' given.');
+    add(b[12] === 1 && b[13] === 1 && b[14] === 2 && b[15] === 0, 'Header values 01 01 02 00.');
+    add(null, 'Session ' + u16(10) + ', reboot flag ' + ((fl & 0x80) ? 'set' : 'clear') + '.');
+    if (el % 16 || 24 + el + 4 > b.length) { add(false, 'Entries array length ' + el + ' does not fit: message discarded.'); view.set(F); return; }
+    const entries = [];
+    for (let i = 0; i < el / 16; i++) {
+      const o = 24 + i * 16, t = b[o];
+      const n1 = b[o + 3] >> 4, n2 = b[o + 3] & 0x0F;
+      const ttl = u24(o + 9);
+      const type2 = t === 0x06 || t === 0x07;
+      let name = ENTRY[t] || 'unknown entry type';
+      if (ttl === 0) name = { 0x01: 'StopOfferService', 0x06: 'StopSubscribeEventgroup', 0x07: 'SubscribeEventgroupNack' }[t] || name;
+      const e = { name, t, idx1: b[o + 1], idx2: b[o + 2], n1, n2 };
+      entries.push(e);
+      const lab = 'Entry ' + (i + 1) + ' (' + name + ')';
+      F.push({ name: lab + ': type', bytes: [t], cls: 'm-sd', info: Bytes.h(t) + ' ' + (ENTRY[t] || 'unknown: the entry is ignored') + (ttl === 0 ? ', TTL 0 makes it the Stop or Nack variant.' : '.') });
+      F.push({ name: lab + ': option runs', bytes: b.slice(o + 1, o + 4), cls: 'm-sd', info: 'First option run: Index 1st options ' + e.idx1 + ', # of opt 1 = ' + n1 + '. Second option run: Index 2nd options ' + e.idx2 + ', # of opt 2 = ' + n2 + '.' });
+      F.push({ name: lab + ': Service ID, Instance ID', bytes: b.slice(o + 4, o + 8), cls: 'm-app', info: 'Service ID ' + Bytes.h(u16(o + 4), 4) + ', Instance ID ' + (u16(o + 6) === 0xFFFF ? '0xFFFF (any)' : Bytes.h(u16(o + 6), 4)) + '.' });
+      F.push({ name: lab + ': Major Version', bytes: [b[o + 8]], cls: 'm-app', info: b[o + 8] === 0xFF ? 'Any major version (0xFF).' : 'Major version ' + b[o + 8] + '.' });
+      F.push({ name: lab + ': TTL', bytes: b.slice(o + 9, o + 12), cls: 'm-sd', info: ttl === 0xFFFFFF ? 'Valid until the next reboot.' : ttl + ' s.' });
+      if (type2) {
+        F.push({ name: lab + ': Reserved', bytes: [b[o + 12]], cls: 'pad', info: '0x00.' });
+        F.push({ name: lab + ': Initial Data Requested flag, Counter', bytes: [b[o + 13]], cls: 'm-sd', info: 'Initial Data Requested flag ' + ((b[o + 13] & 0x80) ? 1 : 0) + ', Counter ' + (b[o + 13] & 0x0F) + '.' });
+        F.push({ name: lab + ': Eventgroup ID', bytes: b.slice(o + 14, o + 16), cls: 'm-app', info: Bytes.h(u16(o + 14), 4) + '.' });
+      } else {
+        const mv = u32(o + 12);
+        F.push({ name: lab + ': Minor Version', bytes: b.slice(o + 12, o + 16), cls: 'm-app', info: mv === 0xFFFFFFFF ? 'Any minor version.' : 'Minor version ' + mv + '.' });
+      }
+      add(null, 'Entry ' + (i + 1) + ': ' + name + ', Service ID ' + Bytes.h(u16(o + 4), 4) + ', Instance ID ' + (u16(o + 6) === 0xFFFF ? 'any' : Bytes.h(u16(o + 6), 4)) + ', TTL ' + (ttl === 0xFFFFFF ? 'until reboot' : ttl + ' s') + (type2 ? ', Eventgroup ID ' + Bytes.h(u16(o + 14), 4) : '') + ', options ' + (n1 ? '[' + e.idx1 + '…' + (e.idx1 + n1 - 1) + ']' : 'none') + (n2 ? ' and [' + e.idx2 + '…' + (e.idx2 + n2 - 1) + ']' : '') + '.');
+    }
+    const ol0 = 24 + el;
+    const ol = u32(ol0);
+    F.push({ name: 'Length of Options Array', bytes: b.slice(ol0, ol0 + 4), cls: 'm-sd', info: ol + ' bytes of options.' });
+    let p = ol0 + 4, k = 0;
+    const end = Math.min(b.length, p + ol);
+    while (p + 3 <= end) {
+      const len = u16(p), t = b[p + 2], total = 3 + len;
+      const nm = 'Option ' + k + ' (' + (OPT[t] || 'unknown') + ')';
+      F.push({ name: nm + ': Length, Type, Discardable flag', bytes: b.slice(p, p + 4), cls: 'm-sd', info: 'Length ' + len + ', Type ' + Bytes.h(t) + ', Discardable flag ' + ((b[p + 3] & 0x80) ? 1 : 0) + '.' });
+      const body = b.slice(p + 4, p + total);
+      let info = '';
+      if ((t === 0x04 || t === 0x14 || t === 0x24) && body.length >= 8) info = body.slice(0, 4).join('.') + ', ' + (body[5] === 0x06 ? 'TCP' : body[5] === 0x11 ? 'UDP' : 'protocol ' + Bytes.h(body[5])) + ' port ' + ((body[6] << 8) | body[7]) + '.';
+      else if (t === 0x01) {
+        const parts = []; let q = 0;
+        while (q < body.length && body[q] !== 0) { const n = body[q]; parts.push(String.fromCharCode(...body.slice(q + 1, q + 1 + n))); q += 1 + n; }
+        info = 'Strings: ' + parts.map((s) => '"' + s + '"').join(', ') + ', then the terminating zero.';
+      } else if (t === 0x02 && body.length >= 4) info = 'Priority ' + ((body[0] << 8) | body[1]) + ', weight ' + ((body[2] << 8) | body[3]) + '.';
+      else info = body.length + ' bytes.';
+      F.push({ name: nm + ': content', bytes: body, cls: 'd-box', info });
+      add(OPT[t] != null && (t === 0x01 || [0x04, 0x14, 0x24].includes(t) ? (t === 0x01 || len === 9) : true), 'Option ' + k + ': ' + (OPT[t] || 'unknown type') + ' — ' + info);
+      p += total; k++;
+    }
+    entries.forEach((e, i) => {
+      const ok = (e.n1 === 0 || e.idx1 + e.n1 <= k) && (e.n2 === 0 || e.idx2 + e.n2 <= k);
+      add(ok, 'Entry ' + (i + 1) + ' references ' + (ok ? 'existing options.' : 'options that do not exist.'));
+    });
+    view.set(F);
+  }
+
+  KINDS.forEach((k) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = k;
+    btn.addEventListener('click', () => { kind = k; [...$('kinds').children].forEach((x) => x.setAttribute('aria-pressed', x === btn ? 'true' : 'false')); build(); });
+    $('kinds').appendChild(btn);
+  });
+  $('kinds').firstChild.setAttribute('aria-pressed', 'true');
+  $('build').addEventListener('click', build);
+  $('decode').addEventListener('click', decode);
+  ['reboot', 'tcp', 'init', 'mc'].forEach((id) => $(id).addEventListener('change', build));
+  build();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'How do the bytes of a StopOfferService differ from those of the OfferService it stops?',
+    options: ['Only the TTL is 0x000000', 'The Type byte becomes 0x02', 'A stop bit is set in Flags'],
+    answer: 0,
+    why: 'A StopOfferService is the OfferService entry with TTL 0.'
+  },
+  {
+    prompt: 'Byte 3 of an entry is 0x21, Index 1st options is 3 and Index 2nd options is 0. Which options does it use?',
+    options: ['Options 3 and 4, then option 0', 'Options 2 and 1 of the array', 'Option 33 of the options array'],
+    answer: 0,
+    why: 'High nibble: # of opt 1 = 2, so options 3 and 4; low nibble: # of opt 2 = 1, so option 0.'
+  },
+  {
+    prompt: 'What is in bytes 0 to 3 of every SOME/IP-SD message?',
+    options: ['FF FF 81 00', '81 00 FF FF', 'FF FF 00 00'],
+    answer: 0,
+    why: 'Message ID: Service ID 0xFFFF and 0x8100, big-endian.'
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sd state machines · SOME/IP</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .vars { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin: 0.4rem 0 0; }
+  .evbtns { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0; }
+  .evbtns button { font-size: 0.75rem; padding: 0.3rem 0.6rem; }
+</style>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="../index.html">SOME/IP in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>SOME/IP</p>
+<h1>The Sd state machines</h1>
+<p class="lede">Lessons 12 to 15 told the <span class="term">Service Discovery</span> behaviour as stories. Here are the same rules as the three state machines of the specification: one for each <span class="term">service instance</span> a <span class="term">server</span> offers, one for each service instance a <span class="term">client</span> uses, and one for each <span class="term">eventgroup</span> on the server.</p>
+
+<h2>Server: Not Ready and Ready</h2>
+<p><span class="term">Sd</span> keeps one server state machine per <span class="term">service instance</span> it offers. The machine is <span class="term">Not Ready</span> (the service instance is not offered) until two things hold: <code class="term">ifstatus</code> is <code>up_and_configured</code> (the network interface is up and its IP address is assigned), and <code class="term">service-status</code> is up (<span class="term">BswM</span> has set the server service instance to <code>AVAILABLE</code>). Then it is <span class="term" data-term="Ready">Ready</span> (the service instance is offered), which holds the three phases from lesson 12: <span class="term">Initial Wait Phase</span>, <span class="term">Repetition Phase</span> and <span class="term">Main Phase</span>, each with one timer.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 282" role="img" aria-labelledby="f1t">
+<title id="f1t">SD server state machine. Not Ready goes to Ready when ifstatus is up_and_configured and service-status is up. Inside Ready: Initial Wait Phase; when its timer expires it sends OfferService and goes to the Repetition Phase, or to the Main Phase if REPETITIONS_MAX is 0. The Repetition Phase sends an OfferService each time its timer expires, with a doubling wait, until REPETITIONS_MAX, then the Main Phase. The Main Phase sends an OfferService each time its timer expires. Leaving Ready because service-status goes down sends a StopOfferService.</title>
+<circle cx="85" cy="9" r="6" class="d-start"/>
+<line x1="85" y1="15" x2="85" y2="26" class="d-ln" marker-end="url(#ah)"/>
+<rect x="30" y="28" width="110" height="34" rx="14" class="d-state"/><text x="85" y="49" class="d-t d-c">Not Ready</text>
+<text x="40" y="86" class="d-s">[ifstatus ==</text>
+<text x="40" y="99" class="d-s">up_and_configured</text>
+<text x="40" y="112" class="d-s">and service-status</text>
+<text x="40" y="125" class="d-s">== up]</text>
+<line x1="140" y1="45" x2="198" y2="45" class="d-ln" marker-end="url(#ah)"/>
+<rect x="200" y="12" width="430" height="220" rx="10" class="d-frame"/>
+<text x="212" y="30" class="d-tb">Ready</text>
+<circle cx="222" cy="62" r="5" class="d-start"/>
+<line x1="227" y1="62" x2="248" y2="62" class="d-ln" marker-end="url(#ah)"/>
+<rect x="250" y="42" width="130" height="40" rx="14" class="d-state"/><text x="315" y="59" class="d-t d-c">Initial Wait Phase</text><text x="315" y="74" class="d-s d-c">FindService: ignored</text>
+<rect x="250" y="132" width="130" height="40" rx="14" class="d-state"/><text x="315" y="149" class="d-t d-c">Repetition Phase</text><text x="315" y="164" class="d-s d-c">FindService: answered</text>
+<rect x="490" y="132" width="130" height="40" rx="14" class="d-state"/><text x="555" y="149" class="d-t d-c">Main Phase</text><text x="555" y="164" class="d-s d-c">FindService: answered</text>
+<line x1="315" y1="82" x2="315" y2="130" class="d-ln" marker-end="url(#ah)"/><text x="323" y="110" class="d-s">timer expired: OfferService</text>
+<path d="M250,140 C216,126 216,178 248,164" class="d-ln" marker-end="url(#ah)"/>
+<text x="315" y="190" class="d-s d-c">timer expired, run &lt; REPETITIONS_MAX:</text>
+<text x="315" y="203" class="d-s d-c">OfferService, run + 1,</text>
+<text x="315" y="216" class="d-s d-c">next wait 2^run × REPETITIONS_BASE_DELAY</text>
+<line x1="380" y1="152" x2="488" y2="152" class="d-ln" marker-end="url(#ah)"/><text x="434" y="131" class="d-s d-c">run =</text><text x="434" y="144" class="d-s d-c">REPETITIONS_MAX</text>
+<path d="M380,62 H555 V130" class="d-ln dash" marker-end="url(#ah)"/><text x="468" y="56" class="d-s d-c">REPETITIONS_MAX = 0</text>
+<path d="M525,172 C525,200 585,200 585,174" class="d-ln" marker-end="url(#ah)"/><text x="555" y="212" class="d-s d-c">timer expired:</text><text x="555" y="225" class="d-s d-c">OfferService</text>
+<path d="M200,227 H14 V54 H28" class="d-ln" marker-end="url(#ah)"/>
+<text x="20" y="254" class="d-s">back to Not Ready: ifstatus no longer up_and_configured (no message is sent), or</text>
+<text x="20" y="268" class="d-s">service-status down (StopOfferService, unless still in the Initial Wait Phase)</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Each phase owns one timer. Follow the solid arrows for the usual start-up; the dashed shortcut is taken when <code>REPETITIONS_MAX</code> is 0. Every arrow inside Ready that fires on "timer expired" sends an <code>OfferService</code>.</figcaption>
+</figure>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>In state</th><th>Event</th><th>Action and next state</th></tr></thead>
+<tbody>
+<tr><td>Not Ready</td><td><code>ifstatus</code> up_and_configured and <code>service-status</code> up</td><td>Initial Wait Phase; timer = random in [<code class="term">INITIAL_DELAY_MIN</code>, <code>INITIAL_DELAY_MAX</code>]; open the <span class="term">socket connections</span>, enable the <span class="term">routing group</span> for methods</td></tr>
+<tr><td>Initial Wait Phase</td><td>timer expired</td><td>send <code class="term">OfferService</code>; Repetition Phase with run = 0 (or Main Phase if <code class="term">REPETITIONS_MAX</code> = 0)</td></tr>
+<tr><td>Initial Wait Phase</td><td><code class="term">FindService</code> received</td><td>ignored</td></tr>
+<tr><td>Repetition Phase</td><td>timer expired</td><td>send OfferService, run + 1; after REPETITIONS_MAX offers go to the Main Phase</td></tr>
+<tr><td>Repetition Phase, Main Phase</td><td>FindService received</td><td>answer with an OfferService after the <code class="term">REQUEST_RESPONSE_DELAY</code>; counter and timer unchanged</td></tr>
+<tr><td>Main Phase</td><td>timer expired</td><td>send OfferService, restart the timer (only if <code class="term">CYCLIC_OFFER_DELAY</code> is not 0)</td></tr>
+<tr><td>Repetition Phase, Main Phase</td><td><code>service-status</code> down</td><td>send <code class="term">StopOfferService</code>, release all <span class="term">event handlers</span>, disable the routing groups; Not Ready</td></tr>
+<tr><td>any phase</td><td><code>ifstatus</code> no longer up_and_configured</td><td>clear all timers; Not Ready</td></tr>
+</tbody>
+</table>
+</div>
+<div class="warn">
+<p><strong>Protocol and module disagree in one place.</strong> The protocol's state machine sends an <code class="term">OfferService</code> as soon as the <span class="term">Main Phase</span> is entered, while its own text and the Sd module specification say the first OfferService of the Main Phase comes one <code class="term">CYCLIC_OFFER_DELAY</code> later. The course follows the module specification. The Sd module also counts the <span class="term">Repetition Phase</span> so that the REPETITIONS_MAX-th repetition OfferService ends it at once.</p>
+</div>
+
+<h2>Client: Not Requested, Searching for Service, Main Phase</h2>
+<p>The <span class="term">client</span> machine has more states, because a client listens even when it does not need the service. Two big groups: <span class="term">Not Requested</span> (<span class="term">BswM</span> has not requested the service instance, but offers are still noted) and the requested states. Inside Not Requested the client is in <span class="term">Service Not Seen</span> (no valid <code class="term">OfferService</code> known) or <span class="term">Service Seen</span> (a valid OfferService known, its <code class="term">TTL</code> running). Once the service instance is <code class="term">REQUESTED</code>, the client is in <span class="term">Searching for Service</span> (sending <code class="term">FindService</code> in an <span class="term">Initial Wait Phase</span> and a <span class="term">Repetition Phase</span>), in the <span class="term">Main Phase</span> with <span class="term">Service Ready</span> (the service is offered and used) or <span class="term">Stopped</span> (the server sent a <code class="term">StopOfferService</code>), or in <span class="term">Requested_but_not_ready</span> (requested, but <code class="term">ifstatus</code> is not up_and_configured).</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 700 282" role="img" aria-labelledby="f2t">
+<title id="f2t">SD client state machine. Not Requested holds Service Not Seen and Service Seen; an OfferService moves to Service Seen, TTL expiry or StopOfferService back. REQUESTED leads from Service Not Seen to Searching for Service (Initial Wait Phase, Repetition Phase) and from Service Seen directly to the Main Phase, Service Ready. Searching for Service sends FindService and goes to Stopped after REPETITIONS_MAX, or to Service Ready on an OfferService. In the Main Phase, StopOfferService leads to Stopped, an OfferService back to Service Ready, TTL expiry back to the Initial Wait Phase.</title>
+<text x="10" y="14" class="d-tb">Not Requested</text>
+<rect x="10" y="20" width="160" height="200" rx="10" class="d-frame"/>
+<rect x="20" y="44" width="140" height="34" rx="14" class="d-state"/><text x="90" y="65" class="d-t d-c">Service Not Seen</text>
+<rect x="20" y="160" width="140" height="34" rx="14" class="d-state"/><text x="90" y="181" class="d-t d-c">Service Seen</text>
+<line x1="35" y1="78" x2="35" y2="158" class="d-ln" marker-end="url(#ah)"/><text x="41" y="104" class="d-s">OfferService</text>
+<line x1="145" y1="160" x2="145" y2="80" class="d-ln" marker-end="url(#ah)"/><text x="139" y="130" class="d-s d-r">TTL expired,</text><text x="139" y="143" class="d-s d-r">StopOfferService</text>
+<text x="240" y="14" class="d-tb">Searching for Service</text>
+<rect x="240" y="20" width="160" height="200" rx="10" class="d-frame"/>
+<rect x="250" y="44" width="140" height="34" rx="14" class="d-state"/><text x="320" y="65" class="d-t d-c">Initial Wait Phase</text>
+<rect x="250" y="160" width="140" height="34" rx="14" class="d-state"/><text x="320" y="181" class="d-t d-c">Repetition Phase</text>
+<line x1="320" y1="78" x2="320" y2="158" class="d-ln" marker-end="url(#ah)"/><text x="326" y="112" class="d-s">timer expired:</text><text x="326" y="125" class="d-s">FindService</text>
+<line x1="160" y1="56" x2="248" y2="56" class="d-ln" marker-end="url(#ah)"/><text x="204" y="50" class="d-s d-c">REQUESTED</text>
+<text x="480" y="14" class="d-tb">Main Phase</text>
+<rect x="480" y="20" width="210" height="200" rx="10" class="d-frame"/>
+<rect x="500" y="44" width="160" height="34" rx="14" class="d-state"/><text x="580" y="65" class="d-t d-c">Service Ready</text>
+<rect x="500" y="160" width="160" height="34" rx="14" class="d-state"/><text x="580" y="181" class="d-t d-c">Stopped</text>
+<line x1="390" y1="56" x2="498" y2="56" class="d-ln" marker-end="url(#ah)"/><text x="444" y="50" class="d-s d-c">OfferService</text>
+<line x1="390" y1="168" x2="498" y2="76" class="d-ln" marker-end="url(#ah)"/><text x="418" y="100" class="d-s d-c">OfferService</text>
+<line x1="390" y1="186" x2="498" y2="186" class="d-ln" marker-end="url(#ah)"/><text x="444" y="204" class="d-s d-c">run =</text><text x="444" y="217" class="d-s d-c">REPETITIONS_MAX</text>
+<line x1="520" y1="78" x2="520" y2="158" class="d-ln" marker-end="url(#ah)"/><text x="526" y="108" class="d-s">StopOfferService</text>
+<line x1="640" y1="160" x2="640" y2="80" class="d-ln" marker-end="url(#ah)"/><text x="634" y="138" class="d-s d-r">OfferService</text>
+<path d="M600,44 V32 H320 V42" class="d-ln dash" marker-end="url(#ah)"/><text x="444" y="28" class="d-s d-c">TTL expired: search again</text>
+<path d="M90,194 V246 H678 V61 H662" class="d-ln dash" marker-end="url(#ah)"/><text x="384" y="266" class="d-s d-c">REQUESTED while an OfferService is known: straight to Service Ready</text>
+</svg>
+</div>
+<figcaption><b>Figure 2.</b> Three columns: Not Requested, Searching for Service, Main Phase. The two dashed paths are the shortcuts that make the machine efficient: a known <code>OfferService</code> saves the whole search, and an expired <code>TTL</code> restarts it. Not shown: <code>RELEASED</code> in any requested state leads back to Not Requested, and <code>ifstatus</code> going down parks a requested service in Requested_but_not_ready.</figcaption>
+</figure>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>In state</th><th>Event</th><th>Action and next state</th></tr></thead>
+<tbody>
+<tr><td>Service Not Seen</td><td>OfferService received</td><td>start the TTL timer; Service Seen</td></tr>
+<tr><td>Service Seen</td><td>TTL expired, StopOfferService received, <code>ifstatus</code> down</td><td>Service Not Seen</td></tr>
+<tr><td>Service Not Seen</td><td>REQUESTED, <code>ifstatus</code> up_and_configured</td><td>Initial Wait Phase; timer = random in [<code class="term">INITIAL_DELAY_MIN</code>, <code>INITIAL_DELAY_MAX</code>]</td></tr>
+<tr><td>Service Not Seen</td><td>REQUESTED, <code>ifstatus</code> not up_and_configured</td><td>Requested_but_not_ready; when <code>ifstatus</code> becomes up_and_configured go to the Initial Wait Phase</td></tr>
+<tr><td>Service Seen</td><td>REQUESTED</td><td>Service Ready: open the <span class="term">socket connections</span>, enable the <span class="term">routing groups</span>, report <code class="term">AVAILABLE</code>, send <code class="term">SubscribeEventgroup</code></td></tr>
+<tr><td>Initial Wait Phase</td><td>timer expired</td><td>send FindService; Repetition Phase (or Stopped if <code class="term">REPETITIONS_MAX</code> = 0)</td></tr>
+<tr><td>Repetition Phase</td><td>timer expired</td><td>send FindService, run + 1, double the wait; after REPETITIONS_MAX FindService entries: Stopped</td></tr>
+<tr><td>Initial Wait Phase, Repetition Phase, Stopped</td><td>OfferService received</td><td>cancel the timer, start the TTL timer; Service Ready</td></tr>
+<tr><td>Service Ready</td><td>OfferService received</td><td>restart the TTL timer; send SubscribeEventgroup for each wanted eventgroup</td></tr>
+<tr><td>Repetition Phase, Service Ready</td><td>StopOfferService received</td><td>cancel the timers, report <code>DOWN</code>; Stopped (no FindService is sent)</td></tr>
+<tr><td>Service Ready</td><td>TTL expired</td><td>report DOWN; Initial Wait Phase (search again)</td></tr>
+<tr><td>Service Ready</td><td><code>RELEASED</code></td><td>send <code class="term">StopSubscribeEventgroup</code>, report DOWN; Service Seen</td></tr>
+<tr><td>any requested state</td><td><code>ifstatus</code> down</td><td>cancel the timers, report DOWN; Requested_but_not_ready</td></tr>
+</tbody>
+</table>
+</div>
+<div class="warn">
+<p><strong>Read the protocol text of this machine with care.</strong> In R20-11 the textual list of client transitions contains slips: the entry into <span class="term">Requested_but_not_ready</span> is written as "Service Not Requested", the move from <span class="term">Service Ready</span> to <span class="term">Stopped</span> is triggered by "receive(OfferService)" where <code class="term">StopOfferService</code> is meant, the move back to <span class="term">Searching for Service</span> is guarded by "ifstatus != up_and_configured" where "==" is meant, and a few transitions appear twice. The table above follows the evident intent and the Sd module specification (lesson 13).</p>
+</div>
+
+<h2>Server eventgroup: counting subscribers</h2>
+<p>For every <span class="term">eventgroup</span> it offers (its <span class="term">event handler</span>) the <span class="term">server</span> keeps a small machine. While the service is <span class="term">Service Down</span> (not offered) the machine does nothing. While it is <span class="term" data-term="Service Up">Service Up</span> (offered), it moves between <span class="term">Not Subscribed</span> (no <span class="term">subscriber</span>) and <span class="term">Subscribed</span> (at least one), counts the subscriptions in the <code class="term">SubscriptionCounter</code> (the number of current subscribers) and switches <span class="term">routing groups</span> on and off with <code class="term">enableTxRoutingGroup</code> and <code>disableTxRoutingGroup</code> (start or stop sending the events of this eventgroup). The plain <span class="term">unicast</span> and <span class="term">multicast</span> machines are special cases of the adaptive one, which compares the counter with the <code class="term">UnicastLimit</code> (the <span class="term">multicast threshold</span> minus one).</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 700 230" role="img" aria-labelledby="f3t">
+<title id="f3t">Eventgroup state machine of the server, adaptive unicast to multicast. Service Down and Service Up. Inside Service Up: Not Subscribed, Subscribed (Unicast), Subscribed (Multicast). The first SubscribeEventgroup leads to unicast if UnicastLimit is above zero, otherwise to multicast. When SubscriptionCounter exceeds UnicastLimit the machine switches to multicast, and back to unicast when it falls to UnicastLimit. The last StopSubscribeEventgroup or TTL expiry leads back to Not Subscribed.</title>
+<text x="75" y="72" class="d-s d-c">OfferService =</text>
+<text x="75" y="85" class="d-s d-c">implicit publish</text>
+<rect x="20" y="96" width="110" height="34" rx="14" class="d-state"/><text x="75" y="117" class="d-t d-c">Service Down</text>
+<line x1="130" y1="106" x2="168" y2="106" class="d-ln" marker-end="url(#ah)"/>
+<line x1="168" y1="122" x2="132" y2="122" class="d-ln" marker-end="url(#ah)"/>
+<rect x="170" y="10" width="520" height="210" rx="10" class="d-frame"/>
+<text x="182" y="28" class="d-tb">Service Up</text>
+<rect x="190" y="96" width="130" height="34" rx="14" class="d-state"/><text x="255" y="117" class="d-t d-c">Not Subscribed</text>
+<rect x="480" y="36" width="190" height="40" rx="14" class="d-state"/><text x="575" y="53" class="d-t d-c">Subscribed (Unicast)</text><text x="575" y="68" class="d-s d-c">unicast events, one per subscriber</text>
+<rect x="480" y="156" width="190" height="40" rx="14" class="d-state"/><text x="575" y="173" class="d-t d-c">Subscribed (Multicast)</text><text x="575" y="188" class="d-s d-c">multicast events to the group</text>
+<line x1="322" y1="104" x2="478" y2="60" class="d-ln" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<text x="190" y="46" class="d-s">first SubscribeEventgroup</text><text x="190" y="59" class="d-s">[UnicastLimit &gt; 0]</text><text x="190" y="72" class="d-s">⇄ last StopSubscribeEventgroup or TTL</text>
+<line x1="322" y1="122" x2="478" y2="170" class="d-ln" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<text x="190" y="164" class="d-s">first SubscribeEventgroup</text><text x="190" y="177" class="d-s">[UnicastLimit = 0]</text><text x="190" y="190" class="d-s">⇄ last StopSubscribeEventgroup or TTL</text>
+<line x1="520" y1="78" x2="520" y2="154" class="d-ln" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<text x="528" y="104" class="d-s">SubscriptionCounter</text><text x="528" y="117" class="d-s">&gt; UnicastLimit</text><text x="528" y="130" class="d-s">⇄ back to UnicastLimit</text>
+</svg>
+</div>
+<figcaption><b>Figure 3.</b> Count the subscribers: the SubscriptionCounter goes up with each <code>SubscribeEventgroup</code> from a new client and down with each <code>StopSubscribeEventgroup</code> or expired <code>TTL</code>. The UnicastLimit is the multicast threshold minus one; the threshold 0 keeps the machine in its unicast half for ever.</figcaption>
+</figure>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Machine</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td>Unicast eventgroup</td><td>Not Subscribed → Subscribed on the first <code class="term">SubscribeEventgroup</code>: enable the events (<code>enableTxRoutingGroup</code>), send <code class="term">SubscribeEventgroupAck</code>. Further SubscribeEventgroup entries: SubscribeEventgroupAck. <code class="term">StopSubscribeEventgroup</code> or TTL expiry with counter 1: disable the events.</td></tr>
+<tr><td>Multicast eventgroup</td><td>Same states; every SubscribeEventgroup increments the SubscriptionCounter and is acknowledged; every StopSubscribeEventgroup or TTL expiry decrements it; at 0 the events are disabled.</td></tr>
+<tr><td>Adaptive (unicast to multicast)</td><td>Unicast while SubscriptionCounter ≤ UnicastLimit; the SubscribeEventgroup that makes it exceed the limit switches to multicast; the StopSubscribeEventgroup or TTL expiry that brings it back to UnicastLimit switches back to unicast.</td></tr>
+<tr><td>All three</td><td><span class="term">Initial events</span> of fields are sent after the SubscribeEventgroupAck, by unicast, to the new subscriber only. Service down: back to Service Down, all subscriptions gone.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Try it</h2>
+<p>Pick a state machine and feed it events. The current state is highlighted; the log shows the actions. Settings here: <code class="term">REPETITIONS_MAX</code> = 3; for the eventgroup machine, choose the <span class="term">multicast threshold</span>.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>State machine
+      <select id="machine">
+        <option value="server">SD server state machine</option>
+        <option value="client">SD client state machine</option>
+        <option value="eg">server eventgroup state machine</option>
+      </select>
+    </label>
+    <label id="thrLab">Multicast threshold
+      <select id="thr">
+        <option value="3">3 (UnicastLimit 2)</option>
+        <option value="2">2 (UnicastLimit 1)</option>
+        <option value="1">1 (UnicastLimit 0)</option>
+        <option value="0">0 (unicast only)</option>
+      </select>
+    </label>
+  </div>
+  <svg id="sm" viewBox="0 0 680 120" role="img" aria-label="Current state of the chosen state machine"></svg>
+  <p class="vars" id="vars"></p>
+  <div class="evbtns" id="events"></div>
+  <ul class="log" id="log" aria-live="polite"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> In the server machine a <code class="term">FindService</code> never moves the state, it only produces an extra <code class="term">OfferService</code>, and in the <span class="term">Initial Wait Phase</span> not even that. In the client machine an OfferService leads to <span class="term">Service Ready</span> from almost anywhere, while a <code class="term">StopOfferService</code> leads to <span class="term">Stopped</span>, where no FindService is sent. In the eventgroup machine with multicast threshold 3, the third <code class="term">SubscribeEventgroup</code> switches to multicast and the next <code class="term">StopSubscribeEventgroup</code> switches back.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Not Ready</span> / <span class="term" data-term="Ready">Ready</span></td><td>The two top states of the SD server state machine: service instance not offered / offered (with the Initial Wait, Repetition and Main Phase inside)</td></tr>
+<tr><td><code class="term">ifstatus</code> up_and_configured</td><td>The network interface is up and its IP address is assigned</td></tr>
+<tr><td><code class="term">service-status</code> up / down</td><td>BswM has set the server service instance to AVAILABLE / DOWN</td></tr>
+<tr><td><span class="term">Not Requested</span></td><td>Client state group: BswM has not requested the service instance; offers are still noted</td></tr>
+<tr><td><span class="term">Service Not Seen</span> / <span class="term">Service Seen</span></td><td>Inside Not Requested: no valid OfferService known / one known, its TTL running</td></tr>
+<tr><td><span class="term">Searching for Service</span></td><td>Client state group: the Initial Wait and Repetition Phase, sending FindService</td></tr>
+<tr><td><span class="term">Service Ready</span> / <span class="term">Stopped</span></td><td>Client states in the Main Phase: the service is offered and used / the server sent StopOfferService; no FindService is sent</td></tr>
+<tr><td><span class="term">Requested_but_not_ready</span></td><td>Client state: requested, but ifstatus is not up_and_configured</td></tr>
+<tr><td><span class="term">Service Down</span> / <span class="term" data-term="Service Up">Service Up</span></td><td>Top states of the server eventgroup state machine: the service instance is not offered / offered</td></tr>
+<tr><td><span class="term">Not Subscribed</span> / <span class="term">Subscribed</span></td><td>Inside Service Up: no subscriber / at least one</td></tr>
+<tr><td><code class="term">SubscriptionCounter</code></td><td>Number of current subscribers of the eventgroup</td></tr>
+<tr><td><code class="term">UnicastLimit</code></td><td>Multicast threshold minus one: up to this many subscribers the events go by unicast</td></tr>
+<tr><td><code class="term">enableTxRoutingGroup</code> / <code>disableTxRoutingGroup</code></td><td>Action of the eventgroup state machines: start or stop sending the events of this eventgroup</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/FO/AUTOSAR_PRS_SOMEIPServiceDiscoveryProtocol.pdf">SOME/IP-SD Protocol Specification, R20-11</a>, sections 4.1.4.1, 4.1.4.4 (server and client machines) and 4.1.6 (publish/subscribe machines); <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_ServiceDiscovery.pdf">Service Discovery, R20-11</a>, sections 7.6 and 7.7.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<svg class="defs" aria-hidden="true" focusable="false"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ah-mute" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-mute"/></marker>
+<marker id="ah-ev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ev"/></marker>
+<marker id="ah-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-req"/></marker>
+<marker id="ah-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker>
+<marker id="ah-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-err"/></marker>
+<marker id="ah-sd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-sd"/></marker>
+</defs></svg>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  const MAX = 3;
+  const $ = (id) => document.getElementById(id);
+  const svg = $('sm'), varsEl = $('vars'), evHost = $('events'), logEl = $('log');
+  const machineSel = $('machine'), thrSel = $('thr'), thrLab = $('thrLab');
+
+  const LAYOUT = {
+    server: [
+      { id: 'notready', label: 'Not Ready', x: 5, y: 40 },
+      { id: 'wait', label: 'Initial Wait Phase', x: 175, y: 40 },
+      { id: 'rep', label: 'Repetition Phase', x: 345, y: 40 },
+      { id: 'main', label: 'Main Phase', x: 515, y: 40 }
+    ],
+    client: [
+      { id: 'notseen', label: 'Service Not Seen', x: 5, y: 10 },
+      { id: 'seen', label: 'Service Seen', x: 5, y: 66 },
+      { id: 'rnr', label: 'Requested_but_not_ready', x: 175, y: 10 },
+      { id: 'wait', label: 'Initial Wait Phase', x: 175, y: 66 },
+      { id: 'rep', label: 'Repetition Phase', x: 345, y: 66 },
+      { id: 'ready', label: 'Service Ready', x: 515, y: 10 },
+      { id: 'stopped', label: 'Stopped', x: 515, y: 66 }
+    ],
+    eg: [
+      { id: 'down', label: 'Service Down', x: 5, y: 40 },
+      { id: 'none', label: 'Not Subscribed', x: 175, y: 40 },
+      { id: 'uni', label: 'Subscribed (Unicast)', x: 345, y: 10 },
+      { id: 'multi', label: 'Subscribed (Multicast)', x: 345, y: 66 }
+    ]
+  };
+  const EVENTS = {
+    server: ['ifstatus up_and_configured', 'ifstatus down', 'service-status up', 'service-status down', 'timer expired', 'FindService received'],
+    client: ['ifstatus up_and_configured', 'ifstatus down', 'REQUESTED', 'RELEASED', 'timer expired', 'OfferService received', 'StopOfferService received', 'TTL expired'],
+    eg: ['service-status up', 'service-status down', 'SubscribeEventgroup (new client)', 'StopSubscribeEventgroup', 'TTL expired']
+  };
+  let m, s;
+  function say(t) { const li = document.createElement('li'); li.textContent = t; logEl.prepend(li); }
+  function el(tag, a, text) { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); if (text != null) n.textContent = text; return n; }
+  function draw() {
+    svg.replaceChildren();
+    LAYOUT[m].forEach((st) => {
+      svg.appendChild(el('rect', { x: st.x, y: st.y, width: 160, height: 40, rx: 14, class: 'd-state' + (s.state === st.id ? ' on' : '') }));
+      svg.appendChild(el('text', { x: st.x + 80, y: st.y + 25, class: s.state === st.id ? 'd-tb d-c' : 'd-t d-c' }, st.label));
+    });
+    let v;
+    if (m === 'server') v = 'ifstatus ' + (s.ifUp ? 'up_and_configured' : 'down') + ' · service-status ' + (s.svcUp ? 'up' : 'down') + ' · run ' + s.run + ' of REPETITIONS_MAX ' + MAX + ' · OfferService sent ' + s.offers;
+    else if (m === 'client') v = 'ifstatus ' + (s.ifUp ? 'up_and_configured' : 'down') + ' · ' + (s.req ? 'REQUESTED' : 'RELEASED') + ' · run ' + s.run + ' of REPETITIONS_MAX ' + MAX + ' · TTL timer ' + (s.ttl ? 'running' : 'stopped') + ' · FindService sent ' + s.finds;
+    else v = 'SubscriptionCounter ' + s.count + ' · multicast threshold ' + thrSel.value + (Number(thrSel.value) > 0 ? ' · UnicastLimit ' + (Number(thrSel.value) - 1) : ' · unicast only');
+    varsEl.textContent = v;
+  }
+  function go(state, text) { s.state = state; if (text) say(text); draw(); }
+  function none(ev) { say('"' + ev + '" in ' + LAYOUT[m].find((x) => x.id === s.state).label + ': no transition.'); }
+
+  const HANDLERS = {
+    server(ev) {
+      const ready = s.state !== 'notready';
+      if (ev === 'ifstatus up_and_configured' || ev === 'service-status up') {
+        if (ev === 'ifstatus up_and_configured') s.ifUp = true; else s.svcUp = true;
+        if (!ready && s.ifUp && s.svcUp) return go('wait', ev + ': Ready, Initial Wait Phase. Timer set to a random value in [INITIAL_DELAY_MIN, INITIAL_DELAY_MAX]; socket connections opened, routing group for methods enabled.');
+        say(ev + ': noted.'); return draw();
+      }
+      if (ev === 'ifstatus down') { s.ifUp = false; if (ready) { s.run = 0; return go('notready', 'ifstatus down: all timers cleared, Not Ready. No StopOfferService can be sent.'); } say('ifstatus down: noted.'); return draw(); }
+      if (ev === 'service-status down') {
+        s.svcUp = false;
+        if (!ready) { say('service-status down: noted.'); return draw(); }
+        const stop = s.state !== 'wait';
+        s.run = 0;
+        return go('notready', 'service-status down: ' + (stop ? 'StopOfferService sent, event handlers released, ' : 'no OfferService was sent yet, so no StopOfferService; ') + 'routing groups disabled, Not Ready.');
+      }
+      if (ev === 'timer expired') {
+        if (s.state === 'wait') { s.offers++; s.run = 0; return go('rep', 'Timer expired: first OfferService (multicast). Repetition Phase, next wait = REPETITIONS_BASE_DELAY.'); }
+        if (s.state === 'rep') {
+          s.offers++; s.run++;
+          if (s.run >= MAX) return go('main', 'Timer expired: repetition OfferService ' + s.run + ' of ' + MAX + '. REPETITIONS_MAX reached: Main Phase, next OfferService after CYCLIC_OFFER_DELAY.');
+          return go('rep', 'Timer expired: repetition OfferService ' + s.run + '. Next wait = 2^' + s.run + ' × REPETITIONS_BASE_DELAY.');
+        }
+        if (s.state === 'main') { s.offers++; return go('main', 'Timer expired: cyclic OfferService, timer restarted.'); }
+        return none(ev);
+      }
+      if (ev === 'FindService received') {
+        if (s.state === 'wait') { say('FindService in the Initial Wait Phase: ignored.'); return draw(); }
+        if (s.state === 'rep' || s.state === 'main') { s.offers++; say('FindService: OfferService sent after REQUEST_RESPONSE_DELAY; run and timer unchanged.'); return draw(); }
+        return none(ev);
+      }
+    },
+    client(ev) {
+      const st = s.state;
+      const requested = ['rnr', 'wait', 'rep', 'ready', 'stopped'].includes(st);
+      if (ev === 'ifstatus up_and_configured') {
+        s.ifUp = true;
+        if (st === 'rnr') return go('wait', 'ifstatus up_and_configured while REQUESTED: Searching for Service, Initial Wait Phase (random timer).');
+        say('ifstatus up_and_configured: noted.'); return draw();
+      }
+      if (ev === 'ifstatus down') {
+        s.ifUp = false; s.ttl = false;
+        if (requested && st !== 'rnr') return go('rnr', 'ifstatus down: timers cancelled, DOWN reported if it was AVAILABLE; Requested_but_not_ready.');
+        if (st === 'seen') return go('notseen', 'ifstatus down: the known OfferService is forgotten; Service Not Seen.');
+        say('ifstatus down: noted.'); return draw();
+      }
+      if (ev === 'REQUESTED') {
+        s.req = true;
+        if (st === 'seen') return go('ready', 'REQUESTED with a valid OfferService known: no search. Socket connections opened, routing groups enabled, AVAILABLE reported, SubscribeEventgroup sent.');
+        if (st === 'notseen') {
+          if (!s.ifUp) return go('rnr', 'REQUESTED while ifstatus is down: Requested_but_not_ready.');
+          s.run = 0; return go('wait', 'REQUESTED: Searching for Service, Initial Wait Phase (random timer).');
+        }
+        say('Already REQUESTED.'); return draw();
+      }
+      if (ev === 'RELEASED') {
+        s.req = false; s.run = 0;
+        if (st === 'ready') return go('seen', 'RELEASED: StopSubscribeEventgroup sent, DOWN reported, routing groups disabled; the OfferService is still valid: Service Seen.');
+        if (requested) { s.ttl = false; return go('notseen', 'RELEASED: back to Not Requested, Service Not Seen.'); }
+        say('Not requested anyway.'); return draw();
+      }
+      if (ev === 'timer expired') {
+        if (st === 'wait') { s.finds++; s.run = 0; return go('rep', 'Timer expired: FindService sent (multicast). Repetition Phase, next wait = REPETITIONS_BASE_DELAY.'); }
+        if (st === 'rep') {
+          s.finds++; s.run++;
+          if (s.run >= MAX) return go('stopped', 'Timer expired: FindService ' + (s.run + 1) + ' sent. REPETITIONS_MAX reached: Main Phase, Stopped. No more FindService.');
+          return go('rep', 'Timer expired: FindService ' + (s.run + 1) + ' sent. Next wait = 2^' + s.run + ' × REPETITIONS_BASE_DELAY.');
+        }
+        return none(ev);
+      }
+      if (ev === 'OfferService received') {
+        if (!s.ifUp) { say('ifstatus down: the OfferService cannot be received.'); return draw(); }
+        s.ttl = true;
+        if (st === 'notseen') return go('seen', 'OfferService while Not Requested: TTL timer started; Service Seen.');
+        if (st === 'seen') { say('OfferService: TTL timer restarted.'); return draw(); }
+        if (st === 'wait' || st === 'rep' || st === 'stopped') { s.run = 0; return go('ready', 'OfferService: search timer cancelled, TTL timer started, TCP connection opened if configured, AVAILABLE reported, SubscribeEventgroup sent; Service Ready.'); }
+        if (st === 'ready') { say('OfferService: TTL timer restarted; SubscribeEventgroup sent for each wanted eventgroup (renewal).'); return draw(); }
+        return none(ev);
+      }
+      if (ev === 'StopOfferService received') {
+        s.ttl = false;
+        if (st === 'seen') return go('notseen', 'StopOfferService: Service Not Seen.');
+        if (st === 'ready' || st === 'rep' || st === 'wait') return go('stopped', 'StopOfferService: timers cancelled, DOWN reported if it was AVAILABLE, socket connections closed. Stopped: no FindService is sent, wait for an OfferService.');
+        return none(ev);
+      }
+      if (ev === 'TTL expired') {
+        if (!s.ttl) { say('No TTL timer is running.'); return draw(); }
+        s.ttl = false;
+        if (st === 'seen') return go('notseen', 'TTL expired: Service Not Seen.');
+        if (st === 'ready') { s.run = 0; return go('wait', 'TTL expired: DOWN reported, the subscriptions expire; back to the Initial Wait Phase to search again.'); }
+        return none(ev);
+      }
+    },
+    eg(ev) {
+      const thr = Number(thrSel.value);
+      const limit = thr - 1;
+      if (ev === 'service-status up') { if (s.state === 'down') return go('none', 'service-status up (the OfferService is the implicit publish): Service Up, Not Subscribed.'); return none(ev); }
+      if (ev === 'service-status down') { s.count = 0; if (s.state !== 'down') return go('down', 'service-status down: all subscriptions deleted, events disabled (disableTxRoutingGroup); Service Down.'); return none(ev); }
+      if (s.state === 'down') { say('Service Down: "' + ev + '" is not processed.'); return draw(); }
+      if (ev === 'SubscribeEventgroup (new client)') {
+        s.count++;
+        if (s.state === 'none') {
+          if (thr === 1) return go('multi', 'SubscribeEventgroup: SubscriptionCounter 1, UnicastLimit 0: multicast events enabled (enableTxRoutingGroup), SubscribeEventgroupAck with Multicast option, initial events by unicast to the new client.');
+          return go('uni', 'SubscribeEventgroup: SubscriptionCounter 1: events enabled for this client by unicast (enableTxRoutingGroup), SubscribeEventgroupAck, initial events by unicast.');
+        }
+        if (s.state === 'uni' && thr >= 2 && s.count > limit) return go('multi', 'SubscribeEventgroup: SubscriptionCounter ' + s.count + ' exceeds UnicastLimit ' + limit + ': switch to multicast; SubscribeEventgroupAck with Multicast option; initial events by unicast.');
+        say('SubscribeEventgroup: SubscriptionCounter ' + s.count + ', SubscribeEventgroupAck, initial events by unicast to the new client.' + (s.state === 'uni' ? ' Still unicast.' : ' Still multicast.'));
+        return draw();
+      }
+      if (ev === 'StopSubscribeEventgroup' || ev === 'TTL expired') {
+        if (s.state === 'none') return none(ev);
+        s.count--;
+        if (s.count === 0) return go('none', ev + ': SubscriptionCounter 0: events disabled (disableTxRoutingGroup); Not Subscribed.');
+        if (s.state === 'multi' && thr >= 2 && s.count === limit) return go('uni', ev + ': SubscriptionCounter back to ' + s.count + ' = UnicastLimit: switch back to unicast.');
+        say(ev + ': SubscriptionCounter ' + s.count + '.'); return draw();
+      }
+    }
+  };
+
+  function start() {
+    m = machineSel.value;
+    thrLab.hidden = m !== 'eg';
+    logEl.replaceChildren();
+    if (m === 'server') s = { state: 'notready', ifUp: false, svcUp: false, run: 0, offers: 0 };
+    else if (m === 'client') s = { state: 'notseen', ifUp: true, req: false, run: 0, ttl: false, finds: 0 };
+    else s = { state: 'down', count: 0 };
+    evHost.replaceChildren();
+    EVENTS[m].forEach((ev, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = ev;
+      if (i === 0) b.className = 'primary';
+      b.addEventListener('click', () => HANDLERS[m](ev));
+      evHost.appendChild(b);
+    });
+    say('Start: ' + LAYOUT[m].find((x) => x.id === s.state).label + '.');
+    draw();
+  }
+  machineSel.addEventListener('change', start);
+  thrSel.addEventListener('change', start);
+  start();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A server service instance is in the Initial Wait Phase and a FindService arrives. What happens?',
+    options: ['Nothing; the FindService is ignored', 'An OfferService is sent as a reply', 'It moves to the Repetition Phase'],
+    answer: 0,
+    why: 'A FindService received in the Initial Wait Phase is ignored; the first OfferService is coming anyway.'
+  },
+  {
+    prompt: 'A client in Service Ready receives a StopOfferService. Which state follows?',
+    options: ['Stopped, without any FindService', 'Initial Wait Phase, to search again', 'Service Seen, still REQUESTED'],
+    answer: 0,
+    why: 'StopOfferService leads to Stopped in the Main Phase; the client waits for a new OfferService instead of searching.'
+  },
+  {
+    prompt: 'Multicast threshold 3 (UnicastLimit 2): two clients are subscribed by unicast and a third subscribes. What happens?',
+    options: ['The eventgroup switches to multicast', 'The third gets its own unicast event', 'The third gets a SubscribeEventgroupNack'],
+    answer: 0,
+    why: 'The counter 3 exceeds the UnicastLimit 2, so the adaptive machine switches to Subscribed (Multicast).'
+  }
+]);
+</script>
+</body>
+</html>
