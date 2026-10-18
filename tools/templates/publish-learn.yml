@@ -1,0 +1,39 @@
+# Publishes this course to the hub repo jazzman2k83/learn (GitHub Pages,
+# https://jazzman2k83.github.io/learn/). Only the paths in course.json "publish" are copied;
+# notes, learning records and statistics stay here. The work is done by tools/publish.sh
+# in the hub, so every course uses the same, current logic.
+# Needs the secret HUB_DEPLOY_KEY: the private half of the deploy key with write access
+# on jazzman2k83/learn (set by tools/setup-course.sh).
+# Installed by tools/setup-course.sh from tools/templates/publish-learn.yml in the hub.
+
+name: Publish to learn
+
+on:
+  push:
+    branches: [__BRANCH__]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-learn
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish to the hub
+        env:
+          DEPLOY_KEY: ${{ secrets.HUB_DEPLOY_KEY }}
+          HUB_REPO: git@github.com:jazzman2k83/learn.git
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+          git clone --depth 1 --branch main "$HUB_REPO" hub
+          git -C hub config user.name "github-actions[bot]"
+          git -C hub config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash hub/tools/publish.sh . --hub hub
