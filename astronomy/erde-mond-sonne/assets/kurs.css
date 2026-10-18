@@ -21,7 +21,23 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    --papier: #17171a;
+    --tinte: #e9e5da;
+    --tinte-leise: #9d988c;
+    --linie: #3a3936;
+    --flaeche: #222226;
+    --akzent: #e0915a;
+    --richtig: #7cc48a;
+    --falsch: #e58a8a;
+    --himmel-nacht: #0d1120;
+    --himmel-tag: #4f6f8c;
+    --mond-dunkel: #2b2b31;
+  }
+}
+/* learn-hub: the same rules when the visitor chose dark */
+@media screen {
+  :root[data-theme="dark"] {
     --papier: #17171a;
     --tinte: #e9e5da;
     --tinte-leise: #9d988c;

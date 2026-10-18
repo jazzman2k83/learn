@@ -4,7 +4,8 @@
 #   publish.sh <course-dir> [--hub <hub-dir>] [--no-push]
 #
 # Reads <course-dir>/course.json, copies the published paths from the course's committed
-# HEAD (never uncommitted or private files) to <hub>/<path>/, rebuilds the landing page,
+# HEAD (never uncommitted or private files) to <hub>/<path>/, gives it the hub's common
+# bar and theme toggle (tools/harmonize.py), rebuilds the landing page,
 # commits in the hub and pushes. Used both locally and by the course's GitHub Action.
 # Default hub: $LEARN_HUB, else the folder this script lives in (tools/..).
 set -euo pipefail
@@ -81,6 +82,7 @@ fi
 rm -rf "$dest"
 mkdir -p "$dest"
 cp -r "$tmp/." "$dest/"
+python3 "$hub/tools/harmonize.py" "$hub" "$path"
 python3 "$hub/tools/build-index.py" "$hub"
 
 # --- commit and push ------------------------------------------------------

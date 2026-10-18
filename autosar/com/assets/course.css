@@ -25,7 +25,30 @@
   --sans: Roboto, Arial, Helvetica, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    --paper: #1c1f20;
+    --ink: #e8ecee;
+    --muted: #a9b1b6;
+    --rule: #4a5053;
+    --panel: #26292b;
+    --head: #2f3335;
+    --accent: #4cc383;
+    --accent-hover: #7bd6a4;
+    --warn: #dad55e;
+    --sig: #cdd3d6;
+    --sig-soft: #3d4447;
+    --tick: #777d7f;
+    --msb: #ff7b7b;
+    --lsb: #4cc383;
+    --good: #4cc383;
+    --good-soft: #173524;
+    --bad: #ff7b7b;
+    --bad-soft: #452020;
+  }
+}
+/* learn-hub: the same rules when the visitor chose dark */
+@media screen {
+  :root[data-theme="dark"] {
     --paper: #1c1f20;
     --ink: #e8ecee;
     --muted: #a9b1b6;

@@ -1,0 +1,49 @@
+/* The hub's bar on top of every course page (inserted by tools/harmonize.py).
+   Everything is scoped to .learn-bar and sized in px, so the course's own styles and
+   root font size don't change it. It sits above the page (absolute), and the page moves
+   down by its height. The course's own theme toggle is hidden: the bar's toggle is the
+   one choice for the whole hub (assets/hub.js). */
+
+:root {
+  --learn-bar-h: 40px;
+  --learn-bg: #f4f8fa; --learn-ink: #404547; --learn-rule: #cdd3d6; --learn-accent: #00893d;
+}
+:root[data-theme="dark"] {
+  --learn-bg: #26292b; --learn-ink: #e8ecee; --learn-rule: #4a5053; --learn-accent: #4cc383;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --learn-bg: #26292b; --learn-ink: #e8ecee; --learn-rule: #4a5053; --learn-accent: #4cc383;
+  }
+}
+
+html { padding-top: var(--learn-bar-h); scroll-padding-top: 8px; }
+
+.learn-bar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
+  height: var(--learn-bar-h); box-sizing: border-box;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 16px;
+  background: var(--learn-bg); color: var(--learn-ink);
+  border-bottom: 1px solid var(--learn-rule);
+  font: 14px/1.2 Roboto, Arial, Helvetica, sans-serif; letter-spacing: normal;
+}
+.learn-bar a { color: var(--learn-accent); text-decoration: none; white-space: nowrap; }
+.learn-bar a:hover, .learn-bar a:focus-visible { text-decoration: underline; }
+.learn-bar .learn-course {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  color: var(--learn-ink); font-weight: 700;
+}
+.learn-bar .learn-theme {
+  margin: 0; padding: 3px 10px; cursor: pointer; white-space: nowrap;
+  font: inherit; background: transparent; color: inherit;
+  border: 1px solid currentColor; border-radius: 0;
+}
+
+/* the course's own toggle: replaced by the bar's */
+[data-theme-toggle], .theme-toggle:not(.learn-theme) { display: none !important; }
+
+@media print {
+  html { padding-top: 0; }
+  .learn-bar { display: none; }
+}
