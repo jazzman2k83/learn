@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timeouts · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Timeouts</h1>
+<p class="lede">Silence can be dangerous. If the brake control unit stops talking, others must find out. COM watches the clock for you.</p>
+
+<h2>Waiting for a packet</h2>
+<p>For a signal that should arrive regularly, you give COM a time limit. COM starts a stopwatch. Every arrival resets it. If the stopwatch reaches the limit, that is a <strong>timeout</strong>, and COM does two things:</p>
+<div class="cards">
+  <div class="card"><h3>1. Decide what value to hand out</h3><p>Keep the last value, go back to the start value, or use a special substitute value. You choose one per signal.</p></div>
+  <div class="card"><h3>2. Raise an alarm</h3><p>COM tells the application "this signal is overdue", so it can react, for example by showing a warning.</p></div>
+</div>
+<p>Then the stopwatch starts again. As long as nothing arrives, the alarm repeats each time the limit passes.</p>
+
+<h3>Try it</h3>
+<p>The limit is 3 seconds. Let packets arrive, then stop clicking and watch. The start value is 0 and the substitute value is 99.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>On a timeout
+      <select id="action">
+        <option value="NONE">keep the last value</option>
+        <option value="REPLACE">go back to the start value</option>
+        <option value="SUBSTITUTE">use the substitute value</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+
+<h2>One stopwatch or several?</h2>
+<p>Normally COM watches the whole packet with one stopwatch: if the packet arrives, all its signals are fine. A signal with an update-bit (lesson 5) gets its own stopwatch, because the packet may arrive without that signal being new.</p>
+<p>The very first wait after switch-on can have its own, usually longer, limit. Other control units may need time to start up.</p>
+
+<h2>The other direction: was it really sent?</h2>
+<p>COM can also watch its own sends. When it hands a packet down, it expects the answer "it is on the bus" within a time limit. If that answer does not come, for example because the wire is broken, COM tells the application.</p>
+<p>One difference: this alarm comes <strong>once</strong> per failed send. It does not repeat.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Watching the clock</td><td>Deadline monitoring (reception / transmission)</td></tr>
+<tr><td>Time limit, first time limit</td><td>Timeout, first timeout</td></tr>
+<tr><td>What value to hand out</td><td>Timeout action: <code>NONE</code>, <code>REPLACE</code>, <code>SUBSTITUTE</code></td></tr>
+<tr><td>The answer "it is on the bus"</td><td>Transmit confirmation</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.6 (SWS_Com_00290, 00292, 00470, 00875, 00500, 00889, 00878, 00304). Finer points: a time limit of 0 means "do not watch". COM can also report timeouts to the diagnostic system. Watching sends only makes sense on a bus that confirms them.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const LIMIT = 3, START = 0, SUBSTITUTE = 99;
+  const action = document.getElementById('action');
+  const readout = document.getElementById('readout');
+  let next, value, deadline;
+  const show = (what) => { readout.textContent = what + ' The application now reads: ' + value + '.'; };
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'in', label: 'Packet arrives' },
+      { id: 'alarm', label: 'Timeout alarm' }
+    ],
+    duration: 18,
+    onTick(prev, now) {
+      if (now < deadline) return;
+      deadline += LIMIT;
+      tl.mark('alarm', '!', 'wait');
+      if (action.value === 'REPLACE') value = START;
+      if (action.value === 'SUBSTITUTE') value = SUBSTITUTE;
+      show('Timeout: nothing arrived for 3 seconds.');
+    },
+    onReset() {
+      next = 50; value = START; deadline = LIMIT;
+      readout.textContent = 'Press the button to start the clock. The stopwatch starts with it.';
+    }
+  });
+  tl.buttons.append(Timeline.button('A packet arrives', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    value = next++;
+    deadline = tl.now() + LIMIT;
+    tl.mark('in', String(value));
+    show('Packet arrived, stopwatch reset.');
+  }, true));
+  action.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What resets the receive stopwatch?',
+    options: ['Each packet that arrives', 'Each read by application', 'Each tick of the heartbeat'],
+    answer: 0,
+    why: 'Every arrival of the watched packet restarts the stopwatch.'
+  },
+  {
+    prompt: 'Nothing arrives for a long time. How often does the receive alarm come?',
+    options: ['Again and again', 'One single time', 'Never, only a log'],
+    answer: 0,
+    why: 'After a timeout the stopwatch restarts, so the alarm repeats each time the limit passes.'
+  },
+  {
+    prompt: 'A send is not confirmed in time. How often does that alarm come?',
+    options: ['One single time', 'Again and again', 'Never, only a log'],
+    answer: 0,
+    why: 'The send-side stopwatch is not restarted after it runs out, so there is one alarm per failed send.'
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packing a signal into a packet · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 10 minutes">AUTOSAR COM</p>
+<h1>Packing a signal into a packet</h1>
+<p class="lede">Now the lowest level: which bits of a packet does a signal occupy? Three settings decide it. After this page you can place any signal on the grid by hand.</p>
+
+<p>This is the most detailed lesson of the course. You need it when you compare what COM sends with what a bus tool shows, byte by byte. A packet is called I-PDU in AUTOSAR, and this lesson uses the real setting names from <a href="0015-configuration-map.html">lesson 15</a>.</p>
+
+<h2>Four words first</h2>
+<div class="cards">
+  <div class="card"><h3>Bit and byte</h3><p>A bit is a single 0 or 1. A byte is eight bits.</p></div>
+  <div class="card"><h3>LSB and MSB</h3><p>In the number 250, the 2 counts most and the 0 least. In bits it is the same: the <em>most significant bit</em> (MSB) counts most, the <em>least significant bit</em> (LSB) counts least.</p></div>
+  <div class="card"><h3>Byte order</h3><p>A number longer than one byte must be laid out in some order. <em>Little endian</em>: the least significant byte comes first. <em>Big endian</em>: the most significant byte comes first.</p></div>
+  <div class="card"><h3>0x…</h3><p>A number written with 0x in front is hexadecimal, a compact way to write bits: each digit stands for four bits. 0x2A5 is the bits 10 1010 0101.</p></div>
+</div>
+
+<h2>1. How the bits are numbered</h2>
+<p>A packet is a row of bytes. AUTOSAR fixes one way of numbering its bits: counting starts at bit 0, the least significant bit of byte 0, and the most significant bit of byte 0 is bit 7. Byte 1 then holds bits 8 to 15, and so on <span class="cite">(<a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_SystemTemplate.pdf">System Template</a> Table 6.14, TPS_SYST_01068, TPS_SYST_01069)</span>.</p>
+<p>So PDU bit <em>p</em> lives in byte <code>p / 8</code> at bit <code>p % 8</code>. Drawn with bit 7 on the left, the numbers run right to left along a row and then jump to the next row. The specification calls this "sawtooth" counting.</p>
+
+<h2>2. Three parameters place a signal</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Parameter</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>ComBitPosition</code></td><td>"Starting position within the I-PDU" <span class="cite">(ECUC_Com_00259)</span></td></tr>
+<tr><td><code>ComBitSize</code></td><td>Number of bits the signal occupies</td></tr>
+<tr><td><code>ComSignalEndianness</code></td><td>"Defines the endianness of the signal's network representation": <code>LITTLE_ENDIAN</code>, <code>BIG_ENDIAN</code> or <code>OPAQUE</code> <span class="cite">(ECUC_Com_00157)</span></td></tr>
+</tbody>
+</table>
+</div>
+<p>The one fact to remember is what "starting position" means. It depends on the byte order:</p>
+<blockquote>
+It denotes the least significant bit for "Little Endian" and the most significant bit for "Big Endian" packed signals within the IPdu.
+<footer class="cite"><a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_SystemTemplate.pdf">System Template</a>, Table 6.14, <code>startPosition</code></footer>
+</blockquote>
+
+<h3>Little endian: start at the LSB, count up</h3>
+<p>The signal's least significant bit sits at <code>ComBitPosition</code>. Each more significant bit takes the next higher PDU bit number. A 10-bit signal at position 5 occupies bits 5 to 14.</p>
+
+<h3>Big endian: start at the MSB, walk right, drop a row</h3>
+<p>The signal's most significant bit sits at <code>ComBitPosition</code>. Each less significant bit takes the cell to the right. When you run off the right edge (bit 0 of a byte), continue at bit 7 of the next byte. A 10-bit signal at position 5 occupies bits 5, 4, 3, 2, 1, 0 and then 15, 14, 13, 12.</p>
+<p>In both cases the significance of bits inside any one byte is unchanged: a higher bit number in a byte is always the more significant bit. Byte order only decides which <em>byte</em> gets the significant end <span class="cite">(System Template §6.2.2)</span>.</p>
+
+<h2>3. See it</h2>
+<p>This is the System Template's own example (10 bits, start position 5, Example 6.10), with the value <code>0x2A5</code>. Switch the endianness and watch the same ten bits move. Then change position and size until nothing surprises you.</p>
+<div class="panel no-print" id="explorer"></div>
+<p class="small">Each cell shows its PDU bit number, the bit's value, and which signal bit it carries (<code>s0</code> is the signal's LSB).</p>
+
+<h2>4. Do it</h2>
+<p>Now without the picture. Read the configuration, click every cell the signal occupies, then check. Every task crosses a byte boundary.</p>
+<div class="panel no-print" id="task"></div>
+
+<div class="win">
+<p><strong>What you can do now.</strong> Three in a row on the first try means you can read a signal's place in the packet straight from its settings.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="small">Sources: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_SystemTemplate.pdf">AUTOSAR System Template, R25-11</a>, section 6.2.2 and Table 6.14, with the original drawings in Figures 6.10 and 6.11; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.1.3. Cheat sheet: <a href="../reference/signal-packing.html">Signal packing</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/pdu-grid.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+PduGrid.explorer(document.getElementById('explorer'), { bytes: 4, start: 5, size: 10, endian: 'LITTLE_ENDIAN', value: 0x2A5 });
+PduGrid.clickTask(document.getElementById('task'), { bytes: 4 });
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'For a <code>BIG_ENDIAN</code> signal, <code>ComBitPosition</code> is the position of the signal\'s…',
+    options: ['most significant bit', 'most significant byte', 'least significant bit', 'least significant byte'],
+    answer: 0,
+    why: 'The start position is the LSB for little endian and the MSB for big endian (System Template, Table 6.14).'
+  },
+  {
+    prompt: 'Where does PDU bit 19 live?',
+    options: ['Byte 2, bit 3', 'Byte 3, bit 2', 'Byte 1, bit 3', 'Byte 2, bit 4'],
+    answer: 0,
+    why: '19 / 8 = 2 remainder 3. Byte 2 holds bits 16 to 23.'
+  },
+  {
+    prompt: '<code>LITTLE_ENDIAN</code>, <code>ComBitPosition</code> = 5, <code>ComBitSize</code> = 10. Which PDU bit holds the signal\'s MSB?',
+    options: ['Bit 14', 'Bit 15', 'Bit 12', 'Bit 10'],
+    answer: 0,
+    why: 'Little endian counts up from the LSB: 5 + 10 − 1 = 14.'
+  },
+  {
+    prompt: '<code>BIG_ENDIAN</code>, <code>ComBitPosition</code> = 3, <code>ComBitSize</code> = 12. Which PDU bit holds the signal\'s LSB?',
+    options: ['Bit 08', 'Bit 14', 'Bit 15', 'Bit 03'],
+    answer: 0,
+    why: 'Four bits fit in byte 0 (3, 2, 1, 0). The other eight fill byte 1 from bit 15 down to bit 8.'
+  },
+  {
+    prompt: 'Value <code>0x2A5</code>, 10 bits, <code>BIG_ENDIAN</code> at position 5. What is byte 0 of the I-PDU?',
+    options: ['0x2A', '0xA0', '0x54', '0x50'],
+    answer: 0,
+    why: '0x2A5 is 10&nbsp;1010&nbsp;0101. The top six bits, 101010, land in bits 5 to 0 of byte 0: 0x2A. Byte 1 gets 0101 in its upper nibble: 0x50.'
+  }
+]);
+</script>
+</body>
+</html>

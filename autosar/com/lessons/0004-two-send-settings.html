@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two send settings, switched automatically · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Two send settings, switched automatically</h1>
+<p class="lede">A packet can have two send settings, for example fast and slow. COM picks one by looking at the values inside the packet.</p>
+
+<h2>Why two?</h2>
+<p>Some information matters more in one situation than another. While the car is moving, the speed should be sent often. While it stands still, once in a while is enough, and the bus stays free for other things.</p>
+<p>So every packet can carry two send settings. Each one is a full setting from lesson 2: DIRECT, PERIODIC, MIXED or NONE, with its own timer.</p>
+<div class="cards">
+  <div class="card"><p class="tag">used while the condition is true</p><h3>Setting "true"</h3><p>For example: timer, every second.</p></div>
+  <div class="card"><p class="tag">used while the condition is false</p><h3>Setting "false"</h3><p>For example: timer, every four seconds. Or NONE: send nothing at all.</p></div>
+</div>
+
+<h2>Who decides?</h2>
+<p>A condition on a signal's value, such as "speed is not 0". COM checks it every time the application writes that signal.</p>
+<ul>
+<li>Several signals in the packet may each have a condition. If <strong>at least one</strong> is true, the "true" setting is used.</li>
+<li>If none is true, the "false" setting is used.</li>
+<li>If no signal has a condition, the packet simply always uses the "true" setting. That is the normal, simple case.</li>
+</ul>
+<p>When the setting switches, COM uses the new one at once and restarts the timer. If the new setting has a timer, the first packet goes out right away, so the receivers learn about the change without waiting.</p>
+
+<h3>Try it</h3>
+<p>The condition is "speed is not 0". Start the car, stop it, and watch the rhythm of the packets change.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Setting "false" (car stands still)
+      <select id="false-mode">
+        <option value="4">timer, every 4 seconds</option>
+        <option value="0">NONE: send nothing</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Each switch causes one packet right away. Writing the same speed again changes nothing, because the condition did not change.</p>
+</div>
+
+<div class="note">
+<p><strong>Nothing is thrown away.</strong> The condition only chooses the send setting. COM never drops a value on the sending side. Dropping unwanted values is something only a receiver does, with the same kinds of condition. That is <a href="0008-filters.html">lesson 8</a>.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Send setting</td><td>Transmission mode</td></tr>
+<tr><td>Condition on one signal</td><td>Transmission mode condition (TMC)</td></tr>
+<tr><td>The combined true / false result for the packet</td><td>Transmission mode selector (TMS)</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.3.2 (SWS_Com_00676 to 00679, 00032, 00799, 00239, 00244, 00495).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const TRUE_PERIOD = 1;
+  const falseMode = document.getElementById('false-mode');
+  const readout = document.getElementById('readout');
+  let speed, moving, nextSend;
+
+  const period = () => (moving ? TRUE_PERIOD : Number(falseMode.value));
+  const name = () => (moving ? 'true (timer, every second)' : 'false (' + (Number(falseMode.value) ? 'timer, every 4 seconds' : 'send nothing') + ')');
+  function send(why) {
+    tl.mark('bus', String(speed), 'bus');
+    readout.textContent = 'Packet sent (' + why + '). Active setting: ' + name() + '.';
+  }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'write', label: 'Speed written' },
+      { id: 'bus', label: 'Packet on the bus' }
+    ],
+    duration: 20,
+    onTick(prev, now) {
+      const p = period();
+      if (p && now >= nextSend) { send('timer'); nextSend += p; }
+    },
+    onReset() {
+      speed = 0; moving = false; nextSend = period() || 0;
+      readout.textContent = 'The car stands still. Press a button to start the clock.';
+    }
+  });
+  function write(v) {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    speed = v;
+    tl.mark('write', String(v));
+    const now = moving;
+    moving = v !== 0;
+    if (moving === now) {
+      readout.textContent = 'Speed ' + v + ' written. The condition did not change, so the setting stays: ' + name() + '.';
+      return;
+    }
+    const p = period();
+    if (p) { send('setting switched'); nextSend = tl.now() + p; }
+    else readout.textContent = 'Setting switched to: ' + name() + '.';
+  }
+  tl.buttons.append(
+    Timeline.button('Car moves: write speed 50', () => write(50), true),
+    Timeline.button('Car stops: write speed 0', () => write(0), true)
+  );
+  falseMode.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A packet has three signals with a condition. One condition is true, two are false. Which setting is used?',
+    options: ['The "true" setting', 'The "false" setting', 'Both, one by one'],
+    answer: 0,
+    why: 'One true condition is enough.'
+  },
+  {
+    prompt: 'No signal in the packet has a condition. Which setting is used?',
+    options: ['Always the "true" one', 'Always the "false" one', 'Neither, nothing is sent'],
+    answer: 0,
+    why: 'Without any condition the result counts as true, so the packet has just one setting in practice.'
+  },
+  {
+    prompt: 'The setting switches to one with a timer. When does the first packet go out?',
+    options: ['Right away at the switch', 'After one full timer period', 'Only at the next written value'],
+    answer: 0,
+    why: 'COM sends at once on the switch and restarts the timer from there.'
+  }
+]);
+</script>
+</body>
+</html>

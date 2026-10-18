@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four timing words · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 8 minutes">AUTOSAR COM</p>
+<h1>Four timing words</h1>
+<p class="lede">Triggered, pending, immediate, deferred. Two are about sending, two are about receiving. Click the two toys below and you will know all four.</p>
+
+<h2>Two timing questions</h2>
+<p>From <a href="0001-what-com-does.html">lesson 1</a>: the application hands COM single values (signals), and COM carries them in packets (I-PDUs). That leaves COM two timing questions to answer. Each one has two possible answers, and those are our four words.</p>
+
+<h2>Sending: triggered or pending?</h2>
+<p>The question: <strong>when the application writes a new value, does the packet go out because of it?</strong></p>
+<div class="cards">
+  <div class="card"><p class="tag">set per signal</p><h3>TRIGGERED</h3><p>"Send it now." Writing this signal makes the packet go out.</p></div>
+  <div class="card"><p class="tag">set per signal</p><h3>PENDING</h3><p>"No rush." The new value waits in COM and rides along the next time the packet goes out for any other reason.</p></div>
+</div>
+<p>What other reason? A triggered signal in the same packet, or a timer. Whether there is a timer is a setting of the packet:</p>
+<div class="cards">
+  <div class="card"><p class="tag">set per packet</p><h3>DIRECT</h3><p>No timer. The packet only goes out when a triggered signal is written.</p></div>
+  <div class="card"><p class="tag">set per packet</p><h3>PERIODIC</h3><p>Timer only. The packet goes out at a fixed rhythm and nothing else.</p></div>
+  <div class="card"><p class="tag">set per packet</p><h3>MIXED</h3><p>Both. Timer, plus right away when a triggered signal is written.</p></div>
+</div>
+
+<h3>Try it</h3>
+<p>One packet carries two signals. Speed is triggered, temperature is pending. Write some values and watch the bus lane. A label like <code>S2 T1</code> means the packet carried speed 2 and temp 1. Then change the packet setting and try again.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Packet setting
+      <select id="tx-mode">
+        <option value="DIRECT">DIRECT: no timer</option>
+        <option value="PERIODIC">PERIODIC: timer only</option>
+        <option value="MIXED">MIXED: both</option>
+      </select>
+    </label>
+  </div>
+  <div id="tx"></div>
+  <p class="readout" id="tx-readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With DIRECT, a temperature you write stays stuck in COM until you write a speed. With PERIODIC, even writing speed does nothing until the timer fires. With MIXED you get both.</p>
+</div>
+
+<h2>Receiving: immediate or deferred?</h2>
+<p>The question: <strong>when a packet arrives, when is the application told?</strong></p>
+<div class="cards">
+  <div class="card"><p class="tag">set per packet</p><h3>IMMEDIATE</h3><p>Right now, in the same moment the packet arrives.</p></div>
+  <div class="card"><p class="tag">set per packet</p><h3>DEFERRED</h3><p>A little later. COM keeps the data and tells the application the next time COM's own regular job runs.</p></div>
+</div>
+<p>That regular job is called COM's <em>main function</em>. The system calls it at a fixed rhythm, like a heartbeat. Deferred is calmer for the system, because the application is never interrupted in the middle of something. Immediate is faster.</p>
+
+<h3>Try it</h3>
+<p>Let a few packets arrive and watch when the application is told. The small dots are the heartbeat.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Packet setting
+      <select id="rx-mode">
+        <option value="IMMEDIATE">IMMEDIATE</option>
+        <option value="DEFERRED">DEFERRED</option>
+      </select>
+    </label>
+  </div>
+  <div id="rx"></div>
+  <p class="readout" id="rx-readout" aria-live="polite"></p>
+</div>
+
+<div class="win">
+<p><strong>What you can do now.</strong> Read the four words in any COM setup and say what will happen: does a write cause a send, and when does the receiver hear about it.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory, without scrolling up.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Packet</td><td>I-PDU</td></tr>
+<tr><td>Triggered / pending</td><td>The signal's <em>transfer property</em></td></tr>
+<tr><td>Direct / periodic / mixed</td><td>The I-PDU's <em>transmission mode</em></td></tr>
+<tr><td>Immediate / deferred</td><td>The I-PDU's <em>signal processing</em></td></tr>
+<tr><td>Heartbeat</td><td>Main function (<code>Com_MainFunctionRx</code>, <code>Com_MainFunctionTx</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.3.1 and 7.2.5.4 (SWS_Com_00330, SWS_Com_00300, SWS_Com_00301). "Right away" for a triggered send means at the latest when COM's main function next runs. Triggered also has variants: only when the value changed, and with or without repeats (see the next lesson).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+// Sending: one packet, speed is TRIGGERED, temperature is PENDING.
+(function () {
+  const PERIOD = 3;
+  const mode = document.getElementById('tx-mode');
+  const readout = document.getElementById('tx-readout');
+  let speed, temp, sentSpeed, sentTemp;
+
+  function show(extra) {
+    const waiting = [];
+    if (speed !== sentSpeed) waiting.push('speed ' + speed);
+    if (temp !== sentTemp) waiting.push('temp ' + temp);
+    readout.textContent = (extra ? extra + ' ' : '') +
+      (waiting.length ? 'Waiting in COM: ' + waiting.join(', ') + '.' : 'Nothing is waiting in COM.');
+  }
+  function send(why) {
+    sentSpeed = speed;
+    sentTemp = temp;
+    tl.mark('bus', 'S' + speed + ' T' + temp, 'bus');
+    show('Packet sent (' + why + '), carrying speed ' + speed + ' and temp ' + temp + '.');
+  }
+  const tl = Timeline.create(document.getElementById('tx'), {
+    lanes: [
+      { id: 'speed', label: 'Speed (TRIGGERED)' },
+      { id: 'temp', label: 'Temp (PENDING)' },
+      { id: 'bus', label: 'Packet on the bus' }
+    ],
+    duration: 15,
+    onTick(prev, now) {
+      if (mode.value !== 'DIRECT' && Timeline.crossed(prev, now, PERIOD) > 0) send('timer');
+    },
+    onReset() {
+      speed = temp = sentSpeed = sentTemp = 0;
+      readout.textContent = 'Press a button to start the clock.';
+    }
+  });
+  tl.buttons.append(
+    Timeline.button('Write speed', () => {
+      if (tl.finished()) tl.reset();
+      tl.start();
+      speed++;
+      tl.mark('speed', String(speed));
+      if (mode.value === 'PERIODIC') show('Speed written. No send: this packet only follows the timer.');
+      else send('speed is triggered');
+    }, true),
+    Timeline.button('Write temp', () => {
+      if (tl.finished()) tl.reset();
+      tl.start();
+      temp++;
+      tl.mark('temp', String(temp), 'wait');
+      show('Temp written. No send: temp is pending.');
+    }, true)
+  );
+  mode.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+// Receiving: IMMEDIATE tells the application at once, DEFERRED at the next main function.
+(function () {
+  const BEAT = 2.5;
+  const mode = document.getElementById('rx-mode');
+  const readout = document.getElementById('rx-readout');
+  let count, held;
+
+  const tl = Timeline.create(document.getElementById('rx'), {
+    lanes: [
+      { id: 'in', label: 'Packet arrives' },
+      { id: 'beat', label: 'COM heartbeat' },
+      { id: 'app', label: 'Application told' }
+    ],
+    duration: 15,
+    onTick(prev, now) {
+      if (Timeline.crossed(prev, now, BEAT) === 0) return;
+      tl.mark('beat', '', 'tick');
+      if (held.length) {
+        tl.mark('app', held.join(', '), 'bus');
+        readout.textContent = 'Heartbeat: application told about packet ' + held.join(', ') + '.';
+        held = [];
+      }
+    },
+    onReset() {
+      count = 0;
+      held = [];
+      readout.textContent = 'Press the button to start the clock.';
+    }
+  });
+  tl.buttons.append(
+    Timeline.button('A packet arrives', () => {
+      if (tl.finished()) tl.reset();
+      tl.start();
+      count++;
+      tl.mark('in', String(count));
+      if (mode.value === 'IMMEDIATE') {
+        tl.mark('app', String(count), 'bus');
+        readout.textContent = 'Packet ' + count + ' arrived. Application told at once.';
+      } else {
+        held.push(count);
+        readout.textContent = 'Packet ' + count + ' arrived. COM holds it until the next heartbeat.';
+      }
+    }, true)
+  );
+  mode.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which two words are about <em>sending</em>?',
+    options: ['Triggered and pending', 'Immediate and deferred', 'Triggered and deferred', 'Immediate and pending'],
+    answer: 0,
+    why: 'Triggered and pending say whether writing a signal makes the packet go out. Immediate and deferred are about receiving.'
+  },
+  {
+    prompt: 'The packet is DIRECT (no timer). The application writes a PENDING signal. What happens on the bus?',
+    options: ['Nothing yet, it waits', 'One packet right away', 'Two packets right away'],
+    answer: 0,
+    why: 'Pending never causes a send. The value waits until a triggered signal in the same packet is written.'
+  },
+  {
+    prompt: 'The packet is PERIODIC (timer only). The application writes a TRIGGERED signal. What happens?',
+    options: ['Nothing until timer fires', 'One packet goes right away', 'Two packets go right away'],
+    answer: 0,
+    why: 'Triggered only causes a send when the packet is DIRECT or MIXED. A PERIODIC packet follows its timer and nothing else.'
+  },
+  {
+    prompt: 'A packet arrives and its setting is DEFERRED. When is the application told?',
+    options: ['At the next COM heartbeat', 'As soon as packet arrives', 'At the next periodic send'],
+    answer: 0,
+    why: 'Deferred means COM keeps the data and tells the application when its main function next runs.'
+  }
+]);
+</script>
+</body>
+</html>

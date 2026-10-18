@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plain words and AUTOSAR words · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">AUTOSAR COM · Sheet</p>
+<h1>Plain words and AUTOSAR words</h1>
+<p class="lede">The course uses everyday words. This is the list that takes you from each one to the official term, and to what it means.</p>
+
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Plain word</th><th>AUTOSAR word</th><th>In one sentence</th></tr></thead>
+<tbody>
+<tr><td>Control unit</td><td>ECU</td><td>One of the small computers in a car.</td></tr>
+<tr><td>Application</td><td>Software component (SWC)</td><td>The software that does the actual function and uses the signals.</td></tr>
+<tr><td>Switchboard</td><td>RTE</td><td>The layer between applications and COM.</td></tr>
+<tr><td>Signal</td><td>Signal</td><td>One value with a meaning, such as the speed.</td></tr>
+<tr><td>Packet</td><td>I-PDU</td><td>A handful of bytes holding several signals side by side.</td></tr>
+<tr><td>Frame</td><td>L-PDU</td><td>What the bus carries in one go.</td></tr>
+<tr><td>Heartbeat</td><td>Main function</td><td>COM's regular job, called at a fixed rhythm.</td></tr>
+<tr><td>Triggered / pending</td><td>Transfer property</td><td>Whether writing a signal makes its packet go out.</td></tr>
+<tr><td>Send setting</td><td>Transmission mode</td><td>DIRECT, PERIODIC, MIXED or NONE.</td></tr>
+<tr><td>Repeats</td><td>Number of repetitions</td><td>Extra sends after the first one.</td></tr>
+<tr><td>Minimum gap</td><td>Minimum delay time (MDT)</td><td>Shortest allowed time between two sends of one packet.</td></tr>
+<tr><td>Condition</td><td>Transmission mode condition (TMC)</td><td>A rule on one signal's value used to pick the send setting.</td></tr>
+<tr><td>True / false result</td><td>Transmission mode selector (TMS)</td><td>The combined result of all conditions in a packet.</td></tr>
+<tr><td>Immediate / deferred</td><td>Signal processing</td><td>Whether the application is told at once or at the next heartbeat.</td></tr>
+<tr><td>Start value</td><td>Init value</td><td>The value a signal has before a real one exists.</td></tr>
+<tr><td>Update-bit</td><td>Update-bit</td><td>One bit that marks a signal as new.</td></tr>
+<tr><td>Watching the clock</td><td>Deadline monitoring</td><td>Noticing that a packet did not arrive, or was not sent, in time.</td></tr>
+<tr><td>Reserved value</td><td>Data invalid value</td><td>The value that means "I have no good value".</td></tr>
+<tr><td>Filter</td><td>Reception filter</td><td>A pass-or-block rule for received values.</td></tr>
+<tr><td>Message to the application</td><td>Notification (callback)</td><td>COM calling the application when something happened.</td></tr>
+<tr><td>Signal group, member</td><td>Signal group, group signal</td><td>Values that must travel as a matching set.</td></tr>
+<tr><td>Staging area</td><td>Shadow buffer</td><td>Where a group's values are collected before hand-over.</td></tr>
+<tr><td>Packet group</td><td>I-PDU group</td><td>A set of packets started and stopped together.</td></tr>
+<tr><td>Copy rule</td><td>Gateway mapping</td><td>A fixed rule to pass a received signal on into another packet.</td></tr>
+<tr><td>Big packet</td><td>Large I-PDU</td><td>A packet that does not fit in one frame.</td></tr>
+<tr><td>Helper that sends in pieces</td><td>Transport protocol (TP)</td><td>Splits big packets into frames and joins them again.</td></tr>
+<tr><td>Signal with changing size</td><td>Dynamic length signal</td><td>A row of bytes whose length varies.</td></tr>
+<tr><td>Fast lane</td><td>Large Data Path</td><td>COM passes finished bytes through untouched.</td></tr>
+<tr><td>Sorting office</td><td>PDU Router (PduR)</td><td>The layer below COM that routes whole packets.</td></tr>
+<tr><td>Setting, box of settings</td><td>Configuration parameter, container</td><td>How COM is told in advance what to do.</td></tr>
+<tr><td>Byte order</td><td>Endianness</td><td>Which byte of a longer number comes first.</td></tr>
+<tr><td>Copy the sign</td><td>Sign extension</td><td>Keeping a negative number negative when it gets more bits.</td></tr>
+</tbody>
+</table>
+</div>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start values and update-bits · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Start values and update-bits</h1>
+<p class="lede">Two small helpers. A start value answers "what do I read before anything arrived?". An update-bit answers "is this value really new?".</p>
+
+<h2>Start values</h2>
+<p>After switch-on, an application may ask for a signal before any packet has arrived. COM must still answer. So every signal gets a <strong>start value</strong> chosen in advance. COM hands it out until a real value replaces it.</p>
+<p>The same is true on the sending side: if a packet goes out before the application has written every signal in it, the missing ones travel with their start values.</p>
+
+<h3>Try it</h3>
+<p>The temperature's start value is 20.</p>
+<div class="panel no-print">
+  <div class="controls" style="margin-bottom:0">
+    <button type="button" class="primary" id="sv-read">Application reads temperature</button>
+    <button type="button" id="sv-rx">A packet arrives</button>
+    <button type="button" id="sv-reset">Switch off and on</button>
+  </div>
+  <p class="readout" id="sv-out" aria-live="polite">Just switched on. Nothing has arrived yet.</p>
+</div>
+
+<h2>Update-bits</h2>
+<p>A packet always carries all of its signals. Suppose a packet holds speed and temperature and goes out because the speed changed. The temperature travels along, unchanged. The receiver cannot tell whether that temperature is fresh or the same old one again.</p>
+<p>An <strong>update-bit</strong> solves this. It is one extra bit in the packet that belongs to one signal and means "this signal was written since the last send".</p>
+<div class="cards">
+  <div class="card"><p class="tag">sender</p><h3>Set and clear</h3><p>COM sets the bit when the application writes the signal, and clears it again after the packet was sent.</p></div>
+  <div class="card"><p class="tag">receiver</p><h3>Check</h3><p>Bit set: handle the signal as usual. Bit not set: ignore this signal completely, as if it had not been in the packet.</p></div>
+</div>
+<p>The application never sees the bit. COM handles it on both sides.</p>
+
+<h3>Try it</h3>
+<p>Write one or both signals, then let the packet go. Watch which signals the receiver accepts.</p>
+<div class="panel no-print">
+  <p class="pkt-label">Sender: packet being prepared</p>
+  <div class="pkt" id="ub-pkt"></div>
+  <div class="controls" style="margin:0.8rem 0 0">
+    <button type="button" class="primary" id="ub-s">Write speed</button>
+    <button type="button" class="primary" id="ub-t">Write temp</button>
+    <button type="button" id="ub-send">Send the packet</button>
+  </div>
+  <p class="pkt-label">Receiver: what happened to each packet</p>
+  <ul class="log" id="ub-log"><li>No packet sent yet.</li></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Send twice in a row without writing: the second packet has no bit set, and the receiver ignores everything in it.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Start value</td><td>Init value</td></tr>
+<tr><td>Update-bit</td><td>Update-bit (also "update indication bit")</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.1.4 and 7.9 (SWS_Com_00098, 00228, 00061, 00062, 00324, 00802). Finer points: a setting chooses when the sender clears the bits: right after handing the packet down, after the bus confirmed it, or when a lower layer fetched it. A signal group (lesson 10) gets one update-bit for the whole group. All update-bits start cleared.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+// Start values
+(function () {
+  const START = 20;
+  const out = document.getElementById('sv-out');
+  let stored = START, got = false, next = 23;
+  document.getElementById('sv-read').onclick = () => {
+    out.textContent = 'The application reads ' + stored + (got ? ', the last value that arrived.' : ', the start value. Nothing has arrived yet.');
+  };
+  document.getElementById('sv-rx').onclick = () => {
+    stored = next; got = true; next += 2;
+    out.textContent = 'A packet arrived with temperature ' + stored + '. COM stores it.';
+  };
+  document.getElementById('sv-reset').onclick = () => {
+    stored = START; got = false;
+    out.textContent = 'Just switched on. Nothing has arrived yet.';
+  };
+})();
+
+// Update-bits
+(function () {
+  const pkt = document.getElementById('ub-pkt');
+  const log = document.getElementById('ub-log');
+  const s = { speed: 0, temp: 20, newSpeed: false, newTemp: false };
+  let n = 0;
+  function cell(name, value, isNew) {
+    return '<div class="cell' + (isNew ? ' new' : ' dim') + '">' + name + '<b>' + value + '</b>update-bit: ' + (isNew ? '1' : '0') + '</div>';
+  }
+  function render() {
+    pkt.innerHTML = cell('speed', s.speed, s.newSpeed) + cell('temp', s.temp, s.newTemp);
+  }
+  document.getElementById('ub-s').onclick = () => { s.speed++; s.newSpeed = true; render(); };
+  document.getElementById('ub-t').onclick = () => { s.temp++; s.newTemp = true; render(); };
+  document.getElementById('ub-send').onclick = () => {
+    n++;
+    const part = (name, v, isNew) => name + ' ' + v + ': ' +
+      (isNew ? '<span class="ok">new, accepted</span>' : '<span class="no">not new, ignored</span>');
+    const li = document.createElement('li');
+    li.innerHTML = 'Packet ' + n + ' · ' + part('speed', s.speed, s.newSpeed) + ' · ' + part('temp', s.temp, s.newTemp);
+    if (n === 1) log.replaceChildren();
+    log.prepend(li);
+    while (log.children.length > 5) log.lastChild.remove();
+    s.newSpeed = s.newTemp = false;
+    render();
+  };
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'An application reads a signal before any packet arrived. What does it get?',
+    options: ['The start value', 'An error message', 'A random value'],
+    answer: 0,
+    why: 'Every signal has a start value that COM hands out until a real one replaces it.'
+  },
+  {
+    prompt: 'A packet arrives. One signal\'s update-bit is not set. What does the receiving COM do with that signal?',
+    options: ['It ignores that signal', 'It handles it as usual', 'It rejects the packet'],
+    answer: 0,
+    why: 'Only that one signal is skipped. Other signals in the same packet are handled normally.'
+  },
+  {
+    prompt: 'Who sets the update-bit?',
+    options: ['COM on the sender', 'COM on the receiver', 'The application code'],
+    answer: 0,
+    why: 'The sending COM sets it when the application writes the signal. The application never touches the bit.'
+  }
+]);
+</script>
+</body>
+</html>

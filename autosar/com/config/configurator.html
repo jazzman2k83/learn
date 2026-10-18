@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurator · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">AUTOSAR COM · Configuration help</p>
+<h1>Configurator</h1>
+<p class="lede">Say in plain words what one signal should do. You get the exact settings, what COM will do with them, and a warning where settings do not fit together.</p>
+
+<div class="panel no-print">
+  <div class="chips" id="dir">
+    <button type="button" data-dir="tx">This control unit sends the signal</button>
+    <button type="button" data-dir="rx">This control unit receives the signal</button>
+  </div>
+  <form id="form" autocomplete="off"></form>
+  <div class="buttons-row">
+    <button type="button" id="reset">Start again</button>
+    <button type="button" id="link">Copy a link to these answers</button>
+    <button type="button" id="print">Print</button>
+    <span class="feedback" id="said" aria-live="polite"></span>
+  </div>
+</div>
+
+<h2>What COM will do</h2>
+<ul id="summary"></ul>
+
+<h2>Checks</h2>
+<p class="small">The small code after a line names the rule or setting in the AUTOSAR COM specification it comes from.</p>
+<ul class="issues" id="issues" aria-live="polite"></ul>
+
+<h2>Where the bits sit</h2>
+<div id="layout"></div>
+
+<h2>The settings</h2>
+<p>Each row is one setting. The first column says in which box of the configuration it lives. Times are always in seconds, so 100 ms is written as 0.1.</p>
+<div class="table-wrap">
+<table class="data settings">
+<thead><tr><th>Where</th><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+</div>
+
+<div id="messages">
+<h3>Messages to the application</h3>
+<p>Messages are not set in COM itself. They are set in the configuration of whoever uses COM, normally the switchboard (RTE), in a box called <code>ComUserCallback</code>. The signal is linked to it with <code>ComUserCallbackRef</code>.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>ComUserCallbackType</th><th>Tells the application</th></tr></thead>
+<tbody id="callbacks"></tbody>
+</table>
+</div>
+</div>
+
+<h2>As ARXML</h2>
+<p>The same settings in the form a configuration file uses. Put it next to your own file to compare.</p>
+<details class="more" id="arxml-box">
+  <summary>Show the ARXML</summary>
+  <div class="buttons-row no-print"><button type="button" id="copy">Copy</button></div>
+  <pre class="code" id="arxml"></pre>
+</details>
+
+<div class="note">
+<p><strong>What this tool does not know.</strong> It looks at one signal in one packet. It cannot see the other signals in the packet, the layers below COM, or the extra settings your tool vendor adds. Handle numbers are left out because tools assign them. Names follow AUTOSAR release R25-11. In projects on older releases the messages are set on the signal itself, with names such as <code>ComNotification</code> and <code>ComTimeoutNotification</code>.</p>
+</div>
+
+<p class="small">Rules and names: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10. ARXML form: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_ECUConfiguration.pdf">Specification of ECU Configuration, R25-11</a>. More help: <a href="recipes.html">recipe book</a>, <a href="troubleshooting.html">troubleshooting</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/pdu-grid.js"></script>
+<script src="../assets/com-config.js"></script>
+<script>
+(function () {
+  const C = window.ComConfig;
+  const lesson = (file, n) => ' · <a href="../lessons/' + file + '">lesson ' + n + '</a>';
+  const tx = (a) => a.dir === 'tx';
+  const rx = (a) => a.dir === 'rx';
+  const T = (a) => C.TYPES[a.type];
+  const algOptions = (keys) => keys.map((k) => [k, C.FILTERS[k].text + ' (' + k + ')']);
+  const needs = (p) => (a) => C.FILTERS[a.alg].params.includes(p);
+
+  const SETS = [
+    { title: 'The signal and its packet' + lesson('0016-signal-packing.html', 16), items: [
+      { k: 'sig', label: 'Name of the signal', type: 'text' },
+      { k: 'pdu', label: 'Name of the packet it travels in', type: 'text' },
+      { k: 'pduBytes', label: 'Length of the packet', unit: 'bytes', min: 1 },
+      { k: 'type', label: 'Kind of value', options: [
+        ['BOOLEAN', 'on or off (BOOLEAN)'], ['UINT8', 'whole number from 0 (UINT8)'], ['UINT16', 'whole number from 0 (UINT16)'],
+        ['UINT32', 'whole number from 0 (UINT32)'], ['UINT64', 'whole number from 0 (UINT64)'],
+        ['SINT8', 'whole number, can be negative (SINT8)'], ['SINT16', 'whole number, can be negative (SINT16)'],
+        ['SINT32', 'whole number, can be negative (SINT32)'], ['SINT64', 'whole number, can be negative (SINT64)'],
+        ['FLOAT32', 'decimal number (FLOAT32)'], ['FLOAT64', 'decimal number (FLOAT64)'], ['UINT8_N', 'row of bytes (UINT8_N)']] },
+      { k: 'bits', label: 'Bits it takes in the packet', unit: 'bits', min: 1, max: 64, show: (a) => !T(a).float && !T(a).array && a.type !== 'BOOLEAN' },
+      { k: 'len', label: 'Length of the row', unit: 'bytes', min: 1, show: (a) => T(a).array },
+      { k: 'start', label: 'Start bit in the packet', help: 'The lowest bit for "low byte first", the highest bit for "high byte first".', min: 0 },
+      { k: 'endian', label: 'Byte order', options: [['LITTLE_ENDIAN', 'low byte first (LITTLE_ENDIAN)'], ['BIG_ENDIAN', 'high byte first (BIG_ENDIAN)']], show: (a) => !T(a).array },
+      { k: 'init', label: 'Start value', type: 'text' },
+      { k: 'group', label: 'Packet group', help: 'Leave empty if the packet is always switched on.', type: 'text' },
+      { k: 'main', label: 'COM\'s heartbeat', unit: 'ms', min: 1 }
+    ] },
+
+    { title: 'When should it go out?' + lesson('0002-four-timing-words.html', 2), show: tx, items: [
+      { k: 'write', label: 'What should writing this signal do?', options: [
+        ['change', 'send the packet if the value changed'], ['always', 'send the packet, every time'], ['pending', 'nothing, the value waits for the next send']] },
+      { k: 'others', label: 'Other signals in this packet send it on a write', type: 'check' },
+      { k: 'timer', label: 'Also send the packet on a timer', type: 'check' },
+      { k: 'period', label: 'Timer period', unit: 'ms', min: 1, show: (a) => a.timer },
+      { k: 'offset', label: 'Delay before the first timer send', unit: 'ms', min: 0, show: (a) => a.timer }
+    ] },
+    { title: 'Repeats and minimum gap' + lesson('0003-repeats-and-minimum-gap.html', 3), show: tx, items: [
+      { k: 'reps', label: 'Repeats after a send on a write', help: '0 means the packet goes out once.', min: 0, max: 255 },
+      { k: 'repGap', label: 'Time between the repeats', unit: 'ms', min: 1, show: (a) => a.reps > 0 },
+      { k: 'sigReps', label: 'A write of this signal uses the repeats', type: 'check', show: (a) => a.reps > 0 && a.write !== 'pending' },
+      { k: 'mdt', label: 'Minimum gap between two sends', help: '0 means no gap.', unit: 'ms', min: 0 },
+      { k: 'mdtCyclic', label: 'The gap also holds for timer sends and repeats', type: 'check', show: (a) => a.mdt > 0 }
+    ] },
+    { title: 'A second send setting' + lesson('0004-two-send-settings.html', 4), show: tx, items: [
+      { k: 'two', label: 'Send differently depending on this signal\'s value', type: 'check' },
+      { k: 'alg', label: 'Use the setting above while…', options: algOptions(['MASKED_NEW_DIFFERS_X', 'MASKED_NEW_EQUALS_X', 'NEW_IS_WITHIN', 'NEW_IS_OUTSIDE']), show: (a) => a.two },
+      { k: 'x', label: 'X', type: 'text', show: (a) => a.two && needs('x')(a) },
+      { k: 'min', label: 'Range from', type: 'text', show: (a) => a.two && needs('min')(a) },
+      { k: 'max', label: 'Range to', type: 'text', show: (a) => a.two && needs('min')(a) },
+      { k: 'falseMode', label: 'Otherwise…', options: [['NONE', 'do not send the packet (NONE)'], ['PERIODIC', 'send it on a slower timer (PERIODIC)']], show: (a) => a.two },
+      { k: 'falsePeriod', label: 'Slower timer period', unit: 'ms', min: 1, show: (a) => a.two && a.falseMode === 'PERIODIC' }
+    ] },
+    { title: 'Fresh, lost and invalid' + lesson('0005-start-values-and-update-bits.html', 5) + lesson('0006-timeouts.html', 6) + lesson('0007-invalid-values.html', 7), show: tx, items: [
+      { k: 'ub', label: 'Mark fresh values with an update-bit', type: 'check' },
+      { k: 'ubPos', label: 'Position of the update-bit', min: 0, show: (a) => a.ub },
+      { k: 'ubClear', label: 'Clear the update-bit…', options: [['Transmit', 'when the packet was handed down (Transmit)'], ['Confirmation', 'when the bus confirmed it (Confirmation)'], ['TriggerTransmit', 'when the packet was fetched from below (TriggerTransmit)']], show: (a) => a.ub },
+      { k: 'txTout', label: 'Send timeout', help: '0 means sends are not watched.', unit: 'ms', min: 0 },
+      { k: 'inv', label: 'The application can mark the signal as invalid', type: 'check' },
+      { k: 'invVal', label: 'Reserved value that means "invalid"', type: 'text', show: (a) => a.inv }
+    ] },
+    { title: 'Messages to the application' + lesson('0009-what-com-tells-the-application.html', 9), show: tx, items: [
+      { k: 'cbAck', label: 'Tell it: sent', type: 'check' },
+      { k: 'cbTout', label: 'Tell it: not sent in time', type: 'check' },
+      { k: 'cbErr', label: 'Tell it: could not be sent', type: 'check' },
+      { k: 'proc', label: 'Give these messages…', options: [['DEFERRED', 'at COM\'s next heartbeat (DEFERRED)'], ['IMMEDIATE', 'at once (IMMEDIATE)']] }
+    ] },
+
+    { title: 'When is the application told?' + lesson('0002-four-timing-words.html', 2), show: rx, items: [
+      { k: 'proc', label: 'Unpack the packet and tell the application…', options: [['DEFERRED', 'at COM\'s next heartbeat (DEFERRED)'], ['IMMEDIATE', 'the moment it arrives (IMMEDIATE)']] },
+      { k: 'cbAck', label: 'Tell it: new value', type: 'check' }
+    ] },
+    { title: 'Fresh and invalid' + lesson('0005-start-values-and-update-bits.html', 5) + lesson('0007-invalid-values.html', 7), show: rx, items: [
+      { k: 'ub', label: 'The sender marks fresh values with an update-bit', type: 'check' },
+      { k: 'ubPos', label: 'Position of the update-bit', min: 0, show: (a) => a.ub },
+      { k: 'inv', label: 'A reserved value means "invalid"', type: 'check' },
+      { k: 'invVal', label: 'That reserved value', type: 'text', show: (a) => a.inv },
+      { k: 'invAct', label: 'When it arrives…', options: [['NOTIFY', 'keep the last good value and report it (NOTIFY)'], ['REPLACE', 'hand out the start value instead (REPLACE)']], show: (a) => a.inv },
+      { k: 'cbInv', label: 'Tell it: invalid value arrived', type: 'check', show: (a) => a.inv }
+    ] },
+    { title: 'Filter' + lesson('0008-filters.html', 8), show: rx, items: [
+      { k: 'filt', label: 'Take over only some of the values', type: 'check' },
+      { k: 'alg', label: 'Take a value over only if…', options: algOptions(['MASKED_NEW_DIFFERS_MASKED_OLD', 'MASKED_NEW_DIFFERS_X', 'MASKED_NEW_EQUALS_X', 'NEW_IS_WITHIN', 'NEW_IS_OUTSIDE', 'ONE_EVERY_N', 'ALWAYS', 'NEVER']), show: (a) => a.filt },
+      { k: 'x', label: 'X', type: 'text', show: (a) => a.filt && needs('x')(a) },
+      { k: 'min', label: 'Range from', type: 'text', show: (a) => a.filt && needs('min')(a) },
+      { k: 'max', label: 'Range to', type: 'text', show: (a) => a.filt && needs('min')(a) },
+      { k: 'n', label: 'N', min: 2, show: (a) => a.filt && needs('n')(a) },
+      { k: 'off', label: 'Which of the N, counted from 0', min: 0, show: (a) => a.filt && needs('n')(a) }
+    ] },
+    { title: 'Timeout' + lesson('0006-timeouts.html', 6), show: rx, items: [
+      { k: 'rxTout', label: 'Longest allowed time between two arrivals', help: '0 means the signal is not watched.', unit: 'ms', min: 0 },
+      { k: 'rxFirst', label: 'Longest allowed wait for the very first arrival', help: '0 means not watched until the first arrival.', unit: 'ms', min: 0, show: (a) => a.rxTout > 0 },
+      { k: 'toutAct', label: 'When the time is up…', options: [['NONE', 'keep the last value (NONE)'], ['REPLACE', 'go back to the start value (REPLACE)'], ['SUBSTITUTE', 'use a substitute value (SUBSTITUTE)']], show: (a) => a.rxTout > 0 },
+      { k: 'sub', label: 'Substitute value', type: 'text', show: (a) => a.rxTout > 0 && a.toutAct === 'SUBSTITUTE' },
+      { k: 'cbTout', label: 'Tell it: overdue', type: 'check' }
+    ] }
+  ];
+
+  let a = C.fromHash(location.hash);
+  const form = document.getElementById('form');
+  const fields = [];
+
+  SETS.forEach((set) => {
+    const fs = document.createElement('fieldset');
+    fs.className = 'ask-set';
+    fs.innerHTML = '<legend>' + set.title + '</legend>';
+    set.items.forEach((q) => {
+      const row = document.createElement('label');
+      row.className = 'ask-row';
+      const text = document.createElement('span');
+      text.innerHTML = q.label + (q.help ? '<small>' + q.help + '</small>' : '');
+      const field = document.createElement('span');
+      field.className = 'field';
+      let input;
+      if (q.options) {
+        input = document.createElement('select');
+        q.options.forEach((o) => input.add(new Option(o[1], o[0])));
+      } else {
+        input = document.createElement('input');
+        input.type = q.type === 'check' ? 'checkbox' : q.type === 'text' ? 'text' : 'number';
+        if (q.min !== undefined) input.min = q.min;
+        if (q.max !== undefined) input.max = q.max;
+      }
+      field.append(input, q.unit || '');
+      row.append(text, field);
+      fs.appendChild(row);
+      input.addEventListener('input', () => {
+        a[q.k] = q.type === 'check' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+        if (q.k === 'type' || (q.k === 'len' && T(a).array)) onType();
+        render();
+      });
+      fields.push({ q, set, row, input, fs });
+    });
+    form.appendChild(fs);
+  });
+
+  /* A new kind of value gets a size and values that suit it. */
+  function onType() {
+    const t = T(a);
+    if (t.array) a.init = new Array(Math.max(1, Number(a.len) || 1)).fill('0').join(' ');
+    else if (a.init.includes(' ')) a.init = '0';
+    if (!t.array && !t.float) a.bits = t.bits;
+  }
+
+  function render() {
+    document.querySelectorAll('#dir button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dir === a.dir)));
+    fields.forEach((f) => {
+      const setOn = !f.set.show || f.set.show(a);
+      f.fs.hidden = !setOn;
+      const on = setOn && (!f.q.show || f.q.show(a));
+      f.row.hidden = !on;
+      if (!on) return;
+      if (f.q.options && !f.q.options.some((o) => o[0] === a[f.q.k])) a[f.q.k] = f.q.options[0][0];
+      if (f.q.type === 'check') f.input.checked = !!a[f.q.k];
+      else if (document.activeElement !== f.input) f.input.value = a[f.q.k];
+    });
+    const r = C.build(a);
+    document.getElementById('summary').innerHTML = r.summary.map((s) => '<li>' + C.esc(s) + '</li>').join('');
+    C.renderIssues(document.getElementById('issues'), r.issues);
+    C.renderLayout(document.getElementById('layout'), r.layout);
+    C.renderRows(document.getElementById('rows'), C.rows(r.nodes, r.general));
+    document.getElementById('messages').hidden = !r.callbacks.length;
+    document.getElementById('callbacks').innerHTML = r.callbacks.map((c) => '<tr><td><code>' + c[0] + '</code></td><td>' + C.esc(c[1]) + '</td></tr>').join('');
+    document.getElementById('arxml').textContent = C.arxml(r.nodes, r.general);
+    try { history.replaceState(null, '', C.toHash(a)); } catch (e) { /* the link button still works */ }
+  }
+
+  const said = document.getElementById('said');
+  function copy(text, done) {
+    const ok = () => { said.textContent = done; setTimeout(() => (said.textContent = ''), 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, () => (said.textContent = 'Copying is blocked here. Select the text by hand.'));
+    } else {
+      const t = document.createElement('textarea');
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      const worked = document.execCommand('copy');
+      t.remove();
+      if (worked) ok(); else said.textContent = 'Copying is blocked here. Select the text by hand.';
+    }
+  }
+
+  document.querySelectorAll('#dir button').forEach((b) => b.addEventListener('click', () => {
+    if (a.dir === b.dataset.dir) return;
+    const keep = { sig: a.sig, pdu: a.pdu, pduBytes: a.pduBytes, type: a.type, bits: a.bits, len: a.len, start: a.start, endian: a.endian, init: a.init, group: a.group, main: a.main };
+    a = Object.assign(C.defaults(b.dataset.dir), keep);
+    render();
+  }));
+  document.getElementById('reset').addEventListener('click', () => { a = C.defaults(a.dir); render(); });
+  document.getElementById('link').addEventListener('click', () => copy(location.href.split('#')[0] + C.toHash(a), 'Link copied.'));
+  document.getElementById('copy').addEventListener('click', () => copy(document.getElementById('arxml').textContent, 'ARXML copied.'));
+  document.getElementById('print').addEventListener('click', () => { document.getElementById('arxml-box').open = true; window.print(); });
+  window.addEventListener('hashchange', () => { a = C.fromHash(location.hash); render(); });
+  render();
+})();
+</script>
+</body>
+</html>

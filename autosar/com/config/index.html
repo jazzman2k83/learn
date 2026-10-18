@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration help · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">AUTOSAR COM · Configuration help</p>
+<h1>Configuration help</h1>
+<p class="lede">Three tools for the day you have to set up COM yourself, or find out why it does not do what you expected. They use the plain words of the course and always give the official setting names next to them.</p>
+
+<div class="cards">
+  <div class="card"><span class="tag">Fill in</span><h3><a href="configurator.html">Configurator</a></h3><p>Answer plain questions about one signal. Get the settings with their values, a description of what COM will do, checks against the rules, and the ARXML.</p></div>
+  <div class="card"><span class="tag">Look up</span><h3><a href="recipes.html">Recipe book</a></h3><p>Twenty-one typical jobs, from "send every 100 ms" to "forward a signal to another bus", each with its settings and the things that go wrong.</p></div>
+  <div class="card"><span class="tag">Find the cause</span><h3><a href="troubleshooting.html">Troubleshooting</a></h3><p>Start from what you see, such as "the packet never goes out", and go through the checks in order. Also: how to read a configuration you did not write.</p></div>
+</div>
+
+<h2>Which one do I need?</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>You have</th><th>Start with</th></tr></thead>
+<tbody>
+<tr><td>A requirement, such as "send on change and every 100 ms"</td><td>The <a href="recipes.html">recipe</a> that is closest, then open it in the <a href="configurator.html">configurator</a> and put in your numbers.</td></tr>
+<tr><td>A configuration made by a tool, to check or understand</td><td><a href="troubleshooting.html#review">Reading a configuration you did not write</a>. Enter values you are unsure about in the <a href="configurator.html">configurator</a> to see what they do.</td></tr>
+<tr><td>A system that behaves oddly</td><td><a href="troubleshooting.html">Troubleshooting</a>.</td></tr>
+<tr><td>A setting name you do not know</td><td>The <a href="../lessons/0015-configuration-map.html">configuration map</a> in lesson 15.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Three things to know first</h2>
+<ul>
+<li><strong>Times are in seconds.</strong> Every time in COM's configuration is a decimal number of seconds. 100 ms is 0.1.</li>
+<li><strong>COM counts time in heartbeats.</strong> Choose periods, gaps and limits as multiples of the heartbeat period.</li>
+<li><strong>Some settings belong to the packet, some to the signal.</strong> The timer, the repeats and the minimum gap are set once per packet. Triggered or pending, the timeout and the start value are set per signal.</li>
+</ul>
+
+<div class="note">
+<p><strong>What these tools cover.</strong> Only COM's own settings, with the standard names of AUTOSAR release R25-11. They do not cover the layers below COM, and they do not describe the screens of any vendor's configuration tool. Vendors add their own settings and may name a few things differently, mostly in older releases. Treat the output as something to compare with, not as a finished file.</p>
+</div>
+
+<p class="small">Checked against the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapters 7 and 10, and the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_ECUConfiguration.pdf">Specification of ECU Configuration, R25-11</a> for the ARXML form.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+</body>
+</html>

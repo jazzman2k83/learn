@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filters · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Filters</h1>
+<p class="lede">Not every received value is interesting. A filter is a simple yes-or-no rule that lets a value through to the application, or drops it.</p>
+
+<h2>What a filter does</h2>
+<p>A filter belongs to one received signal. Each time a value for that signal arrives, COM asks the rule one question: pass or block?</p>
+<div class="cards">
+  <div class="card"><h3>Pass</h3><p>COM stores the value and tells the application, as usual.</p></div>
+  <div class="card"><h3>Block</h3><p>COM drops the value. Nothing is stored, nobody is told. A read still gives the previous value.</p></div>
+</div>
+<p>This saves the application work. An application that only cares about changes does not get woken up for the same value again and again.</p>
+
+<h2>The eight rules</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Rule in plain words</th><th>AUTOSAR name</th></tr></thead>
+<tbody>
+<tr><td>Let everything through</td><td><code>ALWAYS</code></td></tr>
+<tr><td>Let nothing through</td><td><code>NEVER</code></td></tr>
+<tr><td>Only if it is different from the last value that passed</td><td><code>MASKED_NEW_DIFFERS_MASKED_OLD</code></td></tr>
+<tr><td>Only if it equals a fixed value X</td><td><code>MASKED_NEW_EQUALS_X</code></td></tr>
+<tr><td>Only if it differs from a fixed value X</td><td><code>MASKED_NEW_DIFFERS_X</code></td></tr>
+<tr><td>Only if it is inside a range</td><td><code>NEW_IS_WITHIN</code></td></tr>
+<tr><td>Only if it is outside a range</td><td><code>NEW_IS_OUTSIDE</code></td></tr>
+<tr><td>Only every Nth arrival</td><td><code>ONE_EVERY_N</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>"Masked" means the comparison can be limited to some of the value's bits, for example to ignore the lowest bits so that tiny changes do not count.</p>
+
+<h3>Try it</h3>
+<p>Pick a rule, set a value, and let it arrive. Here X is 50, the range is 20 to 60, and N is 3.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Rule
+      <select id="rule">
+        <option value="ALWAYS">everything</option>
+        <option value="NEVER">nothing</option>
+        <option value="CHANGED" selected>only if different from the last that passed</option>
+        <option value="EQ">only if it equals 50</option>
+        <option value="NE">only if it differs from 50</option>
+        <option value="IN">only inside 20 to 60</option>
+        <option value="OUT">only outside 20 to 60</option>
+        <option value="NTH">only every 3rd arrival</option>
+      </select>
+    </label>
+    <label>Arriving value: <span id="val-out">50</span>
+      <input type="range" id="val" min="0" max="100" step="10" value="50">
+    </label>
+    <button type="button" class="primary" id="go">This value arrives</button>
+  </div>
+  <p class="readout" id="has" aria-live="polite"></p>
+  <ul class="log" id="log"></ul>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With "only if different", send the same value twice: the second is blocked. With "every 3rd", the first arrival passes, then two are blocked.</p>
+</div>
+
+<div class="note">
+<p><strong>Same rules, second use.</strong> On the sending side these same eight rules serve as the conditions that switch between a packet's two send settings (<a href="0004-two-send-settings.html">lesson 4</a>). There they never drop anything.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Filter, rule</td><td>Reception filter, filter algorithm</td></tr>
+<tr><td>The last value that passed</td><td><code>old_value</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.1.4 (SWS_Com_00695, 00273, 00302, 00303, 00231). Finer points: before anything has passed, "the last value" is the signal's start value (0 in this toy). After a timeout, the "only if different" rule lets the next value through whatever it is. "Every Nth" also has an offset that chooses which arrival in each round passes.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const X = 50, MIN = 20, MAX = 60, N = 3, START = 0;
+  const rule = document.getElementById('rule');
+  const val = document.getElementById('val');
+  const valOut = document.getElementById('val-out');
+  const has = document.getElementById('has');
+  const log = document.getElementById('log');
+  let old, occurrence;
+  function reset() {
+    old = START; occurrence = 0;
+    log.replaceChildren();
+    has.textContent = 'The application has: ' + old + ' (the start value).';
+  }
+  function passes(v) {
+    switch (rule.value) {
+      case 'ALWAYS': return true;
+      case 'NEVER': return false;
+      case 'CHANGED': return v !== old;
+      case 'EQ': return v === X;
+      case 'NE': return v !== X;
+      case 'IN': return v >= MIN && v <= MAX;
+      case 'OUT': return v < MIN || v > MAX;
+      case 'NTH': {
+        if (occurrence === N) occurrence = 0;
+        const ok = occurrence === 0;
+        occurrence++;
+        return ok;
+      }
+    }
+  }
+  document.getElementById('go').onclick = () => {
+    const v = Number(val.value);
+    const ok = passes(v);
+    if (ok) old = v;
+    const li = document.createElement('li');
+    li.innerHTML = v + ' arrives: ' + (ok ? '<span class="ok">passes</span>' : '<span class="no">blocked</span>');
+    log.prepend(li);
+    while (log.children.length > 6) log.lastChild.remove();
+    has.textContent = 'The application has: ' + old + '.';
+  };
+  val.oninput = () => { valOut.textContent = val.value; };
+  rule.onchange = reset;
+  reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A filter blocks a value. What does the application read afterwards?',
+    options: ['The previous value', 'The blocked value', 'The start value'],
+    answer: 0,
+    why: 'A blocked value is dropped completely. Whatever was stored before stays.'
+  },
+  {
+    prompt: 'On which side does COM drop values with a filter?',
+    options: ['Only when receiving', 'Only when sending', 'On both of the sides'],
+    answer: 0,
+    why: 'Values are only filtered out on the receiving side. On the sending side the same rules just choose a send setting.'
+  },
+  {
+    prompt: 'The rule is "only inside 20 to 60". Values 10, 30, 70 arrive. Which pass?',
+    options: ['Only the 30', 'The 10 and 70', 'All of them'],
+    answer: 0,
+    why: '30 is inside the range; 10 and 70 are outside and are blocked.'
+  }
+]);
+</script>
+</body>
+</html>

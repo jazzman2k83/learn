@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Switching packets on and off · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Switching packets on and off</h1>
+<p class="lede">A control unit should not always talk. While the bus sleeps or during special modes, sets of packets are switched off, and on again later.</p>
+
+<h2>Packet groups</h2>
+<p>Packets are sorted into named sets, for example "everything I send on bus 1" or "everything I receive on bus 1". Such a set is a <strong>packet group</strong>. A group holds only sending packets or only receiving packets, never both. Each group can be started and stopped as a whole.</p>
+<div class="cards">
+  <div class="card"><h3>After switch-on</h3><p>All groups are <strong>stopped</strong>. Nothing is sent until somebody starts a group.</p></div>
+  <div class="card"><h3>Who starts and stops?</h3><p>Not COM, and not the application. A separate manager in the control unit that knows the state of the bus: awake, going to sleep, diagnostics running.</p></div>
+</div>
+<p>A packet may belong to several groups. It is on as long as <strong>at least one</strong> of its groups is started. A packet that belongs to no group is simply always on.</p>
+
+<h2>What "stopped" means</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th></th><th>A stopped sending packet</th><th>A stopped receiving packet</th></tr></thead>
+<tbody>
+<tr><td>On the bus</td><td>Is not sent. Timer and waiting sends are cancelled.</td><td>Arriving copies are ignored.</td></tr>
+<tr><td>Timeouts</td><td>Not watched</td><td>Not watched</td></tr>
+<tr><td>Application writes / reads</td><td>The value is still stored, but COM answers "not available". A triggered write is not remembered for later.</td><td>A read gives the last known value, with the answer "not available".</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Try it</h3>
+<p>This packet has a timer (every 2 seconds) and a triggered speed signal. Its group starts out stopped, as after switch-on.</p>
+<div class="panel no-print">
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Write the speed while the group is stopped, then start it: no packet goes out at that moment, the old trigger is forgotten. But the first timer packet carries the value you wrote.</p>
+</div>
+
+<h2>Starting fresh, or carrying on</h2>
+<p>When a group is started, the manager chooses one of two ways. "Fresh" puts all signals in the group's packets back to their start values. "Carry on" keeps whatever is stored. In both cases the timers, timeouts and update-bits start from the beginning.</p>
+<p>There is one more, smaller switch for receiving groups: the timeout watching alone can be turned off and on, while the packets keep being received.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Packet group</td><td>I-PDU group</td></tr>
+<tr><td>Start / stop a group</td><td><code>Com_IpduGroupStart</code> / <code>Com_IpduGroupStop</code></td></tr>
+<tr><td>The manager</td><td>For example the Basic Software Mode Manager (BswM)</td></tr>
+<tr><td>Turn timeout watching on / off</td><td><code>Com_EnableReceptionDM</code> / <code>Com_DisableReceptionDM</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.5 (SWS_Com_00444, 00771, 00840, 00787, 00222, 00334, 00777, 00684, Tables 7.3 and 7.4). Finer point: how long after a start the first timer packet goes out is a setting of its own (a time offset), used to keep many packets from all going out at the same instant.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const PERIOD = 2;
+  const readout = document.getElementById('readout');
+  let on, speed, nextSend;
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'sw', label: 'Group switched' },
+      { id: 'write', label: 'Speed written' },
+      { id: 'bus', label: 'Packet on the bus' }
+    ],
+    duration: 20,
+    onTick(prev, now) {
+      if (on && now >= nextSend) {
+        nextSend += PERIOD;
+        tl.mark('bus', String(speed), 'bus');
+        readout.textContent = 'Packet sent (timer) with speed ' + speed + '.';
+      }
+    },
+    onReset() {
+      on = false; speed = 0;
+      toggle.textContent = 'Start the group';
+      readout.textContent = 'The group is stopped. Press a button to start the clock.';
+    }
+  });
+  const toggle = Timeline.button('Start the group', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    on = !on;
+    toggle.textContent = on ? 'Stop the group' : 'Start the group';
+    tl.mark('sw', on ? 'on' : 'off', on ? 'bus' : 'wait');
+    if (on) nextSend = tl.now() + PERIOD;
+    readout.textContent = on ? 'Group started. The timer begins from zero.' : 'Group stopped. Nothing is sent.';
+  }, true);
+  tl.buttons.append(toggle, Timeline.button('Write speed', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    speed++;
+    tl.mark('write', String(speed));
+    if (on) {
+      tl.mark('bus', String(speed), 'bus');
+      readout.textContent = 'Packet sent (speed is triggered) with speed ' + speed + '.';
+    } else {
+      readout.textContent = 'Speed ' + speed + ' is stored, but the group is stopped: no packet. COM answers "not available".';
+    }
+  }, true));
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Right after switch-on, in which state are the packet groups?',
+    options: ['All of them stopped', 'All of them started', 'Same as before power-off'],
+    answer: 0,
+    why: 'All groups begin stopped. Something outside COM has to start them.'
+  },
+  {
+    prompt: 'A packet is in two groups. One is started, one is stopped. Is the packet on?',
+    options: ['Yes, one is enough', 'No, both are needed', 'Only for receiving'],
+    answer: 0,
+    why: 'A packet is on as long as at least one of its groups is started.'
+  },
+  {
+    prompt: 'The application writes a signal while its sending packet is stopped. What happens to the value?',
+    options: ['Stored, but not sent', 'Thrown away at once', 'Sent anyway, just once'],
+    answer: 0,
+    why: 'COM still stores the value so it is up to date when the packet is switched on again. It tells the application "not available".'
+  }
+]);
+</script>
+</body>
+</html>

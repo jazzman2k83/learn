@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal groups · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Signal groups</h1>
+<p class="lede">Some values only make sense together, like the x and y of a position. A signal group makes sure they always travel as a matching set.</p>
+
+<h2>The problem</h2>
+<p>An application writes x, then y. These are two separate steps. If the packet happens to go out between them, it carries the new x with the old y. The receiver gets a position that never existed.</p>
+
+<h2>The fix: a staging area</h2>
+<p>Put x and y into a <strong>signal group</strong>. Now writing x or y does not touch the packet. The values go into a staging area first. When all of them are written, the application says "hand over the group", and COM copies the whole set into the packet in one uninterruptible step.</p>
+<div class="flow">
+  <div class="box"><strong>Application</strong>writes x, writes y, then: "hand over the group"</div>
+  <div class="arrow">→</div>
+  <div class="box main"><strong>Staging area</strong>holds the set while it is being put together</div>
+  <div class="arrow">→</div>
+  <div class="box"><strong>Packet</strong>only ever sees complete sets</div>
+</div>
+<p>Receiving works the same way in reverse: "fetch the group" copies the whole set from the packet into the staging area in one step, and the application then reads x and y from there.</p>
+
+<h3>Try it</h3>
+<p>Move the position from (1, 1) to (2, 2). Try to catch COM in between: write x, then let the packet go out before writing y.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>x and y are
+      <select id="mode">
+        <option value="single">two separate signals</option>
+        <option value="group">one signal group</option>
+      </select>
+    </label>
+  </div>
+  <p class="pkt-label" id="stage-label">Staging area</p>
+  <div class="pkt" id="stage"></div>
+  <p class="pkt-label">Packet</p>
+  <div class="pkt" id="pkt"></div>
+  <div class="controls" style="margin:0.8rem 0 0">
+    <button type="button" class="primary" id="wx">Write x</button>
+    <button type="button" class="primary" id="wy">Write y</button>
+    <button type="button" class="primary" id="hand">Hand over the group</button>
+    <button type="button" id="send">Packet goes out now</button>
+  </div>
+  <ul class="log" id="log"><li>No packet sent yet.</li></ul>
+</div>
+
+<h2>What belongs to the group, what to its members</h2>
+<p>The group is treated as one thing. So most extras from the earlier lessons are set once for the whole group, not per member.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Feature</th><th>Set for</th></tr></thead>
+<tbody>
+<tr><td>Update-bit</td><td>The whole group</td></tr>
+<tr><td>Messages to the application, timeouts</td><td>The whole group</td></tr>
+<tr><td>Triggered or pending</td><td>The whole group, or finer per member</td></tr>
+<tr><td>Filter, send-setting condition</td><td>Each member</td></tr>
+</tbody>
+</table>
+</div>
+<p>All or nothing also holds on the receiving side: if a filter blocks one member, the whole group is dropped. If one member carries the "invalid" value, the whole group is treated as invalid.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Values that belong together</td><td>Complex data type (like a struct)</td></tr>
+<tr><td>Member of a group</td><td>Group signal</td></tr>
+<tr><td>Staging area</td><td>Shadow buffer</td></tr>
+<tr><td>Hand over / fetch the group</td><td><code>Com_SendSignalGroup</code> / <code>Com_ReceiveSignalGroup</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.3 (SWS_Com_00050, 00051, Table 7.5, SWS_Com_00836, 00682). Finer point: there is a second way without a staging area. The application hands COM the whole group as one ready-made block of bytes ("array access"). It is used when the data was already put into bytes by another part of the software.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const mode = document.getElementById('mode');
+  const stageEl = document.getElementById('stage');
+  const stageLabel = document.getElementById('stage-label');
+  const pktEl = document.getElementById('pkt');
+  const hand = document.getElementById('hand');
+  const log = document.getElementById('log');
+  let stage, pkt, n;
+  const cells = (o) => '<div class="cell">x<b>' + o.x + '</b></div><div class="cell">y<b>' + o.y + '</b></div>';
+  function render() {
+    const group = mode.value === 'group';
+    stageLabel.hidden = stageEl.hidden = hand.hidden = !group;
+    stageEl.innerHTML = cells(stage);
+    pktEl.innerHTML = cells(pkt);
+  }
+  function reset() {
+    stage = { x: 1, y: 1 }; pkt = { x: 1, y: 1 }; n = 0;
+    log.innerHTML = '<li>No packet sent yet.</li>';
+    render();
+  }
+  function write(k) {
+    const target = mode.value === 'group' ? stage : pkt;
+    target[k]++;
+    render();
+  }
+  document.getElementById('wx').onclick = () => write('x');
+  document.getElementById('wy').onclick = () => write('y');
+  hand.onclick = () => { pkt = { x: stage.x, y: stage.y }; render(); };
+  document.getElementById('send').onclick = () => {
+    n++;
+    const li = document.createElement('li');
+    li.innerHTML = 'Packet ' + n + ' carries (' + pkt.x + ', ' + pkt.y + '): ' +
+      (pkt.x === pkt.y ? '<span class="ok">a real position</span>' : '<span class="no">a mixed-up position that never existed</span>');
+    if (n === 1) log.replaceChildren();
+    log.prepend(li);
+    while (log.children.length > 5) log.lastChild.remove();
+  };
+  mode.onchange = reset;
+  reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'In a signal group, where does a written member value go first?',
+    options: ['Into the staging area', 'Straight into the packet', 'Directly onto the bus'],
+    answer: 0,
+    why: 'Members are collected in the staging area. Only "hand over the group" copies them into the packet.'
+  },
+  {
+    prompt: 'A filter blocks one member of a received group. What happens?',
+    options: ['The whole group is dropped', 'Only that member is dropped', 'The filter result is ignored'],
+    answer: 0,
+    why: 'A group is all or nothing. Passing on a set with one member missing would be exactly the mix-up groups exist to prevent.'
+  },
+  {
+    prompt: 'How many update-bits does a signal group with five members have?',
+    options: ['One for the whole group', 'One for each of the five', 'None, groups have none'],
+    answer: 0,
+    why: 'The group is treated as one thing, so it has one update-bit.'
+  }
+]);
+</script>
+</body>
+</html>

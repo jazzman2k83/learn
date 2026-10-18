@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference: Signal packing</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">AUTOSAR COM · Sheet</p>
+<h1>Signal packing</h1>
+<p class="lede">Where a signal's bits sit in a packet (I-PDU). From <a href="../lessons/0016-signal-packing.html">lesson 16</a>.</p>
+
+<h2>Bit numbering</h2>
+<p>PDU bit <em>p</em> is in byte <code>p / 8</code>, bit <code>p % 8</code>. Bit 0 is the LSB of byte 0. Fixed in AUTOSAR: "sawtooth" counting, "decreasing" bit order <span class="cite">(System Template TPS_SYST_01068, TPS_SYST_01069)</span>.</p>
+<div class="table-wrap">
+<table class="data mono">
+<thead><tr><th></th><th>bit 7</th><th>bit 6</th><th>bit 5</th><th>bit 4</th><th>bit 3</th><th>bit 2</th><th>bit 1</th><th>bit 0</th></tr></thead>
+<tbody>
+<tr><th>byte 0</th><td>7</td><td>6</td><td>5</td><td>4</td><td>3</td><td>2</td><td>1</td><td>0</td></tr>
+<tr><th>byte 1</th><td>15</td><td>14</td><td>13</td><td>12</td><td>11</td><td>10</td><td>9</td><td>8</td></tr>
+<tr><th>byte 2</th><td>23</td><td>22</td><td>21</td><td>20</td><td>19</td><td>18</td><td>17</td><td>16</td></tr>
+<tr><th>byte 3</th><td>31</td><td>30</td><td>29</td><td>28</td><td>27</td><td>26</td><td>25</td><td>24</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Placement rules</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>ComSignalEndianness</th><th>ComBitPosition is the…</th><th>Walk</th></tr></thead>
+<tbody>
+<tr><td><code>LITTLE_ENDIAN</code></td><td>signal's LSB</td><td>Towards the MSB: bit number + 1 each step.</td></tr>
+<tr><td><code>BIG_ENDIAN</code></td><td>signal's MSB</td><td>Towards the LSB: bit number − 1 each step; from bit 0 of a byte go to bit 7 of the next byte (+ 15).</td></tr>
+<tr><td><code>OPAQUE</code></td><td>bit 0 of the first byte, "like in little endian byte order"</td><td>Bytes copied uninterpreted; data is treated as <code>uint8[n]</code> and always maps to n whole bytes.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Sources: System Template Table 6.14 (<code>startPosition</code>) and §6.2.2; SWS COM ECUC_Com_00259, SWS_Com_00472, SWS_Com_00810.</p>
+
+<h2>Worked example</h2>
+<p>10-bit signal, <code>ComBitPosition</code> = 5, value <code>0x2A5</code> = <code>10 1010 0101</code>.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Byte order</th><th>PDU bits, MSB → LSB</th><th>Byte 0</th><th>Byte 1</th></tr></thead>
+<tbody>
+<tr><td><code>LITTLE_ENDIAN</code></td><td class="mono">14 13 12 11 10 9 8 · 7 6 5</td><td class="mono">0xA0</td><td class="mono">0x54</td></tr>
+<tr><td><code>BIG_ENDIAN</code></td><td class="mono">5 4 3 2 1 0 · 15 14 13 12</td><td class="mono">0x2A</td><td class="mono">0x50</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>What COM guarantees about byte order</h2>
+<ul>
+<li>Endianness conversion for all signed and unsigned integer types <span class="cite">(SWS_Com_00007)</span>.</li>
+<li>Signals and group signals are handled the same way <span class="cite">(SWS_Com_00829)</span>.</li>
+<li>Sender side: conversion happens before the I-PDU callout <span class="cite">(SWS_Com_00221)</span>.</li>
+<li>Receiver side: sign extension and conversion happen before filtering and notification <span class="cite">(SWS_Com_00352)</span>.</li>
+</ul>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+</body>
+</html>

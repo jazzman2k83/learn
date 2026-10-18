@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What COM does · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 6 minutes">AUTOSAR COM</p>
+<h1>What COM does</h1>
+<p class="lede">COM is the mail room of a car's control unit. Applications hand it single values. It gets them to other control units, and brings theirs back.</p>
+
+<h2>The problem COM solves</h2>
+<p>A car has many small computers, called control units or ECUs. They talk over a shared wire, the bus. On most cars that is CAN; newer ones also use Ethernet.</p>
+<p>The software inside a control unit thinks in single values: the speed, a temperature, "door open". The bus does not carry single values. It carries small packets of bytes. Somebody has to translate, and decide when each packet is sent. That somebody is COM.</p>
+
+<div class="cards">
+  <div class="card"><p class="tag">what the application sees</p><h3>Signal</h3><p>One value with a meaning, for example the speed.</p></div>
+  <div class="card"><p class="tag">what travels</p><h3>Packet</h3><p>A handful of bytes holding several signals side by side. AUTOSAR calls it an <em>I-PDU</em>.</p></div>
+</div>
+
+<h2>Follow one value</h2>
+<p>Click through the journey of one speed value from one control unit to another.</p>
+<div class="panel no-print" id="journey"></div>
+
+<h2>COM's jobs</h2>
+<p>Everything COM does is one of these jobs. Each gets its own lesson.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Job</th><th>In plain words</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Decide when to send</td><td>Right away, on a timer, or both.</td><td><a href="0002-four-timing-words.html">2</a>, <a href="0003-repeats-and-minimum-gap.html">3</a>, <a href="0004-two-send-settings.html">4</a></td></tr>
+<tr><td>Decide when to tell</td><td>Tell the application at once, or a moment later.</td><td><a href="0002-four-timing-words.html">2</a></td></tr>
+<tr><td>Start values and "new" marks</td><td>Every signal has a value from the start; a mark shows which signals are really new.</td><td><a href="0005-start-values-and-update-bits.html">5</a></td></tr>
+<tr><td>Watch for timeouts</td><td>Notice when an expected packet stops coming.</td><td><a href="0006-timeouts.html">6</a></td></tr>
+<tr><td>Handle invalid values</td><td>Let a sender say "I have no good value right now".</td><td><a href="0007-invalid-values.html">7</a></td></tr>
+<tr><td>Filter</td><td>Pass on only the received values the application cares about.</td><td><a href="0008-filters.html">8</a></td></tr>
+<tr><td>Notify</td><td>Tell the application what happened: received, sent, timed out.</td><td><a href="0009-what-com-tells-the-application.html">9</a></td></tr>
+<tr><td>Keep values together</td><td>Values that belong together travel together.</td><td><a href="0010-signal-groups.html">10</a></td></tr>
+<tr><td>Switch packets on and off</td><td>Whole sets of packets can be started and stopped.</td><td><a href="0011-switching-packets-on-and-off.html">11</a></td></tr>
+<tr><td>Pass signals on</td><td>Copy a received signal straight into another packet.</td><td><a href="0012-signal-gateway.html">12</a></td></tr>
+<tr><td>Handle big data</td><td>Data that is too large for one packet, or changes size.</td><td><a href="0013-big-and-variable-size-data.html">13</a></td></tr>
+<tr><td>Pack and convert</td><td>Put each signal's bits in the right place and byte order.</td><td><a href="0016-signal-packing.html">16</a>, <a href="0017-types-and-negative-numbers.html">17</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<p><strong>What COM does not do.</strong> COM does not know which bus it is on. It hands every packet to one neighbour below it and receives packets from that neighbour. Everything specific to CAN or Ethernet happens further down. <a href="0014-the-road-below-com.html">Lesson 14</a> shows that road.</p>
+</div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Control unit</td><td>ECU</td></tr>
+<tr><td>Application</td><td>Software component (SWC). It reaches COM through a layer called the RTE.</td></tr>
+<tr><td>Signal</td><td>Signal</td></tr>
+<tr><td>Packet</td><td>I-PDU</td></tr>
+<tr><td>The neighbour below COM</td><td>PDU Router (PduR)</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 1 (main features) and chapter 2 (definitions).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/stepper.js"></script>
+<script>
+Stepper.create(document.getElementById('journey'), {
+  stages: [
+    '<strong>Application A</strong>engine control unit',
+    '<strong>COM</strong>in control unit A',
+    '<strong>Bus</strong>CAN or Ethernet',
+    '<strong>COM</strong>in control unit B',
+    '<strong>Application B</strong>dashboard'
+  ],
+  steps: [
+    { at: [0], text: 'The engine application has a new speed: 50. It hands this one value, a <strong>signal</strong>, to COM.' },
+    { at: [1], text: 'COM writes the 50 into its place inside a <strong>packet</strong>. The packet also holds other signals, such as the engine temperature.' },
+    { at: [1], text: 'COM decides <strong>when</strong> the packet goes: right now because of this write, or at the next tick of a timer. That is lesson 2.' },
+    { at: [1, 2], text: 'COM hands the packet down. The layers below put it on the bus.' },
+    { at: [2, 3], text: 'The packet arrives at the dashboard control unit and is handed up to its COM.' },
+    { at: [3], text: 'COM takes the speed out of the packet and checks it: is it new, is it valid, does the application want it?' },
+    { at: [3, 4], text: 'COM tells the dashboard application that a new speed is there. The application reads 50 and moves the needle.' }
+  ]
+});
+</script>
+</body>
+</html>

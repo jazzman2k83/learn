@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeats and the minimum gap · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Repeats and the minimum gap</h1>
+<p class="lede">Two extras for sending. One sends an important packet several times. The other stops a packet from being sent too often.</p>
+
+<h2>Repeats: say it more than once</h2>
+<p>A packet can get lost on a noisy wire. For important news, such as "brake pressed", COM can send the same packet several times in a row after one write.</p>
+<div class="cards">
+  <div class="card"><p class="tag">set per packet</p><h3>Number of repeats</h3><p>How many extra sends follow the first one. With 2 repeats the packet goes out 3 times.</p></div>
+  <div class="card"><p class="tag">set per packet</p><h3>Repeat spacing</h3><p>The time between those sends.</p></div>
+</div>
+<p>If the application writes a new value while repeats are still running, COM drops the remaining repeats and starts again with the new value. Old news is not worth repeating.</p>
+
+<h2>Minimum gap: not too often</h2>
+<p>An application might write a triggered signal a hundred times a second. Sending a packet each time would flood the bus. The minimum gap is a pause COM keeps after sending a packet before it sends that same packet again.</p>
+<p>A send that falls inside the pause is not lost. COM holds it back and sends when the pause is over, with the newest values.</p>
+
+<h3>Try it</h3>
+<p>Speed is a triggered signal in a packet with no timer. Click "Write speed" a few times quickly, with different settings. Repeats are one second apart here.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Repeats
+      <select id="reps">
+        <option value="0">0: send once</option>
+        <option value="2">2: send three times</option>
+      </select>
+    </label>
+    <label>Minimum gap
+      <select id="gap">
+        <option value="0">none</option>
+        <option value="2.5">2.5 seconds</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With repeats, a second write cuts the first series short. With a gap, quick writes produce fewer packets than writes, and the packet that finally goes carries the newest speed.</p>
+</div>
+
+<h2>The triggered family</h2>
+<p>Lesson 2 said a signal is triggered or pending. Triggered comes in four flavours. They differ in two questions: does every write count, or only a changed value? And are repeats used?</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Setting of the signal</th><th>A write sends when…</th><th>Repeats</th></tr></thead>
+<tbody>
+<tr><td><code>TRIGGERED</code></td><td>always</td><td>yes</td></tr>
+<tr><td><code>TRIGGERED_WITHOUT_REPETITION</code></td><td>always</td><td>no, once</td></tr>
+<tr><td><code>TRIGGERED_ON_CHANGE</code></td><td>the value is different from before</td><td>yes</td></tr>
+<tr><td><code>TRIGGERED_ON_CHANGE_WITHOUT_REPETITION</code></td><td>the value is different from before</td><td>no, once</td></tr>
+<tr><td><code>PENDING</code></td><td>never</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+<p>As in lesson 2, all of this only matters when the packet is DIRECT or MIXED.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Repeats</td><td>Number of repetitions, also "N-times transmission"</td></tr>
+<tr><td>Repeat spacing</td><td>Repetition period</td></tr>
+<tr><td>Minimum gap</td><td>Minimum delay time, kept by the minimum delay timer (MDT)</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.3.1, 7.2.3.4 and 7.2.5.5 (SWS_Com_00330, 00767, 00734, 00768, 00279, 00305, 00698). Finer points: COM counts a repeat only once the lower layers confirm the packet was sent. A separate setting decides whether the minimum gap also applies to timer sends and repeats; in this toy it applies to every send.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const SPACING = 1;
+  const reps = document.getElementById('reps');
+  const gap = document.getElementById('gap');
+  const readout = document.getElementById('readout');
+  let speed, remaining, nextTime, lastSend, total;
+
+  function trySend(now) {
+    if (remaining <= 0 || now < nextTime) return;
+    if (now < lastSend + Number(gap.value)) return;
+    const late = now - nextTime > 0.2;
+    lastSend = now;
+    nextTime = now + SPACING;
+    remaining--;
+    tl.mark('bus', String(speed), 'bus');
+    const n = total - remaining;
+    readout.textContent = 'Packet sent with speed ' + speed + ' (send ' + n + ' of ' + total + ')' +
+      (late ? ', held back by the minimum gap.' : '.');
+  }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'write', label: 'Speed written' },
+      { id: 'bus', label: 'Packet on the bus' }
+    ],
+    duration: 15,
+    onTick(prev, now) { trySend(now); },
+    onReset() {
+      speed = 0; remaining = 0; nextTime = 0; lastSend = -100; total = 1;
+      readout.textContent = 'Press the button to start the clock.';
+    }
+  });
+  tl.buttons.append(Timeline.button('Write speed', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    speed++;
+    tl.mark('write', String(speed));
+    const cut = remaining > 0 && total > 1;
+    total = Number(reps.value) + 1;
+    remaining = total;
+    nextTime = tl.now();
+    const waiting = tl.now() < lastSend + Number(gap.value);
+    readout.textContent = 'Speed ' + speed + ' written.' +
+      (cut ? ' Remaining repeats of the old value are dropped.' : '') +
+      (waiting ? ' Minimum gap is still running: the send waits.' : '');
+    trySend(tl.now());
+  }, true));
+  [reps, gap].forEach((el) => el.addEventListener('change', () => tl.reset()));
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The number of repeats is 2. How many times does the packet go out after one write?',
+    options: ['Three times', 'Two times', 'One time'],
+    answer: 0,
+    why: 'The first send plus two repeats.'
+  },
+  {
+    prompt: 'A triggered signal is written during the minimum gap. What happens to that send?',
+    options: ['It waits, then it goes', 'It is dropped for good', 'It goes out right away'],
+    answer: 0,
+    why: 'COM holds the send back until the gap is over. Nothing is lost.'
+  },
+  {
+    prompt: 'A signal is TRIGGERED_ON_CHANGE. The application writes the same value twice. How many sends does that cause?',
+    options: ['Only the first one', 'One for each write', 'None for any write'],
+    answer: 0,
+    why: 'On-change only counts a write whose value is different from the one before. The second write changes nothing.'
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invalid values · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 5 minutes">AUTOSAR COM</p>
+<h1>Invalid values</h1>
+<p class="lede">Sometimes a sender is alive but has nothing good to say: its sensor is broken. It needs a way to send "I don't know".</p>
+
+<h2>A reserved value means "invalid"</h2>
+<p>Staying silent would look like a timeout, which means something else: "the sender is gone". So sender and receiver agree on one special value of the signal that means <strong>invalid</strong>. For a speed that normally runs from 0 to 250, the value 255 could be reserved for it.</p>
+<div class="cards">
+  <div class="card"><p class="tag">sender</p><h3>Invalidate</h3><p>The application tells COM "invalidate this signal". COM writes the reserved value into the packet. It is sent like any other value.</p></div>
+  <div class="card"><p class="tag">receiver</p><h3>Recognise</h3><p>COM sees the reserved value arrive and does one of two things, chosen per signal.</p></div>
+</div>
+
+<h2>The receiver's two choices</h2>
+<div class="cards">
+  <div class="card"><p class="tag">choice 1</p><h3>NOTIFY</h3><p>Tell the application "the value is invalid". Do not store the reserved value: a read still gives the last good value.</p></div>
+  <div class="card"><p class="tag">choice 2</p><h3>REPLACE</h3><p>Quietly swap the reserved value for the signal's start value and carry on as if that had arrived.</p></div>
+</div>
+
+<h3>Try it</h3>
+<p>The reserved value is 255 and the start value is 0.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Receiver's choice
+      <select id="act"><option>NOTIFY</option><option>REPLACE</option></select>
+    </label>
+    <button type="button" class="primary" id="good">Sender: send a good speed</button>
+    <button type="button" class="primary" id="bad">Sender: sensor broken, invalidate</button>
+  </div>
+  <div class="pkt" id="view"></div>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Reserved value</td><td>Data invalid value</td></tr>
+<tr><td>Invalidate</td><td>Signal invalidation (<code>Com_InvalidateSignal</code>)</td></tr>
+<tr><td>The receiver's choice</td><td>Data invalid action: <code>NOTIFY</code> or <code>REPLACE</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.4 (SWS_Com_00099, 00680, 00681, 00717). Finer point: an invalid value still counts as an arrival, so it resets the timeout stopwatch.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const INVALID = 255, START = 0;
+  const act = document.getElementById('act');
+  const view = document.getElementById('view');
+  let stored = START, next = 50;
+  function show(bus, told, cls) {
+    view.innerHTML =
+      '<div class="cell' + (bus === INVALID ? ' bad' : '') + '">on the bus<b>' + (bus === null ? '–' : bus) + '</b>' + (bus === INVALID ? 'reserved: invalid' : '&nbsp;') + '</div>' +
+      '<div class="cell ' + cls + '">application is told<b>' + told + '</b>&nbsp;</div>' +
+      '<div class="cell">application reads<b>' + stored + '</b>&nbsp;</div>';
+  }
+  document.getElementById('good').onclick = () => { stored = next++; show(stored, 'new value', 'new'); };
+  document.getElementById('bad').onclick = () => {
+    if (act.value === 'NOTIFY') show(INVALID, 'value is invalid', 'bad');
+    else { stored = START; show(INVALID, 'new value', 'new'); }
+  };
+  act.onchange = () => { stored = START; next = 50; show(null, '–', 'dim'); };
+  show(null, '–', 'dim');
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Why not simply stop sending when a sensor is broken?',
+    options: ['Silence looks like a timeout', 'Silence would slow the bus', 'Silence costs more battery'],
+    answer: 0,
+    why: 'A timeout means "the sender is gone". Invalid means "the sender is here but has no good value".'
+  },
+  {
+    prompt: 'The receiver\'s choice is NOTIFY and the reserved value arrives. What does a read give afterwards?',
+    options: ['The last good value', 'The reserved value', 'The start value'],
+    answer: 0,
+    why: 'With NOTIFY the reserved value is not stored. The application is told, and the last good value stays.'
+  },
+  {
+    prompt: 'The receiver\'s choice is REPLACE and the reserved value arrives. What does a read give afterwards?',
+    options: ['The start value', 'The reserved value', 'The last good value'],
+    answer: 0,
+    why: 'REPLACE swaps the reserved value for the start value and carries on normally.'
+  }
+]);
+</script>
+</body>
+</html>

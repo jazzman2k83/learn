@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Big and variable-size data · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Big and variable-size data</h1>
+<p class="lede">So far a packet was a few bytes of fixed size. Three special cases remain: data too big for one frame, data whose size changes, and data COM should just pass through untouched.</p>
+
+<h2>1. Too big for one frame</h2>
+<p>What the bus carries in one go is called a frame. A classic CAN frame holds 8 bytes of data, a CAN FD frame up to 64. A packet that is bigger cannot travel in one piece.</p>
+<p>COM does not cut it up itself. It marks the packet as "big", and a helper below COM, the <strong>transport protocol</strong>, splits it into several frames and puts it together again on the other side.</p>
+
+<h3>Try it</h3>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Bus
+      <select id="bus">
+        <option value="8">Classic CAN: 8 bytes per frame</option>
+        <option value="64">CAN FD: 64 bytes per frame</option>
+      </select>
+    </label>
+    <label>Packet size: <span id="size-out">6</span> bytes
+      <input type="range" id="size" min="1" max="100" value="6">
+    </label>
+  </div>
+  <div class="pkt" id="frames"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<p>For COM, a big packet behaves a little differently:</p>
+<ul>
+<li><strong>Sending takes time.</strong> While the pieces are going out, COM leaves the packet's content alone. If the same packet is triggered again before it is finished, that extra send is skipped and an error is reported.</li>
+<li><strong>Receiving can fail halfway.</strong> If the pieces do not all arrive, COM treats every signal in that packet like an invalid value (lesson 7).</li>
+</ul>
+
+<h2>2. Size that changes</h2>
+<p>A text or a list may be 3 bytes long one time and 20 the next. COM supports one kind of signal for this: a row of bytes with a changing length. A maximum length is fixed in advance.</p>
+<div class="cards">
+  <div class="card"><h3>It must be last</h3><p>The changing signal sits at the very end of its packet, behind all fixed-size signals.</p></div>
+  <div class="card"><h3>The length is not sent</h3><p>The packet simply gets shorter or longer. The receiver works out the signal's length from the length of the packet it received.</p></div>
+</div>
+
+<h2>3. The fast lane</h2>
+<p>Sometimes the data is already a finished block of bytes, made by another part of the software. This is common for service data on Ethernet. COM has nothing to pack, convert or filter. For such packets COM offers a fast lane: it passes the block straight through, in both directions, without keeping a copy.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>In the fast lane, COM still does</th><th>and no longer does</th></tr></thead>
+<tbody>
+<tr><td>Minimum gap, timeouts and messages, switching on and off, big packets in pieces</td><td>Packing signals, byte order, update-bits, invalid values, filters, timers</td></tr>
+</tbody>
+</table>
+</div>
+<p>There is no timer and no "triggered" here: the application says "send this now" each time.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Frame</td><td>L-PDU</td></tr>
+<tr><td>Big packet, big signal</td><td>Large I-PDU, large signal. The packet's type is <code>TP</code> instead of <code>NORMAL</code>.</td></tr>
+<tr><td>Transport protocol</td><td>TP, for example CAN TP</td></tr>
+<tr><td>Signal with changing size</td><td>Dynamic length signal (type <code>UINT8_DYN</code>)</td></tr>
+<tr><td>Fast lane</td><td>Large Data Path</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.4, 7.5 and 7.6 (SWS_Com_00662, 00863, 00838, 00753, 00757, 00758, 00914). The frame counts in the toy are a lower bound: the transport protocol adds a few bytes of its own to each frame.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const bus = document.getElementById('bus');
+  const size = document.getElementById('size');
+  const sizeOut = document.getElementById('size-out');
+  const frames = document.getElementById('frames');
+  const readout = document.getElementById('readout');
+  function render() {
+    const cap = Number(bus.value), n = Number(size.value);
+    sizeOut.textContent = n;
+    if (n <= cap) {
+      frames.innerHTML = '<div class="cell new">one frame<b>' + n + ' of ' + cap + '</b>bytes used</div>';
+      readout.textContent = 'Fits in one frame. A normal packet.';
+      return;
+    }
+    const count = Math.ceil(n / cap);
+    let html = '';
+    for (let i = 0; i < Math.min(count, 8); i++) html += '<div class="cell">piece<b>' + (i + 1) + '</b>&nbsp;</div>';
+    if (count > 8) html += '<div class="cell dim">and<b>' + (count - 8) + '</b>more</div>';
+    frames.innerHTML = html;
+    readout.textContent = 'Too big for one frame: a big packet. The transport protocol sends it in at least ' + count + ' frames.';
+  }
+  bus.onchange = size.oninput = render;
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A packet is too big for one frame. Who splits it into pieces?',
+    options: ['A helper below COM', 'COM, signal by signal', 'The application code'],
+    answer: 0,
+    why: 'The transport protocol below COM splits and reassembles. COM only marks the packet as big.'
+  },
+  {
+    prompt: 'How does a receiver know the length of a signal with changing size?',
+    options: ['From the packet length', 'From a length byte sent', 'From a fixed setting'],
+    answer: 0,
+    why: 'The signal is last in the packet, so its length is the packet length minus everything in front of it.'
+  },
+  {
+    prompt: 'What does COM do with data in the fast lane?',
+    options: ['Passes it on untouched', 'Packs and filters it', 'Sends it on a timer'],
+    answer: 0,
+    why: 'The block is already finished. COM passes it through and keeps only a few services such as the minimum gap and timeouts.'
+  }
+]);
+</script>
+</body>
+</html>

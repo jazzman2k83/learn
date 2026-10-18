@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What COM tells the application · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>What COM tells the application</h1>
+<p class="lede">COM can call the application when something happens. There are six kinds of message. This lesson also puts the receiving steps of lessons 5 to 8 in order.</p>
+
+<h2>Two ways to stay informed</h2>
+<div class="cards">
+  <div class="card"><h3>Ask</h3><p>The application reads the signal whenever it likes and gets the current value. Simple, but it does not know <em>when</em> something changed.</p></div>
+  <div class="card"><h3>Be told</h3><p>COM calls the application at the moment something happens. Each kind of message can be switched on per signal.</p></div>
+</div>
+
+<h2>The six messages</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Side</th><th>COM says</th><th>When</th></tr></thead>
+<tbody>
+<tr><td>Receive</td><td>"A new value is here."</td><td>A signal arrived and passed all checks.</td></tr>
+<tr><td>Receive</td><td>"This signal is overdue."</td><td>Receive timeout (lesson 6).</td></tr>
+<tr><td>Receive</td><td>"The value is invalid."</td><td>The reserved value arrived and the choice is NOTIFY (lesson 7).</td></tr>
+<tr><td>Send</td><td>"It was sent."</td><td>The bus confirmed the packet. With repeats: after the last one.</td></tr>
+<tr><td>Send</td><td>"It was not sent in time."</td><td>Send timeout (lesson 6).</td></tr>
+<tr><td>Send</td><td>"It could not be sent."</td><td>For example the packet was switched off while a send was still waiting (lesson 11).</td></tr>
+</tbody>
+</table>
+</div>
+<p>Remember immediate and deferred from lesson 2? That setting decides <em>when</em> these calls are made: in the moment itself, or at COM's next heartbeat.</p>
+
+<h2>The receiving steps, in order</h2>
+<p>When a packet arrives, each signal in it goes through the same fixed line of steps. A signal can drop out along the way. Pick a situation and see how far it gets.</p>
+<div class="panel no-print">
+  <div class="controls" style="margin-bottom:0">
+    <label>Situation
+      <select id="case">
+        <option value="ok">A normal, new, wanted value</option>
+        <option value="old">The update-bit is not set</option>
+        <option value="inv-n">The reserved "invalid" value, choice NOTIFY</option>
+        <option value="inv-r">The reserved "invalid" value, choice REPLACE</option>
+        <option value="filter">The filter blocks the value</option>
+      </select>
+    </label>
+  </div>
+  <ol class="pipeline" id="pipe"></ol>
+  <p class="readout" id="result" aria-live="polite"></p>
+</div>
+<p>The order explains some behaviour you might otherwise find odd. The packet's stopwatch is reset first, so even a packet whose signals are all dropped still counts as "the sender is alive". And the filter comes after the invalid check, so an invalid value never reaches the filter with choice NOTIFY.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Message to the application</td><td>Notification, done through a callback</td></tr>
+<tr><td>"A new value is here" / "It was sent"</td><td>Rx acknowledge / Tx acknowledge</td></tr>
+<tr><td>"Overdue" / "Not sent in time"</td><td>Rx timeout / Tx timeout</td></tr>
+<tr><td>"Invalid" / "Could not be sent"</td><td>Invalid notification / Tx error</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.7 and 7.12 (SWS_Com_00883, 00396, 00680, 00479). Finer point: in a real system the application is not called directly. The calls go to the layer between COM and the application, the RTE, which passes them on.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const STEPS = [
+    'Reset the packet\'s timeout stopwatch',
+    'Check the update-bit: is the signal new?',
+    'Convert the bits into a number the processor understands',
+    'Check for the reserved "invalid" value',
+    'Ask the filter: pass or block?',
+    'Reset the signal\'s own timeout stopwatch',
+    'Tell the application: "a new value is here"'
+  ];
+  // For each situation: state of each step (d = done, x = stops here, s = skipped) and a note.
+  const CASES = {
+    'ok': { states: 'ddddddd', note: 'The value is stored and the application is told.' },
+    'old': { states: 'dxsssss', note: 'Not new: this signal is dropped. The application keeps the previous value and is not told.' },
+    'inv-n': { states: 'dddxsds', note: 'The application gets the message "the value is invalid" instead. Nothing is stored. The stopwatch is still reset, because the sender is alive.' },
+    'inv-r': { states: 'ddddddd', note: 'At step 4 the reserved value is swapped for the start value. Everything after that runs as if the start value had arrived.' },
+    'filter': { states: 'ddddxss', note: 'Blocked: the value is dropped. The application keeps the previous value and is not told.' }
+  };
+  const pipe = document.getElementById('pipe');
+  const result = document.getElementById('result');
+  const sel = document.getElementById('case');
+  const CLASS = { d: 'done', x: 'stop', s: 'skip' };
+  const MARK = { d: '✓', x: '✗ stops here', s: 'not reached' };
+  function render() {
+    const c = CASES[sel.value];
+    pipe.innerHTML = STEPS.map((t, i) =>
+      '<li class="' + CLASS[c.states[i]] + '"><strong>' + (i + 1) + '.</strong> ' + t + ' <span class="mono">' + MARK[c.states[i]] + '</span></li>'
+    ).join('');
+    result.textContent = c.note;
+  }
+  sel.onchange = render;
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which step comes first when a packet arrives?',
+    options: ['Reset the packet stopwatch', 'Ask the filter: pass or not', 'Tell the application of it'],
+    answer: 0,
+    why: 'The packet\'s stopwatch is reset before anything else, so any arrival counts as a sign of life.'
+  },
+  {
+    prompt: 'A signal\'s update-bit is not set. Is the filter asked?',
+    options: ['No, it stops before', 'Yes, it always is', 'Only if it changed'],
+    answer: 0,
+    why: 'The update-bit check is step 2. A signal that is not new drops out there and never reaches the filter.'
+  },
+  {
+    prompt: 'What decides whether the application is called at once or at the next heartbeat?',
+    options: ['Immediate or deferred', 'Triggered or pending', 'Direct or periodic'],
+    answer: 0,
+    why: 'Immediate / deferred is the receive-side timing setting from lesson 2.'
+  }
+]);
+</script>
+</body>
+</html>

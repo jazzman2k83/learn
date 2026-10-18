@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The road below COM · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 8 minutes">AUTOSAR COM</p>
+<h1>The road below COM</h1>
+<p class="lede">COM never touches a wire. It hands packets to one neighbour and gets packets from that neighbour. Here is the whole road, for CAN and for Ethernet.</p>
+
+<h2>Layers, each with one job</h2>
+<p>The software in a control unit is built in layers. Each layer talks only to the one above and the one below. That is why COM can be the same on every bus: everything specific to a bus lives further down.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Layer</th><th>Its one job</th></tr></thead>
+<tbody>
+<tr><td>Application</td><td>The actual function: compute, decide, display.</td></tr>
+<tr><td>RTE</td><td>The switchboard between applications and everything else.</td></tr>
+<tr><td><strong>COM</strong></td><td>Signals in and out of packets, and when. This course.</td></tr>
+<tr><td>PDU Router</td><td>A sorting office. Looks up where each packet goes. Never looks inside.</td></tr>
+<tr><td>Bus-specific layers</td><td>Turn a packet into what this bus needs, and drive the hardware.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Walk the road</h2>
+<p>Pick a bus and a story, then click through it.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Bus
+      <select id="bus"><option value="can">CAN</option><option value="eth">Ethernet</option></select>
+    </label>
+    <label>Story
+      <select id="story">
+        <option value="tx">Sending a value</option>
+        <option value="rx">Receiving a value</option>
+        <option value="pull">The bus asks for the data</option>
+      </select>
+    </label>
+  </div>
+  <div id="road"></div>
+</div>
+
+<h2>The handful of calls at COM's borders</h2>
+<p>All traffic between COM and its neighbours goes through a few calls. If you ever read real COM code or a trace, these are the names you will see.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Call</th><th>Direction</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Com_SendSignal</code></td><td>from above into COM</td><td>"Here is a new value for this signal."</td></tr>
+<tr><td><code>Com_ReceiveSignal</code></td><td>from above into COM</td><td>"Give me the current value of this signal."</td></tr>
+<tr><td><code>PduR_ComTransmit</code></td><td>COM to below</td><td>"Send this packet."</td></tr>
+<tr><td><code>Com_TxConfirmation</code></td><td>from below into COM</td><td>"Your packet is on the bus."</td></tr>
+<tr><td><code>Com_RxIndication</code></td><td>from below into COM</td><td>"A packet arrived for you."</td></tr>
+<tr><td><code>Com_TriggerTransmit</code></td><td>from below into COM</td><td>"I am about to send. Give me the packet's content now."</td></tr>
+</tbody>
+</table>
+</div>
+<p>Big packets that travel in pieces (lesson 13) use a second set of calls for starting, copying piece by piece, and finishing.</p>
+
+<h2>Two notes on Ethernet</h2>
+<div class="cards">
+  <div class="card"><h3>Same COM, different road</h3><p>Below the PDU Router, the Socket Adaptor turns "send this packet" into "send these bytes over this network connection". COM itself does not change.</p></div>
+  <div class="card"><h3>Service data often skips the packing</h3><p>On Ethernet, data is often turned into bytes above COM, by a part called a transformer. COM then receives a finished block and passes it through, as in lesson 13.</p></div>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>The neighbour below COM, sorting office</td><td>PDU Router (PduR)</td></tr>
+<tr><td>CAN layers</td><td>CAN Interface (CanIf), CAN Driver</td></tr>
+<tr><td>Ethernet layers</td><td>Socket Adaptor (SoAd), TCP/IP stack (TcpIp), Ethernet Interface and Driver</td></tr>
+<tr><td>Turning data into bytes above COM</td><td>Transformer, for example the SOME/IP transformer</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Sources: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.8 and Table 7.7; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R25-11</a>, the communication stack and "Interaction of Layers" pages.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/stepper.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const bus = document.getElementById('bus');
+  const story = document.getElementById('story');
+  const STAGES = {
+    can: ['<strong>Application</strong>', '<strong>RTE</strong>', '<strong>COM</strong>', '<strong>PDU Router</strong>',
+      '<strong>CAN Interface</strong>', '<strong>CAN Driver</strong>', '<strong>CAN bus</strong>'],
+    eth: ['<strong>Application</strong>', '<strong>RTE</strong>', '<strong>COM</strong>', '<strong>PDU Router</strong>',
+      '<strong>Socket Adaptor</strong>', '<strong>TCP/IP stack and Ethernet driver</strong>', '<strong>Ethernet</strong>']
+  };
+  const T = {
+    ifDown: { can: 'The CAN Interface knows which CAN identifier and which CAN controller belong to this packet, and hands it to the driver.',
+      eth: 'The Socket Adaptor knows which network connection (address and port) belongs to this packet, and hands the bytes to the TCP/IP stack.' },
+    drvDown: { can: 'The CAN Driver writes the frame into the CAN hardware.',
+      eth: 'The TCP/IP stack wraps the bytes for the network, and the Ethernet driver hands the frame to the hardware.' },
+    busName: { can: 'CAN bus', eth: 'Ethernet' },
+    ifUp: { can: 'The CAN Interface recognises the frame by its identifier and knows which packet it is.',
+      eth: 'The Socket Adaptor recognises the connection the bytes came in on and knows which packet it is.' },
+    drvUp: { can: 'The CAN Driver takes the frame out of the hardware and passes it up.',
+      eth: 'The Ethernet driver and TCP/IP stack unwrap the frame and pass the bytes up.' }
+  };
+  function steps(b, s) {
+    if (s === 'tx') return [
+      { at: [0], text: 'The application has a new speed and writes it.' },
+      { at: [1, 2], text: 'The RTE passes the value to COM with <code>Com_SendSignal</code>.' },
+      { at: [2], text: 'COM puts the value into its packet and decides when to send (lessons 2 to 4).' },
+      { at: [2, 3], text: 'When it is time, COM hands the whole packet down with <code>PduR_ComTransmit</code>.' },
+      { at: [3], text: 'The PDU Router looks in its table: this packet goes to the ' + T.busName[b] + '. It does not look inside the packet.' },
+      { at: [4], text: T.ifDown[b] },
+      { at: [5, 6], text: T.drvDown[b] + ' The packet is on the ' + T.busName[b] + '.' },
+      { at: [5, 4, 3], text: 'The answer travels back up the same road: "it was sent".' },
+      { at: [2], text: 'COM receives <code>Com_TxConfirmation</code>. It stops the send stopwatch (lesson 6) and can now tell the application "it was sent" (lesson 9).' }
+    ];
+    if (s === 'rx') return [
+      { at: [6], text: 'A frame arrives on the ' + T.busName[b] + '.' },
+      { at: [5], text: T.drvUp[b] },
+      { at: [4], text: T.ifUp[b] },
+      { at: [3], text: 'The PDU Router looks in its table: this packet is for COM.' },
+      { at: [3, 2], text: 'It hands the packet up with <code>Com_RxIndication</code>.' },
+      { at: [2], text: 'COM runs each signal through the receiving steps: update-bit, invalid check, filter (lesson 9).' },
+      { at: [2, 1], text: 'COM tells the RTE "a new value is here", at once or at the next heartbeat (lesson 2).' },
+      { at: [1, 0], text: 'The application reads the value. The RTE fetches it from COM with <code>Com_ReceiveSignal</code>.' }
+    ];
+    return [
+      { at: [6], text: 'Some buses run on a strict timetable: every packet has its fixed slot. LIN and FlexRay work like this. COM cannot choose the moment there.' },
+      { at: [4, 5], text: 'Just before the slot comes up, the lower layers need the packet\'s content.' },
+      { at: [3, 2], text: 'The request travels up and reaches COM as <code>Com_TriggerTransmit</code>: "give me the content now".' },
+      { at: [2], text: 'COM copies the current content of the packet into the buffer it was given. No timer of COM is involved. Such packets usually have the send setting NONE (lesson 2).' },
+      { at: [3, 4, 5, 6], text: 'The lower layers send that content in the slot.' },
+      { at: [2], text: 'This call works for any packet, whatever its send setting. It does not disturb the minimum gap.' }
+    ];
+  }
+  const road = Stepper.create(document.getElementById('road'), {
+    vertical: true, stages: STAGES.can, steps: steps('can', 'tx')
+  });
+  bus.onchange = story.onchange = () => road.set({ stages: STAGES[bus.value], steps: steps(bus.value, story.value) });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which neighbour does COM hand its packets to?',
+    options: ['The PDU Router', 'The CAN Driver', 'The application'],
+    answer: 0,
+    why: 'COM only ever talks to the PDU Router below it. That is why COM is the same on every bus.'
+  },
+  {
+    prompt: 'What does the PDU Router do with a packet?',
+    options: ['Looks up where it goes', 'Unpacks all the signals', 'Decides when to send it'],
+    answer: 0,
+    why: 'It is a sorting office: it routes whole packets by a table and never looks inside.'
+  },
+  {
+    prompt: 'What does <code>Com_TxConfirmation</code> tell COM?',
+    options: ['The packet is on the bus', 'A packet has just arrived', 'The bus wants the content'],
+    answer: 0,
+    why: 'It is the answer "it was sent", coming back up from the lower layers.'
+  }
+]);
+</script>
+</body>
+</html>

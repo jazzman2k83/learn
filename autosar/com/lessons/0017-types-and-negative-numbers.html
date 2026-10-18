@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Types and negative numbers · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker" data-kicker="about 6 minutes">AUTOSAR COM</p>
+<h1>Types and negative numbers</h1>
+<p class="lede">A signal often uses fewer bits on the bus than the variable that holds it in the application. COM stretches it to fit. For negative numbers that takes one extra trick.</p>
+
+<h2>The kinds of signal</h2>
+<p>Every signal has a type. It says what kind of value the application sees.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Kind</th><th>AUTOSAR types</th></tr></thead>
+<tbody>
+<tr><td>Yes / no</td><td><code>boolean</code></td></tr>
+<tr><td>Whole number, never negative</td><td><code>uint8</code>, <code>uint16</code>, <code>uint32</code>, <code>uint64</code></td></tr>
+<tr><td>Whole number, may be negative</td><td><code>sint8</code>, <code>sint16</code>, <code>sint32</code>, <code>sint64</code></td></tr>
+<tr><td>Number with a decimal point</td><td><code>float32</code>, <code>float64</code></td></tr>
+<tr><td>Row of bytes</td><td><code>uint8[n]</code>: fixed length, or changing length (lesson 13)</td></tr>
+</tbody>
+</table>
+</div>
+<p>The number in the name is the size of the variable in bits. The size <em>on the bus</em> is a separate setting and is often smaller. A temperature from −400 to 400 needs only 10 bits on the bus, but the smallest variable that can hold it has 16.</p>
+
+<h2>Stretching a number</h2>
+<p>When such a signal arrives, COM copies its 10 bits into the 16-bit variable. Six bits on the left are left over. What goes in there?</p>
+<div class="cards">
+  <div class="card"><p class="tag">never negative</p><h3>Fill with zeros</h3><p>Zeros on the left do not change a number, just as 0042 is still 42.</p></div>
+  <div class="card"><p class="tag">may be negative</p><h3>Copy the sign</h3><p>The leftmost bit of the signal tells the sign: 0 is plus, 1 is minus. COM copies that bit into every left-over place.</p></div>
+</div>
+<p>Why copy the sign? Computers store negative numbers by counting backwards from all ones: with 10 bits, 1111111111 is −1 and 1111111110 is −2. In 16 bits, −1 is sixteen ones. So a negative number only stays the same number if the new places on the left are also ones.</p>
+
+<h3>Try it</h3>
+<p>A 10-bit signal that may be negative arrives and goes into a 16-bit variable.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Value sent: <span id="v-out">-3</span>
+      <input type="range" id="v" min="-512" max="511" value="-3">
+    </label>
+  </div>
+  <p class="pkt-label">10 bits on the bus (the underlined bit is the sign)</p>
+  <p class="bits" id="wire"></p>
+  <p class="pkt-label">16 bits in the application, sign copied</p>
+  <p class="bits" id="good"></p>
+  <p class="pkt-label">16 bits if COM only filled with zeros</p>
+  <p class="bits" id="bad"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> For zero and positive values both ways give the same result. For any negative value, filling with zeros gives a large wrong positive number.</p>
+</div>
+
+<h2>Three smaller rules</h2>
+<div class="cards">
+  <div class="card"><h3>Sending needs no trick</h3><p>On the way out, COM simply takes the lowest bits of the variable. The application is expected to stay within the signal's range.</p></div>
+  <div class="card"><h3>Start values are cut to size</h3><p>A start value is trimmed to the signal's bits on the bus in the same way.</p></div>
+  <div class="card"><h3>Decimal numbers are left alone</h3><p>For <code>float</code> types COM only puts the bytes in the right order. It does no other conversion.</p></div>
+</div>
+<p>One more detail from the sending side: the parts of a packet that no signal uses are filled with a fixed pattern you can choose, often all ones.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>The AUTOSAR words</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<tbody>
+<tr><td>Copy the sign</td><td>Sign extension</td></tr>
+<tr><td>Putting bytes in the right order</td><td>Endianness conversion</td></tr>
+<tr><td>Counting backwards from all ones</td><td>Two's complement</td></tr>
+<tr><td>Fill pattern for unused parts</td><td>Unused areas default</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.1.3 and 7.2.1 (SWS_Com_00675, 00008, 00723, 00579, 00580, 00098, 00015). The example with −3 in 10 and 16 bits is the specification's own.</p>
+
+<div class="win">
+<p><strong>That was the last lesson.</strong> You have gone from "COM is the mail room" down to single bits. For a one-page reminder of everything, keep the <a href="../reference/com-at-a-glance.html">COM at a glance</a> sheet.</p>
+</div>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const v = document.getElementById('v');
+  const out = document.getElementById('v-out');
+  function render() {
+    const n = Number(v.value);
+    out.textContent = n;
+    const ten = (n & 0x3ff).toString(2).padStart(10, '0');
+    const sign = ten[0];
+    document.getElementById('wire').innerHTML = '<span class="sign">' + sign + '</span>' + ten.slice(1);
+    document.getElementById('good').innerHTML =
+      '<span class="copy">' + sign.repeat(6) + '</span>' + ten + ' = ' + n;
+    const wrong = n & 0x3ff;
+    document.getElementById('bad').innerHTML =
+      '<span class="copy">000000</span>' + ten + ' = ' + wrong + (wrong === n ? ' (same)' : ' <span class="no">(wrong)</span>');
+  }
+  v.oninput = render;
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A 10-bit signal that may be negative is copied into a 16-bit variable. What goes into the six left-over bits?',
+    options: ['Copies of the sign bit', 'Always zeros, six times', 'Always ones, six times'],
+    answer: 0,
+    why: 'Copying the sign bit keeps positive numbers positive and negative numbers negative.'
+  },
+  {
+    prompt: 'What does the 16 in <code>uint16</code> say?',
+    options: ['Bits of the variable', 'Bits used on the bus', 'Bytes of the variable'],
+    answer: 0,
+    why: 'The type gives the size of the variable. The size on the bus is a separate setting and may be smaller.'
+  },
+  {
+    prompt: 'What does COM do with a <code>float32</code> signal?',
+    options: ['Only orders the bytes', 'Rounds it to a whole', 'Copies the sign bit up'],
+    answer: 0,
+    why: 'For decimal numbers COM only handles byte order. It does not convert or stretch them.'
+  }
+]);
+</script>
+</body>
+</html>

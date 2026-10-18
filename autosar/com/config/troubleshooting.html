@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">AUTOSAR COM · Configuration help</p>
+<h1>Troubleshooting</h1>
+<p class="lede">Something does not behave as expected. Find what you see, then go through the checks from top to bottom. Each check names the setting to look at.</p>
+
+<div class="note">
+<p><strong>Before you start.</strong> Most surprises come from four things: the packet group is not started, a time was entered in milliseconds instead of seconds, the signal is pending where it should be triggered, or sender and receiver disagree on where the bits sit. Check these first.</p>
+</div>
+
+<div class="panel no-print">
+  <div class="chips" id="chips"></div>
+  <label class="search">
+    <input type="text" class="search" id="search" placeholder="Type a word, for example: timeout" aria-label="Search the symptoms">
+  </label>
+  <p class="readout" id="count" aria-live="polite"></p>
+</div>
+
+<div id="symptoms">
+
+<!-- ===== Sending ===== -->
+<section class="symptom" data-part="Sending">
+<h3>The signal is written, but the packet never goes out</h3>
+<ol class="checks">
+<li><strong>Is the packet group started?</strong> After start-up every group is stopped. A write to a stopped packet is stored, the call answers "not available", and nothing is sent. Look at <code>ComIPduGroupRef</code> of the packet and at who starts that group.</li>
+<li><strong>Is the signal pending in a packet without a timer?</strong> <code>ComTransferProperty</code> = <code>PENDING</code> with <code>ComTxModeMode</code> = <code>DIRECT</code> means nothing ever asks for a send.</li>
+<li><strong>Is the active send setting <code>NONE</code>?</strong> Either it is set that way, or the packet is on its "false" setting and <code>ComTxModeFalse</code> says <code>NONE</code>.</li>
+<li><strong>Is the signal "on change" and the value did not change?</strong> COM compares with the value sent last, or with the start value if nothing was sent yet.</li>
+<li><strong>Is the signal a member of a signal group?</strong> Writing a member only fills the staging area. The application must hand over the whole group.</li>
+<li><strong>Does the send heartbeat run?</strong> Sends happen in <code>Com_MainFunctionTx</code>. With several heartbeats, <code>ComIPduMainFunctionRef</code> says which one serves the packet.</li>
+<li><strong>Does COM hand the packet down, but the bus stays silent?</strong> Then the problem is below COM, in the route of the packet. See <a href="../lessons/0014-the-road-below-com.html">lesson 14</a>.</li>
+</ol>
+<p class="small"><a href="../lessons/0002-four-timing-words.html">Lesson 2</a>, <a href="../lessons/0011-switching-packets-on-and-off.html">lesson 11</a></p>
+</section>
+
+<section class="symptom" data-part="Sending">
+<h3>The packet goes out later than expected</h3>
+<ol class="checks">
+<li><strong>The heartbeat.</strong> A triggered send happens at the next send heartbeat at the latest, not inside the write. Look at <code>ComMainTxTimeBase</code>.</li>
+<li><strong>The minimum gap.</strong> A send asked for during the gap waits until it is over. Look at <code>ComMinimumDelayTime</code>.</li>
+<li><strong>The start delay.</strong> The first timer send after the packet was started waits for <code>ComTxModeTimeOffset</code>.</li>
+<li><strong>Is only the "sent" message late?</strong> With <code>ComIPduSignalProcessing</code> = <code>DEFERRED</code> the message comes at the next heartbeat. The packet itself was on time.</li>
+</ol>
+<p class="small"><a href="../lessons/0003-repeats-and-minimum-gap.html">Lesson 3</a></p>
+</section>
+
+<section class="symptom" data-part="Sending">
+<h3>The packet goes out too often</h3>
+<ol class="checks">
+<li><strong>Triggered on every write.</strong> <code>TRIGGERED</code> sends even when the same value is written again. <code>TRIGGERED_ON_CHANGE</code> does not.</li>
+<li><strong>Repeats.</strong> <code>ComTxModeNumberOfRepetitions</code> is the number of extra sends. 2 means three packets per write.</li>
+<li><strong>Timer and trigger together.</strong> <code>MIXED</code> sends on the timer and on every triggered write.</li>
+<li><strong>Switching the send setting.</strong> A switch to the other setting sends the packet at once, unless that setting is <code>NONE</code>.</li>
+<li><strong>No minimum gap.</strong> <code>ComMinimumDelayTime</code> left out or 0 means no limit on how close two sends can be.</li>
+</ol>
+<p class="small"><a href="../lessons/0003-repeats-and-minimum-gap.html">Lesson 3</a>, <a href="../lessons/0004-two-send-settings.html">lesson 4</a></p>
+</section>
+
+<section class="symptom" data-part="Sending">
+<h3>Fewer repeats on the bus than configured</h3>
+<ol class="checks">
+<li><strong>A new write came in between.</strong> It cancels the repeats that are still open and starts the count again.</li>
+<li><strong>The signal is "without repetition".</strong> <code>TRIGGERED_WITHOUT_REPETITION</code> and <code>TRIGGERED_ON_CHANGE_WITHOUT_REPETITION</code> send once, whatever the packet says.</li>
+<li><strong>A timer send was counted.</strong> In <code>MIXED</code>, a timer send that falls into the repeats counts as one of them.</li>
+<li><strong>The send timeout struck.</strong> When <code>ComTimeout</code> runs out before all repeats are done, the rest is dropped.</li>
+<li><strong>The other send setting is active.</strong> The "true" and the "false" setting each have their own number of repeats.</li>
+</ol>
+<p class="small"><a href="../lessons/0003-repeats-and-minimum-gap.html">Lesson 3</a></p>
+</section>
+
+<section class="symptom" data-part="Sending">
+<h3>The timer period on the bus is wrong</h3>
+<ol class="checks">
+<li><strong>Seconds, not milliseconds.</strong> <code>ComTxModeTimePeriod</code> = 0.1 is 100 ms. A value of 100 is 100 seconds.</li>
+<li><strong>Which send setting is active?</strong> The "true" and the "false" setting can have different periods.</li>
+<li><strong>Does the heartbeat really run as configured?</strong> COM counts time in heartbeats. If <code>ComMainTxTimeBase</code> says 10 ms but the function is called every 20 ms, every period doubles.</li>
+<li><strong>Is the period a multiple of the heartbeat?</strong> If not, it gets rounded.</li>
+<li><strong>Is the minimum gap longer than the period?</strong> Then the gap decides, unless <code>ComEnableMDTForCyclicTransmission</code> is false.</li>
+</ol>
+<p class="small"><a href="../lessons/0002-four-timing-words.html">Lesson 2</a></p>
+</section>
+
+<section class="symptom" data-part="Sending">
+<h3>The packet uses the wrong one of its two send settings</h3>
+<ol class="checks">
+<li><strong>Which signals have a condition?</strong> Every signal of the packet with a <code>ComFilter</code> box takes part. All others do not.</li>
+<li><strong>One true is enough.</strong> The "true" setting is used as soon as one condition is true. "False" needs all of them false.</li>
+<li><strong>A condition <code>ALWAYS</code>.</strong> It is always true, so the packet never leaves the "true" setting.</li>
+<li><strong>No condition at all.</strong> Then the result is always "true" and <code>ComTxModeFalse</code> is never used.</li>
+<li><strong>Right after the start.</strong> Until the application writes, the conditions are checked with the start values.</li>
+</ol>
+<p class="small"><a href="../lessons/0004-two-send-settings.html">Lesson 4</a></p>
+</section>
+
+<section class="symptom" data-part="Sending">
+<h3>"Not sent in time" is reported although the bus looks fine</h3>
+<ol class="checks">
+<li><strong>Does the bus confirm sends?</strong> Without confirmations from below the send timeout always strikes.</li>
+<li><strong>Is the limit shorter than the repeats take?</strong> With repeats, the send only counts as done after all of them were confirmed.</li>
+<li><strong>Another signal's limit.</strong> If signals of one packet have different <code>ComTimeout</code> values, the shortest one is used for the packet.</li>
+<li><strong>Expecting it more than once?</strong> The message is given once per failed send and not repeated.</li>
+<li><strong>Was the packet stopped?</strong> Then the open send is reported as "could not be sent" instead.</li>
+</ol>
+<p class="small"><a href="../lessons/0006-timeouts.html">Lesson 6</a>, <a href="../lessons/0009-what-com-tells-the-application.html">lesson 9</a></p>
+</section>
+
+<!-- ===== Receiving ===== -->
+<section class="symptom" data-part="Receiving">
+<h3>The packet arrives, but the application is never told</h3>
+<ol class="checks">
+<li><strong>Is the packet group started?</strong> A stopped packet is ignored when it arrives.</li>
+<li><strong>Is a "new value" message set?</strong> It lives in the set-up of COM's user, as a <code>ComUserCallback</code> of type <code>COM_RX_ACK</code>, and the signal must be linked to it. In older projects: <code>ComNotification</code> on the signal.</li>
+<li><strong>Deferred, and the receive heartbeat does not run?</strong> With <code>ComIPduSignalProcessing</code> = <code>DEFERRED</code> the message is given in <code>Com_MainFunctionRx</code>.</li>
+<li><strong>An update-bit that is never set.</strong> If <code>ComUpdateBitPosition</code> is configured here but the sender does not set that bit, or uses another position, the signal is ignored.</li>
+<li><strong>A filter that blocks.</strong> A blocked value is thrown away without a message. Look at <code>ComFilter</code> of the signal.</li>
+<li><strong>The invalid value.</strong> With <code>ComDataInvalidAction</code> = <code>NOTIFY</code>, the reserved value gives only the "invalid" message.</li>
+<li><strong>The packet is shorter than expected.</strong> Only signals that are completely inside the received bytes are unpacked.</li>
+<li><strong>The signal is a member of a signal group.</strong> Messages exist for the group only.</li>
+</ol>
+<p class="small"><a href="../lessons/0009-what-com-tells-the-application.html">Lesson 9</a>, <a href="../lessons/0005-start-values-and-update-bits.html">lesson 5</a>, <a href="../lessons/0008-filters.html">lesson 8</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>The application always reads the start value</h3>
+<ol class="checks">
+<li><strong>Go through "the application is never told" above.</strong> A stopped packet, an unset update-bit or a blocking filter all leave the start value in place.</li>
+<li><strong>A member of a signal group.</strong> The application must first fetch the whole group. Only then do the members hold new values.</li>
+<li><strong>Read too early.</strong> With <code>DEFERRED</code>, a read between arrival and the next heartbeat still gives the old value.</li>
+<li><strong>A timeout puts it back.</strong> <code>ComRxDataTimeoutAction</code> = <code>REPLACE</code> returns to the start value each time the limit runs out.</li>
+</ol>
+<p class="small"><a href="../lessons/0005-start-values-and-update-bits.html">Lesson 5</a>, <a href="../lessons/0010-signal-groups.html">lesson 10</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>Nothing arrives, but no timeout is reported</h3>
+<ol class="checks">
+<li><strong>Is there a time limit?</strong> <code>ComTimeout</code> left out or 0 means the signal is not watched.</li>
+<li><strong>Did anything ever arrive?</strong> Without <code>ComFirstTimeout</code>, watching only begins after the first arrival.</li>
+<li><strong>Is an "overdue" message set?</strong> A <code>ComUserCallback</code> of type <code>COM_RX_TOUT</code>, linked to the signal. Without it, only the value may change.</li>
+<li><strong>Is the packet group started?</strong> A stopped packet is not watched.</li>
+<li><strong>Was watching switched off?</strong> It can be switched off and on per packet group while running, with <code>Com_DisableReceptionDM</code> and <code>Com_EnableReceptionDM</code>.</li>
+</ol>
+<p class="small"><a href="../lessons/0006-timeouts.html">Lesson 6</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>A timeout is reported right after the start</h3>
+<ol class="checks">
+<li><strong>The first limit is too short.</strong> <code>ComFirstTimeout</code> must cover the time the sender needs to start, plus its start delay and one period.</li>
+<li><strong>The group is started too early.</strong> The stopwatch starts when the packet group is started. If that happens before the bus is up, time is lost.</li>
+</ol>
+<p class="small"><a href="../lessons/0006-timeouts.html">Lesson 6</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>The timeout is reported again and again</h3>
+<ol class="checks">
+<li><strong>This is how it works.</strong> On the receiving side the stopwatch restarts when it runs out. The message comes after every further <code>ComTimeout</code> as long as nothing arrives. Only the send timeout is reported once.</li>
+</ol>
+<p class="small"><a href="../lessons/0006-timeouts.html">Lesson 6</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>A timeout is reported although the packet arrives</h3>
+<ol class="checks">
+<li><strong>The signal has an update-bit.</strong> Then it has its own stopwatch, and only packets with the bit set count. A sender that sends the packet but does not write the signal causes a timeout.</li>
+<li><strong>Another signal's limit.</strong> Signals without update-bit share one stopwatch per packet. It uses the shortest limit of all of them, including <code>ComFirstTimeout</code> values.</li>
+<li><strong>The limit is too close to the sender's period.</strong> One late frame is then enough. Seconds, not milliseconds: 0.3 is 300 ms.</li>
+<li><strong>The heartbeat.</strong> COM counts time in heartbeats. A limit that is not a multiple gets rounded.</li>
+</ol>
+<p class="small"><a href="../lessons/0006-timeouts.html">Lesson 6</a>, <a href="../lessons/0005-start-values-and-update-bits.html">lesson 5</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>The value jumps back to the start value</h3>
+<ol class="checks">
+<li><strong>Timeout with replace.</strong> <code>ComRxDataTimeoutAction</code> = <code>REPLACE</code>.</li>
+<li><strong>Invalid value with replace.</strong> <code>ComDataInvalidAction</code> = <code>REPLACE</code> hands out the start value whenever the reserved value arrives.</li>
+<li><strong>The packet group was started again.</strong> Starting a group with "initialize" puts all its signals back to their start values.</li>
+</ol>
+<p class="small"><a href="../lessons/0006-timeouts.html">Lesson 6</a>, <a href="../lessons/0007-invalid-values.html">lesson 7</a></p>
+</section>
+
+<section class="symptom" data-part="Receiving">
+<h3>The "changed" filter lets an unchanged value through</h3>
+<ol class="checks">
+<li><strong>After a timeout.</strong> The first value after a timeout always passes <code>MASKED_NEW_DIFFERS_MASKED_OLD</code>.</li>
+<li><strong>The mask.</strong> Only the bits set in <code>ComFilterMask</code> are compared. A change in other bits is not seen, and the other way round.</li>
+<li><strong>Compared with what?</strong> With the last value that passed, not with the last value that arrived.</li>
+</ol>
+<p class="small"><a href="../lessons/0008-filters.html">Lesson 8</a></p>
+</section>
+
+<!-- ===== Values ===== -->
+<section class="symptom" data-part="Values">
+<h3>The receiver sees a wrong value</h3>
+<ol class="checks">
+<li><strong>Byte order.</strong> <code>ComSignalEndianness</code> must be the same on both sides. Swapped bytes are the typical sign: 0x1234 arrives as 0x3412.</li>
+<li><strong>Start bit.</strong> <code>ComBitPosition</code> is the lowest bit of the signal for <code>LITTLE_ENDIAN</code> and the highest for <code>BIG_ENDIAN</code>. Other tools and file formats count differently.</li>
+<li><strong>Size.</strong> <code>ComBitSize</code> must match on both sides.</li>
+<li><strong>Overlap.</strong> Two signals, or a signal and an update-bit, on the same bits.</li>
+<li><strong>Both sides wrong in the same way?</strong> Compare each side with the network description, not with each other.</li>
+</ol>
+<p class="small"><a href="../lessons/0016-signal-packing.html">Lesson 16</a>, <a href="../reference/signal-packing.html">signal packing sheet</a></p>
+</section>
+
+<section class="symptom" data-part="Values">
+<h3>A negative value arrives as a large positive one</h3>
+<ol class="checks">
+<li><strong>The type.</strong> <code>ComSignalType</code> must be a signed type (<code>SINT8</code> to <code>SINT64</code>) on the receiving side. Only then does COM fill up the upper bits correctly.</li>
+<li><strong>The size.</strong> With a wrong <code>ComBitSize</code> the sign bit is taken from the wrong place.</li>
+</ol>
+<p class="small"><a href="../lessons/0017-types-and-negative-numbers.html">Lesson 17</a></p>
+</section>
+
+<section class="symptom" data-part="Values">
+<h3>Only some of the sent values reach the application</h3>
+<ol class="checks">
+<li><strong>A filter.</strong> <code>ONE_EVERY_N</code> passes one value in N. A range or mask filter passes only matching values.</li>
+<li><strong>An update-bit.</strong> Packets in which the sender did not write the signal are ignored for this signal.</li>
+<li><strong>Several arrivals per heartbeat.</strong> With <code>DEFERRED</code>, values that arrive faster than the receive heartbeat can be overwritten before the application is told.</li>
+</ol>
+<p class="small"><a href="../lessons/0008-filters.html">Lesson 8</a></p>
+</section>
+
+<!-- ===== Gateway ===== -->
+<section class="symptom" data-part="Gateway">
+<h3>A forwarded signal does not appear on the other bus</h3>
+<ol class="checks">
+<li><strong>Does the gateway heartbeat run?</strong> Copies are made in <code>Com_MainFunctionRouteSignals</code>. The packets involved point to it with <code>ComMainFunctionRouteSignalsRef</code>.</li>
+<li><strong>The source has an update-bit that is not set.</strong> Then nothing is forwarded.</li>
+<li><strong>The outgoing packet is stopped.</strong> Its packet group must be started too.</li>
+<li><strong>The destination signal is pending and its packet has no timer.</strong> The value is copied but nothing sends it.</li>
+<li><strong>A packet that is sent in pieces.</strong> Signals of packets with <code>ComIPduType</code> = <code>TP</code> cannot be forwarded.</li>
+</ol>
+<p class="small"><a href="../lessons/0012-signal-gateway.html">Lesson 12</a></p>
+</section>
+
+<section class="symptom" data-part="Gateway">
+<h3>A forwarded signal is late</h3>
+<ol class="checks">
+<li><strong>Three waits add up.</strong> The gateway heartbeat (<code>ComMainRouteSignalsTimeBase</code>), then the send heartbeat, then a minimum gap of the outgoing packet if one is running.</li>
+<li><strong>The destination is pending.</strong> Then the value waits for the next timer send of its packet.</li>
+</ol>
+<p class="small"><a href="../lessons/0012-signal-gateway.html">Lesson 12</a></p>
+</section>
+
+<!-- ===== The tool complains ===== -->
+<section class="symptom" data-part="Tool">
+<h3>The configuration tool rejects the settings</h3>
+<p>These are the rules of the specification that are broken most easily.</p>
+<ol class="checks">
+<li><strong>Update-bit together with repeats.</strong> Not allowed in one packet.</li>
+<li><strong>A sending packet without <code>ComTxIPdu</code></strong>, or with neither <code>ComTxModeTrue</code> nor <code>ComTxModeFalse</code> in it.</li>
+<li><strong>Overlapping signals</strong> in one packet.</li>
+<li><strong><code>ComBitSize</code> larger than the type</strong>, for example 12 bits in a <code>UINT8</code>.</li>
+<li><strong>A row of bytes</strong> that does not start on a byte border, or whose byte order is not <code>OPAQUE</code>.</li>
+<li><strong>A filter the type does not support.</strong> Decimal numbers and rows of bytes: only <code>ALWAYS</code>, <code>NEVER</code>, <code>ONE_EVERY_N</code>. On/off values: no range filters.</li>
+<li><strong><code>ONE_EVERY_N</code></strong> with <code>ComFilterOffset</code> not smaller than <code>ComFilterPeriod</code>.</li>
+<li><strong>An invalid value without an action</strong> on a received signal.</li>
+<li><strong>A packet group with both directions.</strong> All packets of one group must be sending, or all receiving.</li>
+<li><strong>Names.</strong> Two of the names of signals, groups, members, packets and packet groups are the same, or one is not a valid C name.</li>
+<li><strong>A signal of changing length</strong> that is not the last one in its packet, or a second one in the same packet.</li>
+<li><strong>Forwarding</strong> between signals of different bit size.</li>
+</ol>
+<p class="small">The <a href="configurator.html">configurator</a> checks most of these for a single signal.</p>
+</section>
+
+</div>
+
+<h2 id="review">Reading a configuration you did not write</h2>
+<p>A configuration made by a tool from the network description can be read in a fixed order. Go packet by packet.</p>
+<ol class="checks">
+<li><strong>The packet.</strong> <code>ComIPduDirection</code>: sent or received? <code>ComIPduGroupRef</code>: which groups switch it on?</li>
+<li><strong>If sent: its send setting.</strong> <code>ComTxModeMode</code> in <code>ComTxModeTrue</code>, and in <code>ComTxModeFalse</code> if there is one. Then the period, the repeats and <code>ComMinimumDelayTime</code>. All times are in seconds.</li>
+<li><strong>Its signals: triggered or pending.</strong> Does <code>ComTransferProperty</code> fit the send setting? Triggered has no effect in a packet that is <code>PERIODIC</code>. Pending in a packet that is <code>DIRECT</code> never sends by itself.</li>
+<li><strong>Conditions.</strong> Which signals of a sending packet have a <code>ComFilter</code>? Those decide between the two send settings.</li>
+<li><strong>Where the bits sit.</strong> <code>ComBitPosition</code>, <code>ComBitSize</code>, <code>ComSignalEndianness</code>, <code>ComSignalType</code>, and <code>ComUpdateBitPosition</code> if used. Compare with the network description.</li>
+<li><strong>Start values.</strong> <code>ComSignalInitValue</code> is what a receiver reads before the first packet, and what a sender puts on the bus before the first write. Is it a safe value?</li>
+<li><strong>If received: immediate or deferred.</strong> <code>ComIPduSignalProcessing</code>, per packet.</li>
+<li><strong>Timeouts.</strong> <code>ComTimeout</code>, <code>ComFirstTimeout</code>, <code>ComRxDataTimeoutAction</code>. Remember that signals without update-bit share the shortest limit in the packet.</li>
+<li><strong>Invalid values and filters.</strong> <code>ComSignalDataInvalidValue</code> with <code>ComDataInvalidAction</code>, and <code>ComFilter</code> on received signals.</li>
+<li><strong>Messages.</strong> Look in the set-up of COM's user for the <code>ComUserCallback</code> entries linked to the signal.</li>
+<li><strong>Heartbeats.</strong> <code>ComMainRxTimeBase</code> and <code>ComMainTxTimeBase</code>. Do all times above fit them, and are the functions really called that often?</li>
+</ol>
+<p>To see what a set of values does, enter them in the <a href="configurator.html">configurator</a> and read "What COM will do".</p>
+
+<p class="small">Behaviour and rules: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapters 7 and 10. Only causes inside COM's own configuration are listed. A packet that COM hands down correctly can still get lost in the layers below.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script>
+(function () {
+  const sections = Array.from(document.querySelectorAll('section.symptom'));
+  const names = { All: 'All', Sending: 'Sending', Receiving: 'Receiving', Values: 'Wrong values', Gateway: 'Gateway', Tool: 'The tool complains' };
+  const chips = document.getElementById('chips');
+  const search = document.getElementById('search');
+  const count = document.getElementById('count');
+  let part = 'All';
+  const buttons = Object.keys(names).map((key) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = names[key];
+    b.addEventListener('click', () => { part = key; apply(); });
+    chips.appendChild(b);
+    return { key, b };
+  });
+  function apply() {
+    const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    sections.forEach((s) => {
+      const text = s.textContent.toLowerCase();
+      const on = (part === 'All' || s.dataset.part === part) && words.every((w) => text.includes(w));
+      s.hidden = !on;
+      if (on) shown++;
+    });
+    buttons.forEach((x) => x.b.setAttribute('aria-pressed', String(x.key === part)));
+    count.textContent = shown + ' of ' + sections.length + ' symptoms shown';
+  }
+  search.addEventListener('input', apply);
+  apply();
+})();
+</script>
+</body>
+</html>
