@@ -13,6 +13,8 @@ version gets the same treatment. Running it twice changes nothing.
 2. HTML: assets/hub.js goes first in <head> (one theme choice for the whole hub, see
    there), assets/hub-course.css after it, and a top bar with "All courses", the course
    title and the theme toggle goes first in <body>. The course's own toggle is hidden.
+   A one-line notice (unofficial, written with AI, not fully reviewed) goes last in <body>,
+   in the course's language, linking to the landing page's "About these courses".
 Only the standard library is used.
 """
 import html
@@ -31,6 +33,13 @@ LABELS = {
     "de": ("Alle Kurse", "Kursnavigation"),
     "en": ("All courses", "Course navigation"),
 }
+NOTICE = {
+    "de": ("Inoffizieller Kurs, mit KI erstellt und noch nicht vollständig geprüft: "
+           "Er kann Fehler enthalten. Keine Gewähr.", "Mehr dazu"),
+    "en": ("Unofficial course, written with AI and not fully reviewed yet: "
+           "it can contain mistakes. No warranty.", "About"),
+}
+BODY_END = re.compile(r"</body\s*>", re.I)
 
 
 # --- CSS ----------------------------------------------------------------------
@@ -138,8 +147,15 @@ def harmonize_html(page, up, course_href, title, lang):
            f'<a class="learn-home" href="{up}index.html">&larr; {all_courses}</a>'
            f'<a class="learn-course" href="{course_href}">{html.escape(title)}</a>'
            f'<button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>')
-    return (page[:head.end()] + head_tags + page[head.end():body.end()]
+    notice, about = NOTICE.get(lang, NOTICE["en"])
+    footer = (f'<footer class="learn-notice">{notice} '
+              f'<a href="{up}index.html#about">{about}</a></footer>\n')
+    page = (page[:head.end()] + head_tags + page[head.end():body.end()]
             + bar + page[body.end():])
+    end = None
+    for end in BODY_END.finditer(page):
+        pass
+    return page[:end.start()] + footer + page[end.start():] if end else page + footer
 
 
 def main():

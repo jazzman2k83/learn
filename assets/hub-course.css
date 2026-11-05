@@ -43,7 +43,16 @@ html { padding-top: var(--learn-bar-h); scroll-padding-top: 8px; }
 /* the course's own toggle: replaced by the bar's */
 [data-theme-toggle], .theme-toggle:not(.learn-theme) { display: none !important; }
 
+/* the notice at the end of every course page */
+.learn-notice {
+  max-width: 860px; margin: 32px auto 0; padding: 12px 16px 20px; box-sizing: border-box;
+  border-top: 1px solid var(--learn-rule); color: var(--learn-ink); opacity: 0.8;
+  font: 13px/1.45 Roboto, Arial, Helvetica, sans-serif; letter-spacing: normal;
+}
+.learn-notice a { color: var(--learn-accent); }
+
 @media print {
   html { padding-top: 0; }
   .learn-bar { display: none; }
+  .learn-notice { color: #444; opacity: 1; }
 }

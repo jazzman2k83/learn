@@ -30,6 +30,14 @@ PAGE = """<!doctype html>
 <p class="lede">Each course runs in the browser, with no installation and no account. Pick one and work through its lessons in order.</p>
 {sections}
 <p class="small">{count} courses. DE = German, EN = English.</p>
+
+<section class="about" id="about" aria-labelledby="about-h">
+<h2 id="about-h">About these courses</h2>
+<p><strong>Not fully reviewed.</strong> The courses were written with AI and have only been partly checked so far. They can contain mistakes. Use them for learning, not as a reference: before you rely on a detail, check it against the official source each lesson names. The content comes without any warranty, and no liability is accepted for errors or for what you do with it.</p>
+<p><strong>Made with the teach skill.</strong> The courses were created with <a href="https://claude.com/claude-code">Claude Code</a> using the <a href="https://github.com/mattpocock/skills/tree/main/skills/productivity/teach">teach</a> skill by Matt Pocock, from his <a href="https://github.com/mattpocock/skills">skills collection</a> (MIT license). Many thanks for it.</p>
+<p><strong>Unofficial.</strong> The AUTOSAR courses are independent explanations. They are not affiliated with or endorsed by the AUTOSAR partnership. The word AUTOSAR and the AUTOSAR logo are registered trademarks. Quotations from the AUTOSAR specifications are marked with their source and remain the copyright of AUTOSAR. Linked websites belong to their owners.</p>
+<p class="small">&copy; 2026 jazzman2k83. All rights reserved. Source on <a href="https://github.com/jazzman2k83/learn">GitHub</a>.</p>
+</section>
 </main>
 </body>
 </html>

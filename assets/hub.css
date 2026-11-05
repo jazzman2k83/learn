@@ -68,6 +68,10 @@ h2 { margin: 2em 0 0.6em; font-size: 1.25rem; border-bottom: 1px solid var(--rul
   border: 1px solid var(--muted); color: var(--muted); vertical-align: 2px;
 }
 
+.about { margin-top: 2.5em; }
+.about p { font-size: 0.95rem; }
+.about a { color: var(--accent); }
+
 @media print {
   :root, :root[data-theme="dark"] {
     color-scheme: light;
