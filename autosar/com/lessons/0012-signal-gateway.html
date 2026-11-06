@@ -8,40 +8,40 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker" data-kicker="about 6 minutes">AUTOSAR COM</p>
 <h1>The signal gateway</h1>
-<p class="lede">A control unit connected to two buses can pass a value from one to the other. COM can do this by itself, without any application in between.</p>
+<p class="lede">An <span class="term">ECU</span> connected to two <span class="term">bus</span>es can pass a value from one to the other. COM can do this by itself, without any <span class="term">SWC</span> in between.</p>
 
-<h2>Copy a signal from one packet to another</h2>
-<p>The engine sends the speed on bus A. A display on bus B needs it too. The control unit in the middle is told once, in its setup: "whenever this signal arrives, copy it into that signal of that outgoing packet". That fixed copy rule is the <strong>signal gateway</strong>.</p>
+<h2>Copy a signal from one I-PDU to another</h2>
+<p>The engine ECU sends the speed on <span class="term">bus</span> A. A display on bus B needs it too. The <span class="term">ECU</span> in the middle is configured once: "whenever this <span class="term">signal</span> arrives, copy it into that signal of that outgoing <span class="term">I-PDU</span>". That is the <span class="term">signal gateway</span> (the COM function that copies a received signal into an I-PDU to be transmitted, without any SWC in between). Each such route is one <code class="term">ComGwMapping</code> (one source signal and one or more destination signals).</p>
 <div class="flow">
-  <div class="box"><strong>Packet from bus A</strong>speed · temperature</div>
+  <div class="box"><strong>I-PDU from bus A</strong>speed · temperature</div>
   <div class="arrow">→</div>
-  <div class="box main"><strong>COM gateway</strong>copies only the speed</div>
+  <div class="box main"><strong>Signal gateway</strong>copies only the speed</div>
   <div class="arrow">→</div>
-  <div class="box"><strong>Packet for bus B</strong>speed · door state</div>
+  <div class="box"><strong>I-PDU for bus B</strong>speed · door state</div>
 </div>
 <ul>
-<li>It works on single signals, so the two packets can look completely different.</li>
-<li>One received signal can be copied into several outgoing packets.</li>
-<li>The copy rules are fixed in advance. They do not depend on the values.</li>
+<li>It works on single signals, so the two I-PDUs can look completely different.</li>
+<li>One received signal can be copied into several outgoing I-PDUs.</li>
+<li>The routes are fixed in the configuration. They do not depend on the values.</li>
 </ul>
 
 <h2>After the copy, everything is as usual</h2>
-<p>For the outgoing packet, a gateway copy counts exactly like an application writing the signal. So everything from lessons 2 to 4 applies: is the signal triggered or pending, does the packet have a timer, is there a minimum gap.</p>
-<p>The gateway does not copy in the very moment a packet arrives. It has its own heartbeat and does all waiting copies at the next beat. This keeps the arrival itself short and fast.</p>
+<p>For the outgoing <span class="term">I-PDU</span>, a copy by the <span class="term">signal gateway</span> counts exactly like a write by the <span class="term">RTE</span>. So everything from lessons 2 to 4 applies: the <span class="term">transfer property</span> of the destination signal, the <span class="term">transmission mode</span> of its I-PDU, the <span class="term">minimum delay time</span>.</p>
+<p>The signal gateway does not copy in the very moment an I-PDU arrives. It has its own <span class="term">main function</span>, <code class="term">Com_MainFunctionRouteSignals</code>, and does all waiting copies in its next call. This keeps the reception itself short and fast.</p>
 
 <h3>Try it</h3>
-<p>Let packets arrive on bus A. The gateway's heartbeat runs every 2 seconds.</p>
+<p>Let I-PDUs arrive on bus A. Com_MainFunctionRouteSignals, shown as "Main function", runs every 2 seconds.</p>
 <div class="panel no-print">
   <div class="controls">
-    <label>The speed signal in the packet for bus B is
+    <label>The speed signal in the I-PDU for bus B is
       <select id="dest">
-        <option value="trig">triggered, packet has no timer</option>
-        <option value="pend">pending, packet has a 3-second timer</option>
+        <option value="trig">TRIGGERED, transmission mode DIRECT</option>
+        <option value="pend">PENDING, transmission mode PERIODIC (3 s)</option>
       </select>
     </label>
   </div>
@@ -51,36 +51,36 @@
 
 <h2>Three rules worth knowing</h2>
 <div class="cards">
-  <div class="card"><h3>Only new values</h3><p>If the received signal has an update-bit and it is not set, nothing is copied.</p></div>
-  <div class="card"><h3>Timeouts do not block</h3><p>Even if the signal was overdue before, a value that arrives is still passed on.</p></div>
-  <div class="card"><h3>Byte order is fixed up</h3><p>If the two buses store the number's bytes in different order, COM converts on the way.</p></div>
+  <div class="card"><h3>Only new values</h3><p>If the received signal has an <span class="term">update-bit</span> and it is not set, nothing is copied.</p></div>
+  <div class="card"><h3>Timeouts do not block</h3><p>Even after a <span class="term">timeout</span> of <span class="term">reception deadline monitoring</span>, a value that arrives is still copied.</p></div>
+  <div class="card"><h3>Byte order is converted</h3><p>If source and destination signal have a different <span class="term">endianness</span> (byte order: which byte of the value comes first), COM converts on the way.</p></div>
 </div>
 
 <div class="note">
-<p><strong>Not the only gateway.</strong> If a whole packet should go from bus A to bus B unchanged, COM is not needed at all. The neighbour below COM forwards whole packets, which is cheaper. The signal gateway is for when the packets differ.</p>
+<p><strong>Not the only gateway.</strong> If a whole <span class="term">I-PDU</span> should go from bus A to bus B unchanged, COM is not needed at all. The <span class="term">PduR</span> below COM forwards whole I-PDUs, which is cheaper. The <span class="term">signal gateway</span> is for when the I-PDUs differ.</p>
 </div>
 
 <h2>Check yourself</h2>
 <p>Optional. Answer from memory.</p>
 <div id="quiz" class="no-print"></div>
 
-<h2>The AUTOSAR words</h2>
+<h2>New terms in this lesson</h2>
 <div class="table-wrap">
 <table class="data words">
-<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>Copy rule</td><td>Gateway mapping (source and destinations)</td></tr>
-<tr><td>Gateway heartbeat</td><td><code>Com_MainFunctionRouteSignals</code></td></tr>
-<tr><td>Forwarding whole packets</td><td>I-PDU gateway in the PDU Router</td></tr>
+<tr><td><span class="term">signal gateway</span></td><td>The COM function that copies a received signal or signal group into an I-PDU to be transmitted, without any SWC in between.</td></tr>
+<tr><td><code class="term">ComGwMapping</code></td><td>One route of the signal gateway: one source signal and one or more destination signals.</td></tr>
 </tbody>
 </table>
 </div>
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.1.5 and 7.10 (SWS_Com_00377, 00359, 00466, 00360, 00701, 00703). Finer points: members of signal groups can be passed on too, and stay consistent. Signals in packets that are too big for one frame (lesson 13) cannot be passed on this way.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.1.5 and 7.10 (SWS_Com_00377, 00359, 00466, 00360, 00701, 00703, CONSTR_00598). Finer points: group signals can be routed too, and stay consistent. Signals in large I-PDUs, which travel through a transport protocol (lesson 13), cannot be routed this way.</p>
 
 <nav class="course" data-nav></nav>
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/timeline.js"></script>
 <script src="../assets/quiz.js"></script>
 <script>
@@ -91,13 +91,13 @@
   let count, waiting, outValue;
   function send(why) {
     tl.mark('b', String(outValue), 'bus');
-    readout.textContent = 'Packet sent on bus B (' + why + ') with speed ' + outValue + '.';
+    readout.textContent = 'I-PDU sent on bus B (' + why + ') with Speed = ' + outValue + '.';
   }
   const tl = Timeline.create(document.getElementById('tl'), {
     lanes: [
-      { id: 'a', label: 'Arrives on bus A' },
-      { id: 'gw', label: 'Gateway heartbeat' },
-      { id: 'b', label: 'Sent on bus B' }
+      { id: 'a', label: 'I-PDU received on bus A' },
+      { id: 'gw', label: 'Main function' },
+      { id: 'b', label: 'I-PDU sent on bus B' }
     ],
     duration: 18,
     onTick(prev, now) {
@@ -106,24 +106,24 @@
         if (waiting !== null) {
           outValue = waiting;
           waiting = null;
-          if (dest.value === 'trig') send('copied, and the signal is triggered');
-          else readout.textContent = 'Gateway copied speed ' + outValue + ' into the packet for bus B. It is pending, so it waits for the timer.';
+          if (dest.value === 'trig') send('copied, and the signal is TRIGGERED');
+          else readout.textContent = 'The signal gateway copied Speed = ' + outValue + ' into the I-PDU for bus B. It is PENDING, so it waits for the next periodic transmission.';
         }
       }
-      if (dest.value === 'pend' && Timeline.crossed(prev, now, TIMER) > 0) send('timer');
+      if (dest.value === 'pend' && Timeline.crossed(prev, now, TIMER) > 0) send('periodic');
     },
     onReset() {
       count = 0; waiting = null; outValue = 0;
       readout.textContent = 'Press the button to start the clock.';
     }
   });
-  tl.buttons.append(Timeline.button('A packet arrives on bus A', () => {
+  tl.buttons.append(Timeline.button('An I-PDU arrives on bus A', () => {
     if (tl.finished()) tl.reset();
     tl.start();
     count++;
     waiting = count;
     tl.mark('a', String(count));
-    readout.textContent = 'Speed ' + count + ' arrived on bus A. It waits for the gateway\'s next heartbeat.';
+    readout.textContent = 'Speed = ' + count + ' arrived on bus A. It waits for the next Com_MainFunctionRouteSignals.';
   }, true));
   dest.addEventListener('change', () => tl.reset());
   tl.reset();
@@ -131,22 +131,22 @@
 
 Quiz.mount(document.getElementById('quiz'), [
   {
-    prompt: 'When does the gateway copy a received signal into the outgoing packet?',
-    options: ['At its next heartbeat', 'The instant it arrives', 'When the application asks'],
+    prompt: 'When does the signal gateway copy a received signal into the outgoing I-PDU?',
+    options: ['In its next main function', 'The instant it arrives', 'When the RTE asks for it'],
     answer: 0,
-    why: 'The gateway has its own heartbeat and does the waiting copies there. No application is involved.'
+    why: 'The signal gateway does the waiting copies in Com_MainFunctionRouteSignals. No SWC is involved.'
   },
   {
-    prompt: 'The copied signal is pending in the outgoing packet, and that packet has no timer and no triggered signal. Will it be sent?',
-    options: ['No, nothing triggers it', 'Yes, on every heartbeat', 'Yes, once, right away'],
+    prompt: 'The destination signal is PENDING, and its I-PDU has no periodic transmission and no TRIGGERED signal. Will it be sent?',
+    options: ['No, nothing triggers it', 'Yes, at each main function', 'Yes, once, right away'],
     answer: 0,
-    why: 'A gateway copy counts like an application write. A pending write sends nothing by itself.'
+    why: 'A copy by the signal gateway counts like a write by the RTE. A PENDING write sends nothing by itself.'
   },
   {
-    prompt: 'A whole packet should go from one bus to another unchanged. Who does that best?',
-    options: ['The neighbour below COM', 'The COM signal gateway', 'The application itself'],
+    prompt: 'A whole I-PDU should go from one bus to another unchanged. Who does that best?',
+    options: ['The PduR, below COM', 'The COM signal gateway', 'An SWC, by itself'],
     answer: 0,
-    why: 'Whole packets are forwarded below COM without unpacking them. The signal gateway is for packets that differ.'
+    why: 'Whole I-PDUs are forwarded by the PduR without unpacking them. The signal gateway is for I-PDUs that differ.'
   }
 ]);
 </script>

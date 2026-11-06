@@ -8,154 +8,157 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker" data-kicker="about 8 minutes">AUTOSAR COM</p>
 <h1>The configuration map</h1>
-<p class="lede">Everything COM does is decided in advance, in its configuration. This lesson shows where each feature from the course lives in that configuration, and under which name.</p>
+<p class="lede">Everything <span class="term">COM</span> does is decided in advance, in its configuration. This lesson shows where each feature from the course lives in that configuration, and under which name.</p>
 
-<h2>COM has no code for your car</h2>
-<p>The COM software is the same in every control unit. What makes it yours is a big table of settings: which packets exist, which signals sit where, which are triggered, which timeouts apply. Nothing of this is decided while the car runs.</p>
-<p>The settings are usually not typed by hand. The car maker describes the whole network in one file, and a tool derives each control unit's COM settings from it. Still, when something behaves oddly, these settings are where you look.</p>
+<h2>COM has no code for your vehicle</h2>
+<p>The <span class="term">COM</span> software is the same in every <span class="term">ECU</span>. What makes it fit one ECU is its configuration: which <span class="term">I-PDU</span>s exist, where each <span class="term">signal</span> sits, which signals are <code class="term">TRIGGERED</code>, which <span class="term">timeout</span>s apply. None of this is decided while the vehicle runs.</p>
+<p>The configuration is usually not typed by hand. The vehicle manufacturer describes the whole network in a <span class="term">system description</span> (an ARXML file with all ECUs, buses, I-PDUs and signals of the vehicle), and a tool derives the COM configuration of each ECU from it. Still, when something behaves oddly, the configuration is where you look.</p>
 
 <h2>The shape of the configuration</h2>
-<p>Settings are sorted into boxes inside boxes, called containers. This is the part of the tree that matters for this course. The plain word from the lessons is on the right.</p>
+<p>The configuration is a tree of <span class="term">container</span>s (named groups of settings; a container can hold other containers). Each container holds <span class="term">parameter</span>s (single settings, for example <code class="term">ComTransferProperty</code>). This is the part of the tree that matters for this course, with the course term on the right.</p>
 <ul class="tree">
-  <li>ComConfig <span>everything</span>
+  <li>ComConfig <span>the whole COM configuration</span>
     <ul>
-      <li>ComIPdu <span>one packet</span>
+      <li>ComIPdu <span>one I-PDU</span>
         <ul>
-          <li>ComTxIPdu <span>extras for a sending packet</span>
+          <li>ComTxIPdu <span>extra parameters of a sent I-PDU</span>
             <ul>
-              <li>ComTxModeTrue → ComTxMode <span>send setting "true"</span></li>
-              <li>ComTxModeFalse → ComTxMode <span>send setting "false"</span></li>
+              <li>ComTxModeTrue → ComTxMode <span>transmission mode for TRUE</span></li>
+              <li>ComTxModeFalse → ComTxMode <span>transmission mode for FALSE</span></li>
             </ul>
           </li>
         </ul>
       </li>
       <li>ComSignal <span>one signal</span>
-        <ul><li>ComFilter <span>its filter, or its send-setting condition</span></li></ul>
+        <ul><li>ComFilter <span>its filter, or its transmission mode condition</span></li></ul>
       </li>
       <li>ComSignalGroup <span>one signal group</span>
-        <ul><li>ComGroupSignal <span>one member</span></li></ul>
+        <ul><li>ComGroupSignal <span>one group signal</span></li></ul>
       </li>
-      <li>ComIPduGroup <span>one packet group</span></li>
-      <li>ComGwMapping <span>one gateway copy rule</span>
+      <li>ComIPduGroup <span>one I-PDU group</span></li>
+      <li>ComGwMapping <span>one mapping of the signal gateway</span>
         <ul>
-          <li>ComGwSource <span>copy from</span></li>
-          <li>ComGwDestination <span>copy to</span></li>
+          <li>ComGwSource <span>the source signal</span></li>
+          <li>ComGwDestination <span>a destination signal</span></li>
         </ul>
       </li>
     </ul>
   </li>
 </ul>
-<p>A packet does not contain its signals in this tree. It points to them, and each signal says at which bit of the packet it sits.</p>
+<p>An <span class="term">I-PDU</span> does not contain its signals in this tree. Its <code class="term">ComIPdu</code> container (the configuration of one I-PDU) refers to them, and each <code class="term">ComSignal</code> container (the configuration of one signal) says at which bit of the I-PDU the signal sits.</p>
 
-<h2>Find the settings for a feature</h2>
-<p>Pick a feature. You get the few settings that control it, where they are, and what they decide.</p>
+<h2>Find the parameters for a feature</h2>
+<p>Pick a feature. You get the few <span class="term">parameter</span>s that control it, the <span class="term">container</span> they are in, and what they decide.</p>
 <div class="panel no-print">
   <div class="chips" id="chips"></div>
   <div class="table-wrap">
     <table class="data">
-      <thead><tr><th>Setting</th><th>In container</th><th>Decides</th></tr></thead>
+      <thead><tr><th>Parameter</th><th>In container</th><th>Decides</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
   <p class="small" id="lesson-link"></p>
 </div>
 
-<h2>How to read a setting name</h2>
-<p>The names look long but follow a pattern. They start with <code>Com</code>, then say what they belong to, then what they set. <code>ComTxModeTimePeriod</code> is: COM, send setting, timer period. <code>ComRxDataTimeoutAction</code> is: COM, received data, action on timeout. Read them from left to right and most explain themselves.</p>
+<h2>How to read a parameter name</h2>
+<p>The names look long but follow a pattern. They start with <code>Com</code>, then say what they belong to, then what they set. <code>ComTxModeTimePeriod</code> is: COM, <span class="term">transmission mode</span>, time period. <code>ComRxDataTimeoutAction</code> is: COM, received data, action on <span class="term">timeout</span>. Read them from left to right and most explain themselves.</p>
 
 <h2>When you have to do it yourself</h2>
-<p>For real configuration work there are three helpers: a <a href="../config/configurator.html">configurator</a> that turns plain answers into settings and values, a <a href="../config/recipes.html">recipe book</a> for typical jobs, and a <a href="../config/troubleshooting.html">troubleshooting guide</a>.</p>
+<p>For real configuration work there are three helpers: a <a href="../config/configurator.html">configurator</a> that turns answers about the wanted behaviour into parameters and values, a <a href="../config/recipes.html">recipe book</a> for typical jobs, and a <a href="../config/troubleshooting.html">troubleshooting guide</a>.</p>
 
 <h2>Check yourself</h2>
 <p>Optional. Answer from memory.</p>
 <div id="quiz" class="no-print"></div>
 
-<h2>The AUTOSAR words</h2>
+<h2>New terms in this lesson</h2>
 <div class="table-wrap">
 <table class="data words">
-<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>Box of settings</td><td>Container</td></tr>
-<tr><td>Setting</td><td>Configuration parameter</td></tr>
-<tr><td>The network description file</td><td>System description (an ARXML file)</td></tr>
+<tr><td><span class="term">system description</span></td><td>The ARXML file in which the vehicle manufacturer describes the whole network; the COM configuration of each ECU is derived from it.</td></tr>
+<tr><td><span class="term">container</span></td><td>A named group of parameters in the configuration, for example ComIPdu or ComSignal. Containers can hold other containers.</td></tr>
+<tr><td><span class="term">parameter</span></td><td>One setting inside a container, for example ComTransferProperty.</td></tr>
+<tr><td><code class="term">ComIPdu</code></td><td>The container of one I-PDU: direction, signal processing, transmission modes, I-PDU groups and its signals.</td></tr>
+<tr><td><code class="term">ComSignal</code></td><td>The container of one signal: position, size, type, transfer property, init value, filter, timeouts and notifications.</td></tr>
 </tbody>
 </table>
 </div>
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10 (configuration specification). Only the settings needed for this course are shown; the specification lists them all.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10 (configuration specification). Only the parameters needed for this course are shown; the specification lists them all.</p>
 
 <nav class="course" data-nav></nav>
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/quiz.js"></script>
 <script>
 (function () {
   const F = [
-    { name: 'When to send', lesson: ['0002-four-timing-words.html', 'lesson 2'], rows: [
-      ['ComTransferProperty', 'ComSignal', 'Triggered (four flavours) or pending.'],
+    { name: 'Transmission mode', lesson: [2], rows: [
+      ['ComTransferProperty', 'ComSignal', 'TRIGGERED (four variants) or PENDING.'],
       ['ComTxModeMode', 'ComTxMode', 'DIRECT, PERIODIC, MIXED or NONE.'],
-      ['ComTxModeTimePeriod', 'ComTxMode', 'The timer period.'],
-      ['ComTxModeTimeOffset', 'ComTxMode', 'Delay before the first timer send after a start.']] },
-    { name: 'When to tell', lesson: ['0002-four-timing-words.html', 'lesson 2'], rows: [
+      ['ComTxModeTimePeriod', 'ComTxMode', 'The period of periodic transmission.'],
+      ['ComTxModeTimeOffset', 'ComTxMode', 'Delay before the first periodic transmission after a start.']] },
+    { name: 'Signal processing', lesson: [2], rows: [
       ['ComIPduSignalProcessing', 'ComIPdu', 'IMMEDIATE or DEFERRED.'],
-      ['ComMainRxTimeBase, ComMainTxTimeBase', 'ComMainFunctionRx / Tx', 'How often the heartbeats run.']] },
-    { name: 'Repeats and gap', lesson: ['0003-repeats-and-minimum-gap.html', 'lesson 3'], rows: [
-      ['ComTxModeNumberOfRepetitions', 'ComTxMode', 'How many extra sends follow the first.'],
-      ['ComTxModeRepetitionPeriod', 'ComTxMode', 'Time between those sends.'],
-      ['ComMinimumDelayTime', 'ComTxIPdu', 'The minimum gap. 0 or left out: no gap.'],
-      ['ComEnableMDTForCyclicTransmission', 'ComGeneral', 'Whether the gap also applies to timer sends and repeats.']] },
-    { name: 'Two send settings', lesson: ['0004-two-send-settings.html', 'lesson 4'], rows: [
-      ['ComTxModeTrue, ComTxModeFalse', 'ComTxIPdu', 'The two send settings of the packet.'],
-      ['ComFilter', 'ComSignal (of a sending packet)', 'The condition on this signal. No ComFilter on any signal: always "true".']] },
-    { name: 'Start values, update-bits', lesson: ['0005-start-values-and-update-bits.html', 'lesson 5'], rows: [
-      ['ComSignalInitValue', 'ComSignal', 'The start value.'],
+      ['ComMainRxTimeBase, ComMainTxTimeBase', 'ComMainFunctionRx / Tx', 'The period of the main functions.']] },
+    { name: 'Repetitions and MDT', lesson: [3], rows: [
+      ['ComTxModeNumberOfRepetitions', 'ComTxMode', 'Number of repetitions after a triggered transmission.'],
+      ['ComTxModeRepetitionPeriod', 'ComTxMode', 'Time between the repetitions.'],
+      ['ComMinimumDelayTime', 'ComTxIPdu', 'The minimum delay time. 0 or left out: none.'],
+      ['ComEnableMDTForCyclicTransmission', 'ComGeneral', 'Whether the minimum delay time also applies to periodic transmissions and repetitions.']] },
+    { name: 'Transmission mode selection', lesson: [4], rows: [
+      ['ComTxModeTrue, ComTxModeFalse', 'ComTxIPdu', 'The two transmission modes of the I-PDU.'],
+      ['ComFilter', 'ComSignal (of a sent I-PDU)', 'The transmission mode condition of this signal. No ComFilter on any signal: the transmission mode selector is always TRUE.']] },
+    { name: 'Init values, update-bits', lesson: [5], rows: [
+      ['ComSignalInitValue', 'ComSignal', 'The init value.'],
       ['ComUpdateBitPosition', 'ComSignal, ComSignalGroup', 'Where the update-bit sits. Left out: no update-bit.'],
-      ['ComTxIPduClearUpdateBit', 'ComTxIPdu', 'When the sender clears the bits again.'],
-      ['ComTxIPduUnusedAreasDefault', 'ComTxIPdu', 'What to put in the parts of a packet no signal uses.']] },
-    { name: 'Timeouts', lesson: ['0006-timeouts.html', 'lesson 6'], rows: [
-      ['ComTimeout', 'ComSignal, ComSignalGroup', 'The time limit. 0 or left out: not watched.'],
-      ['ComFirstTimeout', 'ComSignal, ComSignalGroup', 'The limit for the very first wait.'],
+      ['ComTxIPduClearUpdateBit', 'ComTxIPdu', 'When the sender clears the update-bits again.'],
+      ['ComTxIPduUnusedAreasDefault', 'ComTxIPdu', 'What to put in the parts of an I-PDU that no signal uses.']] },
+    { name: 'Deadline monitoring', lesson: [6], rows: [
+      ['ComTimeout', 'ComSignal, ComSignalGroup', 'The timeout. 0 or left out: no deadline monitoring.'],
+      ['ComFirstTimeout', 'ComSignal, ComSignalGroup', 'The timeout for the very first reception.'],
       ['ComRxDataTimeoutAction', 'ComSignal, ComSignalGroup', 'NONE, REPLACE or SUBSTITUTE.'],
-      ['ComTimeoutSubstitutionValue', 'ComSignal, ComGroupSignal', 'The substitute value.']] },
-    { name: 'Invalid values', lesson: ['0007-invalid-values.html', 'lesson 7'], rows: [
-      ['ComSignalDataInvalidValue', 'ComSignal, ComGroupSignal', 'The reserved value that means "invalid".'],
+      ['ComTimeoutSubstitutionValue', 'ComSignal, ComGroupSignal', 'The substitution value.']] },
+    { name: 'Data invalid values', lesson: [7], rows: [
+      ['ComSignalDataInvalidValue', 'ComSignal, ComGroupSignal', 'The data invalid value.'],
       ['ComDataInvalidAction', 'ComSignal, ComSignalGroup', 'NOTIFY or REPLACE.']] },
-    { name: 'Filters', lesson: ['0008-filters.html', 'lesson 8'], rows: [
-      ['ComFilterAlgorithm', 'ComFilter', 'Which of the eight rules.'],
+    { name: 'Filters', lesson: [8], rows: [
+      ['ComFilterAlgorithm', 'ComFilter', 'Which of the eight filter algorithms.'],
       ['ComFilterX, ComFilterMask', 'ComFilter', 'The fixed value X and the mask.'],
       ['ComFilterMin, ComFilterMax', 'ComFilter', 'The range.'],
-      ['ComFilterPeriod, ComFilterOffset', 'ComFilter', 'N and the offset for "every Nth".']] },
-    { name: 'Messages', lesson: ['0009-what-com-tells-the-application.html', 'lesson 9'], rows: [
-      ['ComUserCallback', 'the setup of COM\'s user (for example the RTE)', 'One entry per message, with the function COM should call.'],
-      ['ComUserCallbackType', 'ComUserCallback', 'Which kind of message, for example COM_RX_ACK (new value) or COM_RX_INV (invalid).'],
-      ['ComUserCallbackRef', 'ComUserSignal, ComUserSignalGroup', 'Links a signal or group to its messages.']] },
-    { name: 'Signal groups', lesson: ['0010-signal-groups.html', 'lesson 10'], rows: [
-      ['ComSignalGroup', 'ComConfig', 'The group itself.'],
-      ['ComGroupSignal', 'ComSignalGroup', 'One member each.'],
-      ['ComSignalGroupArrayAccess', 'ComSignalGroup', 'Use the "ready-made block of bytes" way.']] },
-    { name: 'Packet groups', lesson: ['0011-switching-packets-on-and-off.html', 'lesson 11'], rows: [
-      ['ComIPduGroup', 'ComConfig', 'One packet group.'],
-      ['ComIPduGroupRef', 'ComIPdu', 'Which groups this packet belongs to.'],
+      ['ComFilterPeriod, ComFilterOffset', 'ComFilter', 'N and the offset of ONE_EVERY_N.']] },
+    { name: 'Notifications', lesson: [9], rows: [
+      ['ComUserCallback', 'ComUserModuleCnf (of a COM user such as the RTE)', 'One container per notification, with the function COM calls.'],
+      ['ComUserCallbackType', 'ComUserCallback', 'Which notification, for example COM_RX_ACK (received) or COM_RX_INV (invalid).'],
+      ['ComUserCallbackRef', 'ComUserIPdu, ComUserSignal, ComUserSignalGroup', 'Links an I-PDU, signal or signal group to its notifications.']] },
+    { name: 'Signal groups', lesson: [10], rows: [
+      ['ComSignalGroup', 'ComConfig', 'The signal group itself.'],
+      ['ComGroupSignal', 'ComSignalGroup', 'One group signal each.'],
+      ['ComSignalGroupArrayAccess', 'ComSignalGroup', 'Access the signal group as one byte array.']] },
+    { name: 'I-PDU groups', lesson: [11], rows: [
+      ['ComIPduGroup', 'ComConfig', 'One I-PDU group.'],
+      ['ComIPduGroupRef', 'ComIPdu', 'The I-PDU groups this I-PDU belongs to.'],
       ['ComIPduDirection', 'ComIPdu', 'SEND or RECEIVE.']] },
-    { name: 'Gateway', lesson: ['0012-signal-gateway.html', 'lesson 12'], rows: [
-      ['ComGwMapping', 'ComConfig', 'One copy rule.'],
+    { name: 'Signal gateway', lesson: [12], rows: [
+      ['ComGwMapping', 'ComConfig', 'One mapping of the signal gateway.'],
       ['ComGwSource', 'ComGwMapping', 'The received signal to copy from.'],
       ['ComGwDestination', 'ComGwMapping', 'One or more signals to copy to.']] },
-    { name: 'Big data', lesson: ['0013-big-and-variable-size-data.html', 'lesson 13'], rows: [
-      ['ComIPduType', 'ComIPdu', 'NORMAL (one frame) or TP (in pieces).'],
-      ['ComSignalType', 'ComSignal', 'UINT8_N for a fixed row of bytes, UINT8_DYN for a changing one.'],
+    { name: 'Large I-PDUs', lesson: [13], rows: [
+      ['ComIPduType', 'ComIPdu', 'NORMAL (one frame) or TP (through a transport protocol).'],
+      ['ComSignalType', 'ComSignal', 'UINT8_N for a byte array of fixed length, UINT8_DYN for a dynamic length signal.'],
       ['ComSignalLength', 'ComSignal', 'Length, or maximum length, in bytes.'],
-      ['ComIPduLargeData', 'ComIPdu', 'Use the fast lane for this packet.']] },
-    { name: 'Bits and types', lesson: ['0016-signal-packing.html', 'lessons 16 and 17'], rows: [
-      ['ComBitPosition', 'ComSignal, ComGroupSignal', 'Where the signal starts in the packet.'],
-      ['ComBitSize', 'ComSignal, ComGroupSignal', 'How many bits it takes.'],
+      ['ComIPduLargeData', 'ComIPdu', 'Use the Large Data Path for this I-PDU.']] },
+    { name: 'Bits and types', lesson: [16, 17], rows: [
+      ['ComBitPosition', 'ComSignal, ComGroupSignal', 'Where the signal starts in the I-PDU.'],
+      ['ComBitSize', 'ComSignal, ComGroupSignal', 'How many bits it occupies.'],
       ['ComSignalEndianness', 'ComSignal, ComGroupSignal', 'Byte order: LITTLE_ENDIAN, BIG_ENDIAN or OPAQUE.'],
-      ['ComSignalType', 'ComSignal, ComGroupSignal', 'The kind of number, for example UINT16 or SINT8.']] }
+      ['ComSignalType', 'ComSignal, ComGroupSignal', 'The signal type, for example UINT16 or SINT8.']] }
   ];
   const chips = document.getElementById('chips');
   const rows = document.getElementById('rows');
@@ -171,29 +174,32 @@
   function show(i) {
     buttons.forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
     rows.innerHTML = F[i].rows.map((r) => '<tr><td><code>' + r[0].split(', ').join('</code>, <code>') + '</code></td><td class="mono">' + r[1] + '</td><td>' + r[2] + '</td></tr>').join('');
-    link.innerHTML = 'Explained in <a href="' + F[i].lesson[0] + '">' + F[i].lesson[1] + '</a>.';
+    link.innerHTML = 'Explained in ' + F[i].lesson.map((n) => {
+      const l = Course.LESSONS[n - 1];
+      return 'lesson ' + n + ', <a href="' + l.file + '">' + l.title + '</a>';
+    }).join(', and ') + '.';
   }
   show(0);
 })();
 
 Quiz.mount(document.getElementById('quiz'), [
   {
-    prompt: 'Triggered or pending is a setting of the…',
-    options: ['signal', 'packet', 'group'],
+    prompt: 'In which container is <code>ComTransferProperty</code>?',
+    options: ['ComSignal', 'ComIPdu', 'ComTxMode'],
     answer: 0,
-    why: 'ComTransferProperty belongs to the signal. The timer and DIRECT / PERIODIC / MIXED belong to the packet\'s send setting.'
+    why: 'The transfer property belongs to the signal. The transmission mode (DIRECT, PERIODIC, MIXED or NONE) and its period are in ComTxMode, inside the ComTxIPdu of the I-PDU.'
   },
   {
     prompt: 'A signal has no <code>ComTimeout</code> configured. What does COM do?',
-    options: ['It does not watch it', 'It uses a default limit', 'It reports an error'],
+    options: ['No deadline monitoring', 'Uses a default timeout', 'Reports a config error'],
     answer: 0,
-    why: 'A time limit that is left out, or 0, means this signal is not watched.'
+    why: 'A ComTimeout that is left out, or 0, means there is no deadline monitoring for this signal.'
   },
   {
-    prompt: 'When are COM\'s settings decided?',
-    options: ['Before the car runs', 'While the car runs', 'At every switch-on'],
+    prompt: 'When is the COM configuration decided?',
+    options: ['Before the ECU runs', 'While the ECU runs', 'At every bus start'],
     answer: 0,
-    why: 'The configuration is fixed in advance. COM does not make up packets or rules while running.'
+    why: 'The configuration is fixed in advance. COM does not create I-PDUs or rules while it runs.'
   }
 ]);
 </script>

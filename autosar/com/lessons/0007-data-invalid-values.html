@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data invalid values · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 5 minutes">AUTOSAR COM</p>
+<h1>Data invalid values</h1>
+<p class="lede">Sometimes a sending <span class="term">ECU</span> is alive but has nothing good to say: its sensor is broken. It needs a way to send "no valid value" in a <span class="term">signal</span>.</p>
+
+<h2>One value means "invalid"</h2>
+<p>Staying silent would trigger <span class="term">reception deadline monitoring</span> at the receiver, and a <span class="term">timeout</span> means something else: "the sender is gone". So the configuration gives the <span class="term">signal</span> a <span class="term">data invalid value</span> (one configured value of the signal that means "no valid value available"). For a speed that normally runs from 0 to 250, the value 255 could be the data invalid value.</p>
+<div class="cards">
+  <div class="card"><p class="tag">sender</p><h3>Invalidate</h3><p>The <span class="term">RTE</span> calls <code class="term">Com_InvalidateSignal</code> (the COM function that writes the data invalid value into a signal). COM writes the data invalid value into the <span class="term">I-PDU</span>. It is transmitted like any other value.</p></div>
+  <div class="card"><p class="tag">receiver</p><h3>Recognise</h3><p>COM sees the data invalid value arrive and does one of two things, chosen per signal.</p></div>
+</div>
+
+<h2>The receiver's two choices</h2>
+<p>The <span class="term" data-term="ComDataInvalidAction">data invalid action</span> (what the receiver does with a data invalid value) is one of two values:</p>
+<div class="cards">
+  <div class="card"><p class="tag">choice 1</p><h3>NOTIFY</h3><p>With <code class="term">NOTIFY</code>, COM calls the invalid <span class="term">notification</span> (a function of the <span class="term">RTE</span> that COM calls when something happens to a signal; lesson 9). It does not store the data invalid value: a read still gives the last valid value.</p></div>
+  <div class="card"><p class="tag">choice 2</p><h3>REPLACE</h3><p>With <code class="term">REPLACE</code>, COM swaps the data invalid value for the signal's <span class="term">init value</span> and carries on as if that had been received.</p></div>
+</div>
+
+<h3>Try it</h3>
+<p>The data invalid value is 255 and the init value is 0.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Data invalid action
+      <select id="act"><option>NOTIFY</option><option>REPLACE</option></select>
+    </label>
+    <button type="button" class="primary" id="good">Sender: Com_SendSignal(Speed)</button>
+    <button type="button" class="primary" id="bad">Sender: Com_InvalidateSignal(Speed)</button>
+  </div>
+  <div class="pkt" id="view"></div>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">data invalid value</span></td><td>A configured value of a signal that means "no valid value available".</td></tr>
+<tr><td><code class="term">Com_InvalidateSignal</code></td><td>COM function that writes the data invalid value into a signal for transmission.</td></tr>
+<tr><td><span class="term" data-term="ComDataInvalidAction">data invalid action</span></td><td>What a receiver does with a data invalid value: NOTIFY or REPLACE.</td></tr>
+<tr><td><code class="term">NOTIFY</code></td><td>Data invalid action: call the invalid notification and keep the last valid value.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.4 (SWS_Com_00099, 00680, 00681, 00717). Finer points: a data invalid value still counts as a reception, so it restarts the reception deadline monitoring timer. With NOTIFY, a read before any valid value was received gives the init value.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const INVALID = 255, START = 0;
+  const act = document.getElementById('act');
+  const view = document.getElementById('view');
+  let stored = START, next = 50;
+  function show(bus, told, cls) {
+    view.innerHTML =
+      '<div class="cell' + (bus === INVALID ? ' bad' : '') + '">on the bus<b>' + (bus === null ? '–' : bus) + '</b>' + (bus === INVALID ? 'data invalid value' : '&nbsp;') + '</div>' +
+      '<div class="cell ' + cls + '">notification<b>' + told + '</b>&nbsp;</div>' +
+      '<div class="cell">SWC reads<b>' + stored + '</b>&nbsp;</div>';
+  }
+  document.getElementById('good').onclick = () => { stored = next++; show(stored, 'received', 'new'); };
+  document.getElementById('bad').onclick = () => {
+    if (act.value === 'NOTIFY') show(INVALID, 'invalid', 'bad');
+    else { stored = START; show(INVALID, 'received', 'new'); }
+  };
+  act.onchange = () => { stored = START; next = 50; show(null, '–', 'dim'); };
+  show(null, '–', 'dim');
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Why not simply stop transmitting when a sensor is broken?',
+    options: ['The receiver sees a timeout', 'The bus would get slower', 'It would cost more battery'],
+    answer: 0,
+    why: 'A timeout means "the sender is gone". A data invalid value means "the sender is here but has no valid value".'
+  },
+  {
+    prompt: 'The data invalid action is NOTIFY and the data invalid value is received. What does a read give afterwards?',
+    options: ['The last valid value', 'The data invalid value', 'The signal\'s init value'],
+    answer: 0,
+    why: 'With NOTIFY the data invalid value is not stored. The RTE is notified, and the last valid value stays.'
+  },
+  {
+    prompt: 'The data invalid action is REPLACE and the data invalid value is received. What does a read give afterwards?',
+    options: ['The signal\'s init value', 'The data invalid value', 'The last valid value'],
+    answer: 0,
+    why: 'REPLACE swaps the data invalid value for the init value and carries on normally.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I-PDU groups · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>I-PDU groups</h1>
+<p class="lede">An <span class="term">ECU</span> should not always communicate. While the <span class="term">bus</span> sleeps or during special modes, whole sets of <span class="term">I-PDU</span>s are stopped, and started again later.</p>
+
+<h2>I-PDU groups</h2>
+<p><span class="term">I-PDU</span>s are sorted into named sets, for example "everything this <span class="term">ECU</span> sends on bus 1" or "everything it receives on bus 1". Such a set is an <span class="term">I-PDU group</span> (a set of I-PDUs that is started and stopped together). An I-PDU group holds only I-PDUs of one direction, transmission or reception, never both. <code class="term">Com_IpduGroupStart</code> and <code class="term">Com_IpduGroupStop</code> (the COM APIs that start or stop an I-PDU group) switch it as a whole.</p>
+<div class="cards">
+  <div class="card"><h3>After start-up</h3><p>All I-PDU groups are <strong>stopped</strong>. Nothing is sent until an I-PDU group is started.</p></div>
+  <div class="card"><h3>Who starts and stops?</h3><p>Not COM, and not an <span class="term">SWC</span>. In an AUTOSAR ECU it is the <span class="term">BswM</span> (BSW Mode Manager: the module that decides on mode changes of the ECU). It knows the state of the bus: awake, going to sleep, diagnostics running.</p></div>
+</div>
+<p>An I-PDU may belong to several I-PDU groups. It is started as long as <strong>at least one</strong> of its I-PDU groups is started. An I-PDU that belongs to no I-PDU group is started at start-up and can never be stopped.</p>
+
+<h2>What "stopped" means</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th></th><th>A stopped I-PDU for transmission</th><th>A stopped I-PDU for reception</th></tr></thead>
+<tbody>
+<tr><td>On the <span class="term">bus</span></td><td>Is not sent. Periodic transmission stops, outstanding transmissions and <span class="term" data-term="repetition">repetitions</span> are cancelled.</td><td>A received <span class="term">I-PDU</span> is ignored.</td></tr>
+<tr><td><span class="term">Deadline monitoring</span></td><td>Off</td><td>Off</td></tr>
+<tr><td><span class="term">Notification</span>s</td><td><code class="term">ComErrorNotification</code> for transmissions not yet confirmed</td><td>None</td></tr>
+<tr><td>Writes and reads of the <span class="term">RTE</span></td><td><code class="term">Com_SendSignal</code> still stores the value, but returns <code class="term">COM_SERVICE_NOT_AVAILABLE</code> (the I-PDU is stopped). A triggered write is not remembered for later.</td><td><code class="term">Com_ReceiveSignal</code> gives the last known value (or the <span class="term">init value</span>) and returns COM_SERVICE_NOT_AVAILABLE.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Try it</h3>
+<p>This I-PDU has the <span class="term">transmission mode</span> <code class="term">MIXED</code> with a period of 2 seconds, and Speed is a <code class="term">TRIGGERED</code> signal. Its I-PDU group starts out stopped, as after start-up. <code class="term">Com_IpduGroupStart</code> is called here without initialization, so stored values are kept (see below).</p>
+<div class="panel no-print">
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Write Speed while the I-PDU group is stopped, then start it: no I-PDU goes out at that moment, the old trigger is forgotten. But the first periodic transmission carries the value you wrote.</p>
+</div>
+
+<h2>Starting with or without initialization</h2>
+<p><code class="term">Com_IpduGroupStart</code> has a parameter Initialize. With true, COM sets the data of the <span class="term">I-PDU</span>s back to their <span class="term">init value</span>s, including the <span class="term">shadow buffer</span>s of their signal groups. With false, it keeps whatever is stored. In both cases the periodic transmission, the <span class="term">minimum delay time</span>, <span class="term">deadline monitoring</span> and the <span class="term">update-bit</span>s start from the beginning.</p>
+<p>There is one more, smaller switch for reception: <span class="term">reception deadline monitoring</span> alone can be disabled and enabled again, while the I-PDUs keep being received.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">I-PDU group</span></td><td>A set of I-PDUs of one direction that is started and stopped together.</td></tr>
+<tr><td><code class="term">Com_IpduGroupStart</code></td><td>COM API that starts an I-PDU group, with or without initialization.</td></tr>
+<tr><td><code class="term">Com_IpduGroupStop</code></td><td>COM API that stops an I-PDU group.</td></tr>
+<tr><td><span class="term">BswM</span></td><td>BSW Mode Manager: decides on mode changes of the ECU and starts and stops the I-PDU groups.</td></tr>
+<tr><td><code class="term">COM_SERVICE_NOT_AVAILABLE</code></td><td>Return value of the COM APIs when the I-PDU of the signal is stopped.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.5 (SWS_Com_00444, 00771, 00840, 00787, 00222, 00334, 00777, 00684, 00479, Tables 7.3 and 7.4). Finer points: reception deadline monitoring alone is switched with Com_DisableReceptionDM and Com_EnableReceptionDM. How long after a start the first periodic transmission goes out is a setting of its own (a time offset), used to keep many I-PDUs from all going out at the same instant.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const PERIOD = 2;
+  const readout = document.getElementById('readout');
+  let on, speed, nextSend;
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'sw', label: 'I-PDU group' },
+      { id: 'write', label: 'Speed written by the SWC' },
+      { id: 'bus', label: 'I-PDU on the bus' }
+    ],
+    duration: 20,
+    onTick(prev, now) {
+      if (on && now >= nextSend) {
+        nextSend += PERIOD;
+        tl.mark('bus', String(speed), 'bus');
+        readout.textContent = 'I-PDU sent (periodic) with Speed = ' + speed + '.';
+      }
+    },
+    onReset() {
+      on = false; speed = 0;
+      toggle.textContent = 'Com_IpduGroupStart';
+      readout.textContent = 'The I-PDU group is stopped. Press a button to start the clock.';
+    }
+  });
+  const toggle = Timeline.button('Com_IpduGroupStart', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    on = !on;
+    toggle.textContent = on ? 'Com_IpduGroupStop' : 'Com_IpduGroupStart';
+    tl.mark('sw', on ? 'start' : 'stop', on ? 'bus' : 'wait');
+    if (on) nextSend = tl.now() + PERIOD;
+    readout.textContent = on ? 'I-PDU group started. The period begins from zero.' : 'I-PDU group stopped. Nothing is sent.';
+  }, true);
+  tl.buttons.append(toggle, Timeline.button('Com_SendSignal(Speed)', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    speed++;
+    tl.mark('write', String(speed));
+    if (on) {
+      tl.mark('bus', String(speed), 'bus');
+      readout.textContent = 'I-PDU sent (Speed is TRIGGERED) with Speed = ' + speed + '.';
+    } else {
+      readout.textContent = 'Speed = ' + speed + ' is stored, but the I-PDU group is stopped: no transmission. Com_SendSignal returns COM_SERVICE_NOT_AVAILABLE.';
+    }
+  }, true));
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Right after start-up, in which state are the I-PDU groups?',
+    options: ['All of them stopped', 'All of them started', 'Same as before power-off'],
+    answer: 0,
+    why: 'All I-PDU groups begin stopped. The BswM, outside COM, has to start them.'
+  },
+  {
+    prompt: 'An I-PDU is in two I-PDU groups. One is started, one is stopped. Is the I-PDU started?',
+    options: ['Yes, one is enough', 'No, both are needed', 'Only for reception'],
+    answer: 0,
+    why: 'An I-PDU is started as long as at least one of its I-PDU groups is started.'
+  },
+  {
+    prompt: 'The SWC writes a signal while its I-PDU is stopped. What happens to the value?',
+    options: ['Stored, but not sent', 'Thrown away at once', 'Sent anyway, just once'],
+    answer: 0,
+    why: 'COM still stores the value so it is up to date when the I-PDU is started again. Com_SendSignal returns COM_SERVICE_NOT_AVAILABLE.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

@@ -8,62 +8,68 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker" data-kicker="about 6 minutes">AUTOSAR COM</p>
 <h1>What COM does</h1>
-<p class="lede">COM is the mail room of a car's control unit. Applications hand it single values. It gets them to other control units, and brings theirs back.</p>
+<p class="lede"><span class="term">COM</span> is the AUTOSAR module that moves values between <span class="term">ECUs</span> (the computers in a car). The software of one ECU hands COM single values. COM sends them to the other ECUs and brings their values back.</p>
 
 <h2>The problem COM solves</h2>
-<p>A car has many small computers, called control units or ECUs. They talk over a shared wire, the bus. On most cars that is CAN; newer ones also use Ethernet.</p>
-<p>The software inside a control unit thinks in single values: the speed, a temperature, "door open". The bus does not carry single values. It carries small packets of bytes. Somebody has to translate, and decide when each packet is sent. That somebody is COM.</p>
+<p>A car has many small computers, the <span class="term">ECUs</span> (Electronic Control Units). They talk over a shared network, the <span class="term">bus</span> (the wiring that connects the ECUs). On most cars that is <span class="term">CAN</span> (Controller Area Network); newer ones also use <span class="term">Ethernet</span> (the IP-based network).</p>
+<p>The software inside an ECU is made of <span class="term">SWCs</span> (software components: the application software that works with the values). They do not call COM themselves. The <span class="term">RTE</span> (Runtime Environment: the layer between the SWCs and the basic software below) passes their values to COM and back.</p>
+<p>An SWC thinks in single values: the speed, a temperature, "door open". Each one is a <span class="term">signal</span> (one value with a meaning). The bus does not carry single values. It carries blocks of bytes. The block COM works with is the <span class="term">I-PDU</span> (Interaction Layer Protocol Data Unit: a block of bytes that holds several signals side by side). Somebody has to translate between signals and I-PDUs, and decide when each I-PDU is sent. That somebody is COM. As a comparison: COM works like a mail room that puts many letters into one bag and sends the bag off.</p>
 
 <div class="cards">
-  <div class="card"><p class="tag">what the application sees</p><h3>Signal</h3><p>One value with a meaning, for example the speed.</p></div>
-  <div class="card"><p class="tag">what travels</p><h3>Packet</h3><p>A handful of bytes holding several signals side by side. AUTOSAR calls it an <em>I-PDU</em>.</p></div>
+  <div class="card"><p class="tag">what the SWC sees</p><h3>Signal</h3><p>One value with a meaning, for example the speed.</p></div>
+  <div class="card"><p class="tag">what travels</p><h3>I-PDU</h3><p>A block of bytes holding several signals side by side.</p></div>
 </div>
 
 <h2>Follow one value</h2>
-<p>Click through the journey of one speed value from one control unit to another.</p>
+<p>Click through the journey of one speed value from one <span class="term">ECU</span> to another.</p>
 <div class="panel no-print" id="journey"></div>
 
 <h2>COM's jobs</h2>
-<p>Everything COM does is one of these jobs. Each gets its own lesson.</p>
+<p>Everything <span class="term">COM</span> does is one of these jobs. Each gets its own lesson.</p>
 <div class="table-wrap">
 <table class="data">
-<thead><tr><th>Job</th><th>In plain words</th><th>Lesson</th></tr></thead>
+<thead><tr><th>Job</th><th>What it means</th><th>Lesson</th></tr></thead>
 <tbody>
-<tr><td>Decide when to send</td><td>Right away, on a timer, or both.</td><td><a href="0002-four-timing-words.html">2</a>, <a href="0003-repeats-and-minimum-gap.html">3</a>, <a href="0004-two-send-settings.html">4</a></td></tr>
-<tr><td>Decide when to tell</td><td>Tell the application at once, or a moment later.</td><td><a href="0002-four-timing-words.html">2</a></td></tr>
-<tr><td>Start values and "new" marks</td><td>Every signal has a value from the start; a mark shows which signals are really new.</td><td><a href="0005-start-values-and-update-bits.html">5</a></td></tr>
-<tr><td>Watch for timeouts</td><td>Notice when an expected packet stops coming.</td><td><a href="0006-timeouts.html">6</a></td></tr>
-<tr><td>Handle invalid values</td><td>Let a sender say "I have no good value right now".</td><td><a href="0007-invalid-values.html">7</a></td></tr>
-<tr><td>Filter</td><td>Pass on only the received values the application cares about.</td><td><a href="0008-filters.html">8</a></td></tr>
-<tr><td>Notify</td><td>Tell the application what happened: received, sent, timed out.</td><td><a href="0009-what-com-tells-the-application.html">9</a></td></tr>
-<tr><td>Keep values together</td><td>Values that belong together travel together.</td><td><a href="0010-signal-groups.html">10</a></td></tr>
-<tr><td>Switch packets on and off</td><td>Whole sets of packets can be started and stopped.</td><td><a href="0011-switching-packets-on-and-off.html">11</a></td></tr>
-<tr><td>Pass signals on</td><td>Copy a received signal straight into another packet.</td><td><a href="0012-signal-gateway.html">12</a></td></tr>
-<tr><td>Handle big data</td><td>Data that is too large for one packet, or changes size.</td><td><a href="0013-big-and-variable-size-data.html">13</a></td></tr>
-<tr><td>Pack and convert</td><td>Put each signal's bits in the right place and byte order.</td><td><a href="0016-signal-packing.html">16</a>, <a href="0017-types-and-negative-numbers.html">17</a></td></tr>
+<tr><td>Decide when to send</td><td>Right away, on a timer, or both.</td><td><a href="0002-transfer-property-transmission-mode-signal-processing.html">2</a>, <a href="0003-repetitions-and-the-minimum-delay-time.html">3</a>, <a href="0004-transmission-mode-selection.html">4</a></td></tr>
+<tr><td>Decide when to tell</td><td>Tell the <span class="term">SWC</span> at once, or a moment later.</td><td><a href="0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><span class="term">Init values</span> and <span class="term">update-bits</span></td><td>Every <span class="term">signal</span> has a value from start-up on; an extra bit shows which signals were really written.</td><td><a href="0005-init-values-and-update-bits.html">5</a></td></tr>
+<tr><td><span class="term">Deadline monitoring</span></td><td>Notice when an expected <span class="term">I-PDU</span> stops coming.</td><td><a href="0006-deadline-monitoring.html">6</a></td></tr>
+<tr><td><span class="term">Data invalid values</span></td><td>Let a sender say "I have no good value right now".</td><td><a href="0007-data-invalid-values.html">7</a></td></tr>
+<tr><td><span class="term">Filters</span></td><td>Pass on only the received values the SWC cares about.</td><td><a href="0008-filters.html">8</a></td></tr>
+<tr><td><span class="term">Notifications</span></td><td>Tell the SWC, through the <span class="term">RTE</span>, what happened: received, sent, timed out.</td><td><a href="0009-notifications.html">9</a></td></tr>
+<tr><td><span class="term">Signal groups</span></td><td>Signals that belong together travel together, as one consistent set.</td><td><a href="0010-signal-groups.html">10</a></td></tr>
+<tr><td><span class="term">I-PDU groups</span></td><td>Whole sets of I-PDUs can be started and stopped together.</td><td><a href="0011-i-pdu-groups.html">11</a></td></tr>
+<tr><td><span class="term">Signal gateway</span></td><td>Copy a received signal straight into another I-PDU, without an SWC in between.</td><td><a href="0012-signal-gateway.html">12</a></td></tr>
+<tr><td><span class="term">Large I-PDUs</span> and <span class="term">dynamic length signals</span></td><td>Data that is too large for one frame of the bus, or that changes its length.</td><td><a href="0013-large-i-pdus-and-dynamic-length-signals.html">13</a></td></tr>
+<tr><td>Packing and conversion</td><td>Put each signal's bits in the right place and byte order.</td><td><a href="0016-signal-packing.html">16</a>, <a href="0017-signal-types-and-sign-extension.html">17</a></td></tr>
 </tbody>
 </table>
 </div>
 
 <div class="note">
-<p><strong>What COM does not do.</strong> COM does not know which bus it is on. It hands every packet to one neighbour below it and receives packets from that neighbour. Everything specific to CAN or Ethernet happens further down. <a href="0014-the-road-below-com.html">Lesson 14</a> shows that road.</p>
+<p><strong>What COM does not do.</strong> COM does not know which bus it is on. It hands every I-PDU to one module below it, the <span class="term">PduR</span> (PDU Router: the module that forwards I-PDUs between COM and the modules for each bus), and receives I-PDUs from it. Everything specific to <span class="term">CAN</span> or <span class="term">Ethernet</span> happens further down. <a href="0014-pdur-and-the-lower-layers.html">Lesson 14</a> shows the layers below COM.</p>
 </div>
 
-<h2>The AUTOSAR words</h2>
+<h2>New terms in this lesson</h2>
 <div class="table-wrap">
 <table class="data words">
-<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>Control unit</td><td>ECU</td></tr>
-<tr><td>Application</td><td>Software component (SWC). It reaches COM through a layer called the RTE.</td></tr>
-<tr><td>Signal</td><td>Signal</td></tr>
-<tr><td>Packet</td><td>I-PDU</td></tr>
-<tr><td>The neighbour below COM</td><td>PDU Router (PduR)</td></tr>
+<tr><td><span class="term">COM</span></td><td>The Communication module of the AUTOSAR Classic Platform. It packs signals into I-PDUs, decides when they are sent, and unpacks received I-PDUs into signals again.</td></tr>
+<tr><td><span class="term">ECU</span></td><td>Electronic Control Unit: one of the computers in a car.</td></tr>
+<tr><td><span class="term">bus</span></td><td>The shared network that connects ECUs, for example CAN or Ethernet.</td></tr>
+<tr><td><span class="term">CAN</span></td><td>Controller Area Network: the most common vehicle bus.</td></tr>
+<tr><td><span class="term">Ethernet</span></td><td>The IP-based vehicle network.</td></tr>
+<tr><td><span class="term">SWC</span></td><td>Software component: application software that writes and reads signals.</td></tr>
+<tr><td><span class="term">RTE</span></td><td>Runtime Environment: the layer between the SWCs and the basic software. It calls COM to send and receive signals.</td></tr>
+<tr><td><span class="term">signal</span></td><td>One value with a meaning, for example the speed.</td></tr>
+<tr><td><span class="term">I-PDU</span></td><td>Interaction Layer Protocol Data Unit: a block of bytes that holds several signals side by side. COM sends and receives whole I-PDUs.</td></tr>
+<tr><td><span class="term">PduR</span></td><td>PDU Router: the module below COM. It forwards I-PDUs between COM and the modules for each bus.</td></tr>
 </tbody>
 </table>
 </div>
@@ -73,24 +79,25 @@
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/stepper.js"></script>
 <script>
 Stepper.create(document.getElementById('journey'), {
   stages: [
-    '<strong>Application A</strong>engine control unit',
-    '<strong>COM</strong>in control unit A',
+    '<strong>SWC A</strong>engine ECU',
+    '<strong>COM</strong>in ECU A',
     '<strong>Bus</strong>CAN or Ethernet',
-    '<strong>COM</strong>in control unit B',
-    '<strong>Application B</strong>dashboard'
+    '<strong>COM</strong>in ECU B',
+    '<strong>SWC B</strong>dashboard'
   ],
   steps: [
-    { at: [0], text: 'The engine application has a new speed: 50. It hands this one value, a <strong>signal</strong>, to COM.' },
-    { at: [1], text: 'COM writes the 50 into its place inside a <strong>packet</strong>. The packet also holds other signals, such as the engine temperature.' },
-    { at: [1], text: 'COM decides <strong>when</strong> the packet goes: right now because of this write, or at the next tick of a timer. That is lesson 2.' },
-    { at: [1, 2], text: 'COM hands the packet down. The layers below put it on the bus.' },
-    { at: [2, 3], text: 'The packet arrives at the dashboard control unit and is handed up to its COM.' },
-    { at: [3], text: 'COM takes the speed out of the packet and checks it: is it new, is it valid, does the application want it?' },
-    { at: [3, 4], text: 'COM tells the dashboard application that a new speed is there. The application reads 50 and moves the needle.' }
+    { at: [0], text: 'The engine SWC has a new speed: 50. Through the RTE it hands this one value, a <strong>signal</strong>, to COM.' },
+    { at: [1], text: 'COM writes the 50 into its place inside an <strong>I-PDU</strong>. The I-PDU also holds other signals, such as the engine temperature.' },
+    { at: [1], text: 'COM decides <strong>when</strong> the I-PDU goes: right now because of this write, or at the next tick of a timer. That is lesson 2.' },
+    { at: [1, 2], text: 'COM hands the I-PDU down to the PduR. The layers below put it on the bus.' },
+    { at: [2, 3], text: 'The I-PDU arrives at the dashboard ECU and is handed up to its COM.' },
+    { at: [3], text: 'COM takes the speed out of the I-PDU and checks it: is it new, is it valid, does the SWC want it?' },
+    { at: [3, 4], text: 'Through the RTE, COM tells the dashboard SWC that a new speed is there. The SWC reads 50 and moves the needle.' }
   ]
 });
 </script>

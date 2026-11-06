@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transfer property, transmission mode and signal processing · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 8 minutes">AUTOSAR COM</p>
+<h1>Transfer property, transmission mode and signal processing</h1>
+<p class="lede">Three settings decide the timing in <span class="term">COM</span>. The <span class="term">transfer property</span> of a <span class="term">signal</span> says whether writing it sends its <span class="term">I-PDU</span>. The <span class="term">transmission mode</span> of an I-PDU says when it is sent. The <span class="term">signal processing</span> of an I-PDU says when a received one is handled. Try the two timelines below and you will know all three.</p>
+
+<h2>Two timing questions</h2>
+<p>From <a href="0001-what-com-does.html">lesson 1</a>: an <span class="term">SWC</span> writes <span class="term">signals</span> through the <span class="term">RTE</span>, and <span class="term">COM</span> carries them in <span class="term">I-PDUs</span>. That leaves COM two timing questions: when does an I-PDU go out, and when does the receiver hear about one that arrived? Three settings answer them.</p>
+
+<h2>Sending: transfer property and transmission mode</h2>
+<p>The question: <strong>when the <span class="term">SWC</span> writes a new value, does the <span class="term">I-PDU</span> go out because of it?</strong> The first answer is a setting of each <span class="term">signal</span>, its <span class="term">transfer property</span> (whether writing the signal makes its I-PDU go out). It has two basic values, <code class="term">TRIGGERED</code> and <code class="term">PENDING</code>:</p>
+<div class="cards">
+  <div class="card"><p class="tag">set per signal</p><h3>TRIGGERED</h3><p>"Send it now." Writing this signal makes the I-PDU go out.</p></div>
+  <div class="card"><p class="tag">set per signal</p><h3>PENDING</h3><p>"No rush." The new value waits in COM and goes out with the next transmission of the I-PDU, whatever causes it.</p></div>
+</div>
+<p>What else causes a transmission? A TRIGGERED signal in the same I-PDU, or a timer. Whether there is a timer is decided by the <span class="term">transmission mode</span> of the I-PDU (when COM sends it). It has four values, <code class="term">DIRECT</code>, <code class="term">PERIODIC</code>, <code class="term">MIXED</code> and <code class="term">NONE</code>:</p>
+<div class="cards">
+  <div class="card"><p class="tag">set per I-PDU</p><h3>DIRECT</h3><p>No timer. The I-PDU only goes out when a TRIGGERED signal is written.</p></div>
+  <div class="card"><p class="tag">set per I-PDU</p><h3>PERIODIC</h3><p>Timer only. The I-PDU goes out at a fixed period and nothing else.</p></div>
+  <div class="card"><p class="tag">set per I-PDU</p><h3>MIXED</h3><p>Both. Timer, plus right away when a TRIGGERED signal is written.</p></div>
+  <div class="card"><p class="tag">set per I-PDU</p><h3>NONE</h3><p>Neither. COM never starts a transmission of the I-PDU by itself.</p></div>
+</div>
+
+<h3>Try it</h3>
+<p>One I-PDU carries two signals. Speed is <code>TRIGGERED</code>, Temp is <code>PENDING</code>. Write some values and watch the bus lane. A label like <code>S2 T1</code> means the I-PDU carried Speed 2 and Temp 1. Then change the transmission mode and try again.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Transmission mode
+      <select id="tx-mode">
+        <option value="DIRECT">DIRECT: no timer</option>
+        <option value="PERIODIC">PERIODIC: timer only</option>
+        <option value="MIXED">MIXED: both</option>
+      </select>
+    </label>
+  </div>
+  <div id="tx"></div>
+  <p class="readout" id="tx-readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With DIRECT, a Temp you write stays in COM until you write a Speed. With PERIODIC, even writing Speed sends nothing until the timer fires. With MIXED you get both.</p>
+</div>
+
+<h2>Receiving: signal processing</h2>
+<p>The question: <strong>when an <span class="term">I-PDU</span> arrives, when does the <span class="term">RTE</span> hear about it?</strong> The answer is the <span class="term">signal processing</span> of the I-PDU (whether COM handles a received I-PDU at once or later). It has two values, <code class="term">IMMEDIATE</code> and <code class="term">DEFERRED</code>:</p>
+<div class="cards">
+  <div class="card"><p class="tag">set per I-PDU</p><h3>IMMEDIATE</h3><p>Right now, in the same moment the I-PDU arrives.</p></div>
+  <div class="card"><p class="tag">set per I-PDU</p><h3>DEFERRED</h3><p>A little later. COM keeps the data and processes it, and notifies the RTE, the next time its main function runs.</p></div>
+</div>
+<p>That regular job is COM's <span class="term">main function</span> (a function of COM that the scheduler calls at a fixed period). COM has one main function for reception and one for transmission. DEFERRED is calmer for the system, because the work is done in the main function and not at the moment of reception. IMMEDIATE is faster.</p>
+
+<h3>Try it</h3>
+<p>Let a few I-PDUs arrive and watch when the RTE is notified. The small dots are the calls of the main function.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Signal processing
+      <select id="rx-mode">
+        <option value="IMMEDIATE">IMMEDIATE</option>
+        <option value="DEFERRED">DEFERRED</option>
+      </select>
+    </label>
+  </div>
+  <div id="rx"></div>
+  <p class="readout" id="rx-readout" aria-live="polite"></p>
+</div>
+
+<div class="win">
+<p><strong>What you can do now.</strong> Read these three settings in any COM configuration and say what will happen: does a write cause a transmission, and when does the receiver hear about it.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory, without scrolling up.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">transfer property</span></td><td>Setting of a signal: whether writing it makes its I-PDU go out.</td></tr>
+<tr><td><code class="term">TRIGGERED</code></td><td>Every write of the signal makes its I-PDU go out (when the transmission mode is DIRECT or MIXED).</td></tr>
+<tr><td><code class="term">PENDING</code></td><td>Writing the signal sends nothing; the new value goes out with the next transmission of its I-PDU.</td></tr>
+<tr><td><span class="term">transmission mode</span></td><td>Setting of an I-PDU: when COM sends it.</td></tr>
+<tr><td><code class="term">DIRECT</code></td><td>The I-PDU is sent only when a TRIGGERED signal is written.</td></tr>
+<tr><td><code class="term">PERIODIC</code></td><td>The I-PDU is sent at a fixed period; writes do not trigger a transmission.</td></tr>
+<tr><td><code class="term">MIXED</code></td><td>The I-PDU is sent periodically and also when a TRIGGERED signal is written.</td></tr>
+<tr><td><code class="term">NONE</code></td><td>COM never starts a transmission of the I-PDU by itself.</td></tr>
+<tr><td><span class="term">signal processing</span></td><td>Setting of an I-PDU: whether a received I-PDU is processed and notified at once or in the next main function.</td></tr>
+<tr><td><code class="term">IMMEDIATE</code></td><td>COM processes a received I-PDU and notifies the RTE right away.</td></tr>
+<tr><td><code class="term">DEFERRED</code></td><td>COM keeps a received I-PDU and processes and notifies it in its next main function.</td></tr>
+<tr><td><span class="term">main function</span></td><td>A function of COM that the scheduler calls at a fixed period; there is one for reception and one for transmission.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.3.1 and 7.2.5.4 (SWS_Com_00330, SWS_Com_00300, SWS_Com_00301). "Right away" for a TRIGGERED signal means at the latest when COM's main function next runs. TRIGGERED also has variants: only on a changed value, and with or without repetitions (see the next lesson).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+// Sending: one I-PDU, Speed is TRIGGERED, Temp is PENDING.
+(function () {
+  const PERIOD = 3;
+  const mode = document.getElementById('tx-mode');
+  const readout = document.getElementById('tx-readout');
+  let speed, temp, sentSpeed, sentTemp;
+
+  function show(extra) {
+    const waiting = [];
+    if (speed !== sentSpeed) waiting.push('Speed ' + speed);
+    if (temp !== sentTemp) waiting.push('Temp ' + temp);
+    readout.textContent = (extra ? extra + ' ' : '') +
+      (waiting.length ? 'Waiting in COM: ' + waiting.join(', ') + '.' : 'Nothing is waiting in COM.');
+  }
+  function send(why) {
+    sentSpeed = speed;
+    sentTemp = temp;
+    tl.mark('bus', 'S' + speed + ' T' + temp, 'bus');
+    show('I-PDU sent (' + why + '), carrying Speed ' + speed + ' and Temp ' + temp + '.');
+  }
+  const tl = Timeline.create(document.getElementById('tx'), {
+    lanes: [
+      { id: 'speed', label: 'Speed (TRIGGERED)' },
+      { id: 'temp', label: 'Temp (PENDING)' },
+      { id: 'bus', label: 'I-PDU on the bus' }
+    ],
+    duration: 15,
+    onTick(prev, now) {
+      if (mode.value !== 'DIRECT' && Timeline.crossed(prev, now, PERIOD) > 0) send('timer');
+    },
+    onReset() {
+      speed = temp = sentSpeed = sentTemp = 0;
+      readout.textContent = 'Press a button to start the clock.';
+    }
+  });
+  tl.buttons.append(
+    Timeline.button('Write Speed', () => {
+      if (tl.finished()) tl.reset();
+      tl.start();
+      speed++;
+      tl.mark('speed', String(speed));
+      if (mode.value === 'PERIODIC') show('Speed written. No transmission: a PERIODIC I-PDU only follows the timer.');
+      else send('Speed is TRIGGERED');
+    }, true),
+    Timeline.button('Write Temp', () => {
+      if (tl.finished()) tl.reset();
+      tl.start();
+      temp++;
+      tl.mark('temp', String(temp), 'wait');
+      show('Temp written. No transmission: Temp is PENDING.');
+    }, true)
+  );
+  mode.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+// Receiving: IMMEDIATE notifies the RTE at once, DEFERRED at the next main function.
+(function () {
+  const BEAT = 2.5;
+  const mode = document.getElementById('rx-mode');
+  const readout = document.getElementById('rx-readout');
+  let count, held;
+
+  const tl = Timeline.create(document.getElementById('rx'), {
+    lanes: [
+      { id: 'in', label: 'I-PDU arrives' },
+      { id: 'beat', label: 'COM main function' },
+      { id: 'app', label: 'RTE notified' }
+    ],
+    duration: 15,
+    onTick(prev, now) {
+      if (Timeline.crossed(prev, now, BEAT) === 0) return;
+      tl.mark('beat', '', 'tick');
+      if (held.length) {
+        tl.mark('app', held.join(', '), 'bus');
+        readout.textContent = 'Main function: RTE notified about I-PDU ' + held.join(', ') + '.';
+        held = [];
+      }
+    },
+    onReset() {
+      count = 0;
+      held = [];
+      readout.textContent = 'Press the button to start the clock.';
+    }
+  });
+  tl.buttons.append(
+    Timeline.button('An I-PDU arrives', () => {
+      if (tl.finished()) tl.reset();
+      tl.start();
+      count++;
+      tl.mark('in', String(count));
+      if (mode.value === 'IMMEDIATE') {
+        tl.mark('app', String(count), 'bus');
+        readout.textContent = 'I-PDU ' + count + ' arrived. RTE notified at once.';
+      } else {
+        held.push(count);
+        readout.textContent = 'I-PDU ' + count + ' arrived. COM holds it until the next main function.';
+      }
+    }, true)
+  );
+  mode.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which two settings are about <em>sending</em>?',
+    options: ['Transfer property and transmission mode', 'Signal processing and transmission mode', 'Transfer property and signal processing'],
+    answer: 0,
+    why: 'The transfer property says whether a write makes the I-PDU go out, the transmission mode when the I-PDU is sent. Signal processing is about receiving.'
+  },
+  {
+    prompt: 'The transmission mode is DIRECT. The SWC writes a PENDING signal. What happens on the bus?',
+    options: ['Nothing yet, it waits', 'One I-PDU right away', 'Two I-PDUs right away'],
+    answer: 0,
+    why: 'PENDING never causes a transmission. The value waits until a TRIGGERED signal in the same I-PDU is written.'
+  },
+  {
+    prompt: 'The transmission mode is PERIODIC. The SWC writes a TRIGGERED signal. What happens?',
+    options: ['Nothing until timer fires', 'One I-PDU goes right away', 'Two I-PDUs go right away'],
+    answer: 0,
+    why: 'TRIGGERED only causes a transmission when the transmission mode is DIRECT or MIXED. A PERIODIC I-PDU follows its timer and nothing else.'
+  },
+  {
+    prompt: 'An I-PDU arrives and its signal processing is DEFERRED. When is the RTE notified?',
+    options: ['At the next main function', 'As soon as the I-PDU arrives', 'At the next periodic send'],
+    answer: 0,
+    why: 'DEFERRED means COM keeps the data and processes it when its main function next runs.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

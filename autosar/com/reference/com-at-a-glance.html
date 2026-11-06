@@ -8,102 +8,109 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker">AUTOSAR COM · Sheet</p>
 <h1>COM at a glance</h1>
-<p class="lede">Every feature of COM on one page, in plain words. The number is the lesson that explains it.</p>
+<p class="lede">Every feature of <span class="term">COM</span> on one page, in short. The number is the lesson that explains it.</p>
 
 <div class="flow">
-  <div class="box"><strong>Application</strong>single values: <em>signals</em></div>
+  <div class="box"><strong>SWCs, through the RTE</strong>single values: <em>signals</em></div>
   <div class="arrow">⇄</div>
   <div class="box main"><strong>COM</strong>packs and unpacks, decides when</div>
   <div class="arrow">⇄</div>
-  <div class="box"><strong>Below COM</strong>packets (<em>I-PDUs</em>) to and from the bus</div>
+  <div class="box"><strong>PduR and below</strong><em>I-PDUs</em> to and from the bus</div>
 </div>
 
-<h2>Sending</h2>
+<h2>Transmission</h2>
 <div class="table-wrap">
 <table class="data">
-<thead><tr><th>Word</th><th>Set on</th><th>Means</th><th></th></tr></thead>
+<thead><tr><th>Term</th><th>Set on</th><th>Means</th><th></th></tr></thead>
 <tbody>
-<tr><td><code>TRIGGERED</code></td><td>Signal</td><td>Writing it makes the packet go out now. Flavours: only on change, with or without repeats.</td><td><a href="../lessons/0002-four-timing-words.html">2</a>, <a href="../lessons/0003-repeats-and-minimum-gap.html">3</a></td></tr>
-<tr><td><code>PENDING</code></td><td>Signal</td><td>Writing it sends nothing. The value rides along on the next send.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td><code>DIRECT</code></td><td>Packet</td><td>No timer. Sent only when a triggered signal is written.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td><code>PERIODIC</code></td><td>Packet</td><td>Timer only.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td><code>MIXED</code></td><td>Packet</td><td>Timer, plus right away on a triggered write.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td><code>NONE</code></td><td>Packet</td><td>COM never starts a send itself.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td>Repeats</td><td>Packet</td><td>Send the packet several times after one write.</td><td><a href="../lessons/0003-repeats-and-minimum-gap.html">3</a></td></tr>
-<tr><td>Minimum gap</td><td>Packet</td><td>Pause after a send before the same packet may go again. Sends inside the pause wait.</td><td><a href="../lessons/0003-repeats-and-minimum-gap.html">3</a></td></tr>
-<tr><td>Two send settings</td><td>Packet</td><td>A "true" and a "false" setting. Conditions on signal values pick one.</td><td><a href="../lessons/0004-two-send-settings.html">4</a></td></tr>
-<tr><td>Send timeout</td><td>Signal</td><td>Alarm, once, if the bus does not confirm a send in time.</td><td><a href="../lessons/0006-timeouts.html">6</a></td></tr>
+<tr><td><code class="term">TRIGGERED</code></td><td>Signal</td><td>Writing the <span class="term">signal</span> makes its <span class="term">I-PDU</span> go out now. Variants: only on change, with or without repetitions.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a>, <a href="../lessons/0003-repetitions-and-the-minimum-delay-time.html">3</a></td></tr>
+<tr><td><code class="term">PENDING</code></td><td>Signal</td><td>Writing it sends nothing. The value goes out with the next transmission of the I-PDU.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><code class="term">DIRECT</code></td><td>I-PDU</td><td>No period. Sent only when a TRIGGERED signal is written.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><code class="term">PERIODIC</code></td><td>I-PDU</td><td>Sent at a fixed period only.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><code class="term">MIXED</code></td><td>I-PDU</td><td>Sent at a fixed period, plus right away on a triggered write.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><code class="term">NONE</code></td><td>I-PDU</td><td>COM never starts a transmission by itself.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><span class="term">Number of repetitions</span>, <span class="term">repetition period</span></td><td>I-PDU</td><td>Send the I-PDU several times after one write, this far apart.</td><td><a href="../lessons/0003-repetitions-and-the-minimum-delay-time.html">3</a></td></tr>
+<tr><td><span class="term">Minimum delay time</span></td><td>I-PDU</td><td>Shortest time between two transmissions of the same I-PDU. A transmission inside it waits.</td><td><a href="../lessons/0003-repetitions-and-the-minimum-delay-time.html">3</a></td></tr>
+<tr><td><span class="term">Transmission mode selector</span></td><td>I-PDU</td><td>Picks <code class="term">ComTxModeTrue</code> or ComTxModeFalse, from <span class="term">transmission mode condition</span>s on signal values.</td><td><a href="../lessons/0004-transmission-mode-selection.html">4</a></td></tr>
+<tr><td><span class="term">Transmission deadline monitoring</span></td><td>Signal</td><td>Notification, once, if the lower layers do not confirm a transmission within the <span class="term">timeout</span>.</td><td><a href="../lessons/0006-deadline-monitoring.html">6</a></td></tr>
 </tbody>
 </table>
 </div>
 
-<h2>Receiving</h2>
+<h2>Reception</h2>
 <div class="table-wrap">
 <table class="data">
-<thead><tr><th>Word</th><th>Set on</th><th>Means</th><th></th></tr></thead>
+<thead><tr><th>Term</th><th>Set on</th><th>Means</th><th></th></tr></thead>
 <tbody>
-<tr><td><code>IMMEDIATE</code></td><td>Packet</td><td>Application is told the moment the packet arrives.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td><code>DEFERRED</code></td><td>Packet</td><td>Application is told at COM's next heartbeat.</td><td><a href="../lessons/0002-four-timing-words.html">2</a></td></tr>
-<tr><td>Start value</td><td>Signal</td><td>The value handed out until a real one arrives.</td><td><a href="../lessons/0005-start-values-and-update-bits.html">5</a></td></tr>
-<tr><td>Update-bit</td><td>Signal</td><td>One bit saying "this signal is new". Not set: receiver ignores the signal.</td><td><a href="../lessons/0005-start-values-and-update-bits.html">5</a></td></tr>
-<tr><td>Receive timeout</td><td>Signal</td><td>Alarm, repeating, when nothing arrives in time. Then keep, reset or substitute the value.</td><td><a href="../lessons/0006-timeouts.html">6</a></td></tr>
-<tr><td>Invalid value</td><td>Signal</td><td>A reserved value meaning "no good value". Receiver notifies or replaces.</td><td><a href="../lessons/0007-invalid-values.html">7</a></td></tr>
-<tr><td>Filter</td><td>Signal</td><td>A pass-or-block rule for received values. Eight rules.</td><td><a href="../lessons/0008-filters.html">8</a></td></tr>
-<tr><td>Messages</td><td>Signal</td><td>New value, overdue, invalid, sent, not sent in time, could not be sent.</td><td><a href="../lessons/0009-what-com-tells-the-application.html">9</a></td></tr>
+<tr><td><code class="term">IMMEDIATE</code></td><td>I-PDU</td><td>The <span class="term">RTE</span> is notified the moment the <span class="term">I-PDU</span> arrives.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><code class="term">DEFERRED</code></td><td>I-PDU</td><td>The RTE is notified in the next <span class="term">main function</span> (Com_MainFunctionRx).</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a></td></tr>
+<tr><td><span class="term">Init value</span></td><td>Signal</td><td>The value of the <span class="term">signal</span> until a real one arrives.</td><td><a href="../lessons/0005-init-values-and-update-bits.html">5</a></td></tr>
+<tr><td><span class="term">Update-bit</span></td><td>Signal</td><td>One bit saying "this signal was written". Not set: the receiver ignores the signal.</td><td><a href="../lessons/0005-init-values-and-update-bits.html">5</a></td></tr>
+<tr><td><span class="term">Reception deadline monitoring</span></td><td>Signal</td><td>Notification, repeated each <span class="term">timeout</span>, while nothing arrives. Then keep, replace with the init value, or substitute.</td><td><a href="../lessons/0006-deadline-monitoring.html">6</a></td></tr>
+<tr><td><span class="term">Data invalid value</span></td><td>Signal</td><td>A configured value meaning "no valid value". The receiver notifies or replaces.</td><td><a href="../lessons/0007-data-invalid-values.html">7</a></td></tr>
+<tr><td><span class="term">Filter</span></td><td>Signal</td><td>A pass-or-block rule for received values. Eight filter algorithms.</td><td><a href="../lessons/0008-filters.html">8</a></td></tr>
+<tr><td><span class="term">Notification</span></td><td>Signal</td><td>Received, timeout, invalid, transmitted, transmission timeout, transmission error.</td><td><a href="../lessons/0009-notifications.html">9</a></td></tr>
 </tbody>
 </table>
 </div>
 
-<h3>Order of the receiving steps</h3>
+<h3>Order of the reception steps</h3>
 <ol>
-<li>Reset the packet's timeout stopwatch</li>
+<li>Restart the I-PDU's reception deadline monitoring timer</li>
 <li>Check the update-bit</li>
-<li>Convert byte order and sign</li>
-<li>Check for the invalid value</li>
+<li>Convert endianness, sign extension</li>
+<li>Check for the data invalid value</li>
 <li>Filter</li>
-<li>Reset the signal's own timeout stopwatch</li>
-<li>Tell the application</li>
+<li>Restart the signal's reception deadline monitoring timer</li>
+<li>Notify the RTE</li>
 </ol>
 
-<h2>Organising</h2>
+<h2>Groups, gateway and large I-PDUs</h2>
 <div class="table-wrap">
 <table class="data">
-<thead><tr><th>Feature</th><th>Means</th><th></th></tr></thead>
+<thead><tr><th>Term</th><th>Means</th><th></th></tr></thead>
 <tbody>
-<tr><td>Signal group</td><td>Values that belong together are collected in a staging area and handed over as one set.</td><td><a href="../lessons/0010-signal-groups.html">10</a></td></tr>
-<tr><td>Packet group</td><td>A named set of packets that is started and stopped as a whole, from outside COM. All stopped after switch-on.</td><td><a href="../lessons/0011-switching-packets-on-and-off.html">11</a></td></tr>
-<tr><td>Signal gateway</td><td>Fixed rules that copy a received signal into outgoing packets, at the gateway's heartbeat.</td><td><a href="../lessons/0012-signal-gateway.html">12</a></td></tr>
-<tr><td>Big packet</td><td>Too big for one frame: sent in pieces by a helper below COM.</td><td><a href="../lessons/0013-big-and-variable-size-data.html">13</a></td></tr>
-<tr><td>Changing size</td><td>A row of bytes with varying length, last in its packet.</td><td><a href="../lessons/0013-big-and-variable-size-data.html">13</a></td></tr>
-<tr><td>Fast lane</td><td>COM passes a finished block of bytes through untouched.</td><td><a href="../lessons/0013-big-and-variable-size-data.html">13</a></td></tr>
+<tr><td><span class="term">Signal group</span></td><td><span class="term">Group signal</span>s that belong together are collected in a <span class="term">shadow buffer</span> and handed over as one consistent set.</td><td><a href="../lessons/0010-signal-groups.html">10</a></td></tr>
+<tr><td><span class="term">I-PDU group</span></td><td>A set of <span class="term">I-PDU</span>s that is started and stopped together, from outside COM (by <span class="term">BswM</span>). All stopped after start-up.</td><td><a href="../lessons/0011-i-pdu-groups.html">11</a></td></tr>
+<tr><td><span class="term">Signal gateway</span></td><td>Fixed mappings that copy a received <span class="term">signal</span> into I-PDUs to be transmitted, in Com_MainFunctionRouteSignals.</td><td><a href="../lessons/0012-signal-gateway.html">12</a></td></tr>
+<tr><td><span class="term">Large I-PDU</span></td><td>Too big for one frame: sent in several frames by a <span class="term">transport protocol</span> below COM.</td><td><a href="../lessons/0013-large-i-pdus-and-dynamic-length-signals.html">13</a></td></tr>
+<tr><td><span class="term">Dynamic length signal</span></td><td>A byte array (UINT8_DYN) whose length changes; the last signal in its I-PDU.</td><td><a href="../lessons/0013-large-i-pdus-and-dynamic-length-signals.html">13</a></td></tr>
+<tr><td><span class="term">Large Data Path</span></td><td>COM passes a finished block of bytes through without packing or keeping a copy.</td><td><a href="../lessons/0013-large-i-pdus-and-dynamic-length-signals.html">13</a></td></tr>
 </tbody>
 </table>
 </div>
 
-<h2>COM's borders</h2>
+<h2>COM's interfaces</h2>
 <div class="table-wrap">
 <table class="data">
 <thead><tr><th>Call</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td><code>Com_SendSignal</code> / <code>Com_ReceiveSignal</code></td><td>Write / read one signal, from above.</td></tr>
-<tr><td><code>PduR_ComTransmit</code></td><td>COM hands a packet down.</td></tr>
-<tr><td><code>Com_TxConfirmation</code></td><td>"Your packet is on the bus."</td></tr>
-<tr><td><code>Com_RxIndication</code></td><td>"A packet arrived for you."</td></tr>
-<tr><td><code>Com_TriggerTransmit</code></td><td>"Give me the packet's content now."</td></tr>
+<tr><td><code class="term">Com_SendSignal</code> / <code class="term">Com_ReceiveSignal</code></td><td>The <span class="term">RTE</span> writes / reads one <span class="term">signal</span>.</td></tr>
+<tr><td><code class="term">PduR_ComTransmit</code></td><td>COM hands an <span class="term">I-PDU</span> down to the <span class="term">PduR</span>.</td></tr>
+<tr><td><code class="term">Com_TxConfirmation</code></td><td>"Your I-PDU was transmitted."</td></tr>
+<tr><td><code class="term">Com_RxIndication</code></td><td>"An I-PDU arrived for you."</td></tr>
+<tr><td><code class="term">Com_TriggerTransmit</code></td><td>"Give me the content of the I-PDU now."</td></tr>
 </tbody>
 </table>
 </div>
-<p class="small">See <a href="../lessons/0014-the-road-below-com.html">lesson 14</a> for the road below COM, <a href="../lessons/0015-configuration-map.html">lesson 15</a> for the settings, and the <a href="signal-packing.html">signal packing sheet</a> for bits. Checked against the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>.</p>
+<p class="small">See lesson 14, <a href="../lessons/0014-pdur-and-the-lower-layers.html">PduR and the lower layers</a>, for the layers below COM; lesson 15, <a href="../lessons/0015-configuration-map.html">The configuration map</a>, for the parameters; and the <a href="signal-packing.html">signal packing sheet</a> for bits. Checked against the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>.</p>
 
 <nav class="course" data-nav></nav>
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script>
+document.querySelectorAll('td a[href^="../lessons/"]').forEach((a) => {
+  const i = Course.LESSONS.findIndex((l) => a.getAttribute('href').endsWith(l.file));
+  if (i >= 0) a.title = 'Lesson ' + (i + 1) + ': ' + Course.LESSONS[i].title;
+});
+</script>
 <footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
 </body>
 </html>

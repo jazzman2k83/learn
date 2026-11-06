@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repetitions and the minimum delay time · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Repetitions and the minimum delay time</h1>
+<p class="lede">Two extras for <span class="term">TRIGGERED</span> transmission. One sends an important <span class="term">I-PDU</span> several times in a row. The other stops an I-PDU from going out too often.</p>
+
+<h2>Repetitions: send it more than once</h2>
+<p>An <span class="term">I-PDU</span> can get lost on a noisy <span class="term">bus</span>. For an important <span class="term">signal</span>, such as "brake pressed", COM can send the same I-PDU several times in a row after one write. AUTOSAR calls this N-Times transmission. Two settings of the <span class="term">transmission mode</span> of the I-PDU control it: the <span class="term">number of repetitions</span> (how many extra transmissions follow a triggered one) and the <span class="term">repetition period</span> (the time between them).</p>
+<div class="cards">
+  <div class="card"><p class="tag">set per I-PDU</p><h3>Number of repetitions</h3><p>How many extra transmissions follow the first one. With 2 repetitions the I-PDU goes out 3 times.</p></div>
+  <div class="card"><p class="tag">set per I-PDU</p><h3>Repetition period</h3><p>The time between those transmissions.</p></div>
+</div>
+<p>If the <span class="term">SWC</span> writes a new value while repetitions are still running, COM drops the remaining repetitions and starts again with the new value. An old value is not worth repeating.</p>
+
+<h2>Minimum delay time: not too often</h2>
+<p>An <span class="term">SWC</span> might write a <code class="term">TRIGGERED</code> signal a hundred times a second. Sending the <span class="term">I-PDU</span> each time would flood the bus. The <span class="term">minimum delay time</span> (MDT: the shortest time between two transmissions of the same I-PDU) prevents that. After a transmission, COM waits at least this long before it sends that I-PDU again. It works like a cool-down.</p>
+<p>A transmission that falls inside the minimum delay time is not lost. COM holds it back and sends when the time is over, with the newest values.</p>
+
+<h3>Try it</h3>
+<p>Speed is a <code>TRIGGERED</code> signal in an I-PDU with transmission mode <code>DIRECT</code>. Click "Write Speed" a few times quickly, with different settings. The repetition period is one second here.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Number of repetitions
+      <select id="reps">
+        <option value="0">0: send once</option>
+        <option value="2">2: send three times</option>
+      </select>
+    </label>
+    <label>Minimum delay time
+      <select id="gap">
+        <option value="0">0 (none)</option>
+        <option value="2.5">2.5 seconds</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> With repetitions, a second write cuts the first series short. With a minimum delay time, quick writes produce fewer transmissions than writes, and the I-PDU that finally goes out carries the newest speed.</p>
+</div>
+
+<h2>The TRIGGERED family</h2>
+<p>Lesson 2 introduced the <span class="term">transfer property</span> of a signal: <code class="term">TRIGGERED</code> or <code class="term">PENDING</code>. TRIGGERED comes in four variants. They differ in two questions: does every write count, or only a changed value? And are repetitions used?</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Transfer property</th><th>A write triggers a transmission when…</th><th>Repetitions</th></tr></thead>
+<tbody>
+<tr><td><code class="term">TRIGGERED</code></td><td>always</td><td>yes</td></tr>
+<tr><td><code class="term">TRIGGERED_WITHOUT_REPETITION</code></td><td>always</td><td>no, once</td></tr>
+<tr><td><code class="term">TRIGGERED_ON_CHANGE</code></td><td>the value is different from before</td><td>yes</td></tr>
+<tr><td><code class="term">TRIGGERED_ON_CHANGE_WITHOUT_REPETITION</code></td><td>the value is different from before</td><td>no, once</td></tr>
+<tr><td><code class="term">PENDING</code></td><td>never</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+<p>As in lesson 2, all of this only matters when the <span class="term">transmission mode</span> of the I-PDU is <code class="term">DIRECT</code> or <code class="term">MIXED</code>.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">number of repetitions</span></td><td>How many extra transmissions follow a triggered transmission of an I-PDU (N-Times transmission).</td></tr>
+<tr><td><span class="term">repetition period</span></td><td>The time between those repetitions.</td></tr>
+<tr><td><span class="term">minimum delay time</span> (MDT)</td><td>The shortest time between two transmissions of the same I-PDU. A transmission inside it is delayed, not lost.</td></tr>
+<tr><td><code class="term">TRIGGERED_ON_CHANGE</code></td><td>Only a changed value triggers a transmission, with repetitions.</td></tr>
+<tr><td><code class="term">TRIGGERED_WITHOUT_REPETITION</code></td><td>Every write triggers one transmission, without repetitions.</td></tr>
+<tr><td><code class="term">TRIGGERED_ON_CHANGE_WITHOUT_REPETITION</code></td><td>Only a changed value triggers one transmission, without repetitions.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.3.1, 7.2.3.4 and 7.2.5.5 (SWS_Com_00330, 00767, 00734, 00768, 00279, 00305, 00698). Finer points: COM counts a repetition only once the lower layers confirm the I-PDU was sent. A separate setting decides whether the minimum delay time also applies to periodic transmissions and repetitions; in this simulation it applies to every transmission.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const SPACING = 1;
+  const reps = document.getElementById('reps');
+  const gap = document.getElementById('gap');
+  const readout = document.getElementById('readout');
+  let speed, remaining, nextTime, lastSend, total;
+
+  function trySend(now) {
+    if (remaining <= 0 || now < nextTime) return;
+    if (now < lastSend + Number(gap.value)) return;
+    const late = now - nextTime > 0.2;
+    lastSend = now;
+    nextTime = now + SPACING;
+    remaining--;
+    tl.mark('bus', String(speed), 'bus');
+    const n = total - remaining;
+    readout.textContent = 'I-PDU sent with Speed = ' + speed + ' (transmission ' + n + ' of ' + total + ')' +
+      (late ? ', held back by the minimum delay time.' : '.');
+  }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'write', label: 'Speed written by the SWC' },
+      { id: 'bus', label: 'I-PDU on the bus' }
+    ],
+    duration: 15,
+    onTick(prev, now) { trySend(now); },
+    onReset() {
+      speed = 0; remaining = 0; nextTime = 0; lastSend = -100; total = 1;
+      readout.textContent = 'Press "Write Speed" to start the clock.';
+    }
+  });
+  tl.buttons.append(Timeline.button('Write Speed', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    speed++;
+    tl.mark('write', String(speed));
+    const cut = remaining > 0 && total > 1;
+    total = Number(reps.value) + 1;
+    remaining = total;
+    nextTime = tl.now();
+    const waiting = tl.now() < lastSend + Number(gap.value);
+    readout.textContent = 'Speed = ' + speed + ' written.' +
+      (cut ? ' Remaining repetitions of the old value are dropped.' : '') +
+      (waiting ? ' Minimum delay time is still running: the transmission waits.' : '');
+    trySend(tl.now());
+  }, true));
+  [reps, gap].forEach((el) => el.addEventListener('change', () => tl.reset()));
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The number of repetitions is 2. How many times does the I-PDU go out after one write?',
+    options: ['Three times', 'Two times', 'One time'],
+    answer: 0,
+    why: 'The first transmission plus two repetitions.'
+  },
+  {
+    prompt: 'A TRIGGERED signal is written while the minimum delay time runs. What happens to that transmission?',
+    options: ['It waits, then it goes', 'It is dropped for good', 'It goes out right away'],
+    answer: 0,
+    why: 'COM holds the transmission back until the minimum delay time is over. Nothing is lost.'
+  },
+  {
+    prompt: 'A signal is TRIGGERED_ON_CHANGE. The SWC writes the same value twice. How many transmissions does that cause?',
+    options: ['Only the first one', 'One for each write', 'None for any write'],
+    answer: 0,
+    why: 'TRIGGERED_ON_CHANGE only counts a write whose value is different from the one before. The second write changes nothing.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

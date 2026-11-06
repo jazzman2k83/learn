@@ -8,17 +8,17 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker">AUTOSAR COM · Configuration help</p>
 <h1>Configuration help</h1>
-<p class="lede">Three tools for the day you have to set up COM yourself, or find out why it does not do what you expected. They use the plain words of the course and always give the official setting names next to them.</p>
+<p class="lede">Three tools for the day you have to set up <span class="term">COM</span> yourself, or find out why it does not do what you expected. They use the AUTOSAR terms of the course and always give the configuration parameter names next to them.</p>
 
 <div class="cards">
-  <div class="card"><span class="tag">Fill in</span><h3><a href="configurator.html">Configurator</a></h3><p>Answer plain questions about one signal. Get the settings with their values, a description of what COM will do, checks against the rules, and the ARXML.</p></div>
-  <div class="card"><span class="tag">Look up</span><h3><a href="recipes.html">Recipe book</a></h3><p>Twenty-one typical jobs, from "send every 100 ms" to "forward a signal to another bus", each with its settings and the things that go wrong.</p></div>
-  <div class="card"><span class="tag">Find the cause</span><h3><a href="troubleshooting.html">Troubleshooting</a></h3><p>Start from what you see, such as "the packet never goes out", and go through the checks in order. Also: how to read a configuration you did not write.</p></div>
+  <div class="card"><span class="tag">Fill in</span><h3><a href="configurator.html">Configurator</a></h3><p>Answer questions about one <span class="term">signal</span>. Get the configuration parameters with their values, a description of what COM will do, checks against the rules, and the ARXML.</p></div>
+  <div class="card"><span class="tag">Look up</span><h3><a href="recipes.html">Recipe book</a></h3><p>Twenty-one typical jobs, from "send every 100 ms" to "forward a signal to another bus", each with its configuration parameters and the things that go wrong.</p></div>
+  <div class="card"><span class="tag">Find the cause</span><h3><a href="troubleshooting.html">Troubleshooting</a></h3><p>Start from what you see, such as "the <span class="term">I-PDU</span> never goes out", and go through the checks in order. Also: how to read a configuration you did not write.</p></div>
 </div>
 
 <h2>Which one do I need?</h2>
@@ -29,7 +29,7 @@
 <tr><td>A requirement, such as "send on change and every 100 ms"</td><td>The <a href="recipes.html">recipe</a> that is closest, then open it in the <a href="configurator.html">configurator</a> and put in your numbers.</td></tr>
 <tr><td>A configuration made by a tool, to check or understand</td><td><a href="troubleshooting.html#review">Reading a configuration you did not write</a>. Enter values you are unsure about in the <a href="configurator.html">configurator</a> to see what they do.</td></tr>
 <tr><td>A system that behaves oddly</td><td><a href="troubleshooting.html">Troubleshooting</a>.</td></tr>
-<tr><td>A setting name you do not know</td><td>The <a href="../lessons/0015-configuration-map.html">configuration map</a> in lesson 15.</td></tr>
+<tr><td>A <span class="term">parameter</span> name you do not know</td><td>The <a href="../lessons/0015-configuration-map.html">configuration map</a> in lesson 15.</td></tr>
 </tbody>
 </table>
 </div>
@@ -37,12 +37,12 @@
 <h2>Three things to know first</h2>
 <ul>
 <li><strong>Times are in seconds.</strong> Every time in COM's configuration is a decimal number of seconds. 100 ms is 0.1.</li>
-<li><strong>COM counts time in heartbeats.</strong> Choose periods, gaps and limits as multiples of the heartbeat period.</li>
-<li><strong>Some settings belong to the packet, some to the signal.</strong> The timer, the repeats and the minimum gap are set once per packet. Triggered or pending, the timeout and the start value are set per signal.</li>
+<li><strong>COM counts time in main function calls.</strong> Choose periods, the <span class="term">minimum delay time</span> and timeouts as multiples of the period of the <span class="term">main function</span>.</li>
+<li><strong>Some parameters belong to the I-PDU, some to the signal.</strong> The <span class="term">transmission mode</span> with its period and <span class="term">number of repetitions</span>, and the minimum delay time are set once per <span class="term">I-PDU</span>. The <span class="term">transfer property</span> (<code>TRIGGERED</code> or <code>PENDING</code>), the <span class="term">timeout</span> and the <span class="term">init value</span> are set per <span class="term">signal</span>.</li>
 </ul>
 
 <div class="note">
-<p><strong>What these tools cover.</strong> Only COM's own settings, with the standard names of AUTOSAR release R25-11. They do not cover the layers below COM, and they do not describe the screens of any vendor's configuration tool. Vendors add their own settings and may name a few things differently, mostly in older releases. Treat the output as something to compare with, not as a finished file.</p>
+<p><strong>What these tools cover.</strong> Only COM's own configuration parameters, with the standard names of AUTOSAR release R25-11. They do not cover the layers below COM (<span class="term">PduR</span>, <span class="term">CanIf</span>, <span class="term">SoAd</span> …), and they do not describe the screens of any vendor's configuration tool. Vendors add their own parameters and may name a few things differently, mostly in older releases. Treat the output as something to compare with, not as a finished file.</p>
 </div>
 
 <p class="small">Checked against the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapters 7 and 10, and the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_ECUConfiguration.pdf">Specification of ECU Configuration, R25-11</a> for the ARXML form.</p>
@@ -51,6 +51,7 @@
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
 <footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
 </body>
 </html>

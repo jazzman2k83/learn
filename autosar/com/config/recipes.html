@@ -8,15 +8,15 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker">AUTOSAR COM · Configuration help</p>
 <h1>Recipe book</h1>
-<p class="lede">Typical jobs and the settings that do them. Each recipe shows only the settings that matter for the job, what to watch out for, and the same thing as ARXML.</p>
+<p class="lede">Typical jobs and the <span class="term">COM</span> configuration parameters that do them. Each recipe shows only the parameters that matter for the job, what to watch out for, and the same thing as ARXML.</p>
 
 <div class="note">
-<p><strong>How to read a recipe.</strong> The table lists the settings to change. Every signal and packet also needs the basic settings from the first recipe. Times are in seconds: 100 ms is 0.1. Where a recipe has a link to the <a href="configurator.html">configurator</a>, it opens with the recipe filled in, so you can change the numbers to yours.</p>
+<p><strong>How to read a recipe.</strong> The table lists the <span class="term">parameters</span> to change, each in its <span class="term">container</span>. Every <span class="term">signal</span> and <span class="term">I-PDU</span> also needs the basic parameters from the first recipe. Times are in seconds: 100 ms is 0.1. Where a recipe has a link to the <a href="configurator.html">configurator</a>, it opens with the recipe filled in, so you can change the numbers to yours.</p>
 </div>
 
 <div class="chips no-print" id="chips"></div>
@@ -24,7 +24,7 @@
 
 <div id="recipes"></div>
 
-<p class="small">Names, values and rules: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapters 7 and 10. Advice marked as common practice is not from the specification. Messages to the application are set in the configuration of COM's user (<code>ComUserCallback</code>); in projects on older releases they sit on the signal itself, for example as <code>ComNotification</code>.</p>
+<p class="small">Names, values and rules: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapters 7 and 10. Advice marked as common practice is not from the specification. Notifications are configured by the user of COM, normally the RTE (<code>ComUserCallback</code>); in projects on older releases they sit on the signal itself, for example as <code>ComNotification</code>.</p>
 
 <nav class="course" data-nav></nav>
 
@@ -37,251 +37,251 @@
   const C = window.ComConfig;
   const N = C.node;
   const L = {
-    2: '0002-four-timing-words.html', 3: '0003-repeats-and-minimum-gap.html', 4: '0004-two-send-settings.html',
-    5: '0005-start-values-and-update-bits.html', 6: '0006-timeouts.html', 7: '0007-invalid-values.html',
-    8: '0008-filters.html', 9: '0009-what-com-tells-the-application.html', 10: '0010-signal-groups.html',
-    11: '0011-switching-packets-on-and-off.html', 12: '0012-signal-gateway.html',
-    13: '0013-big-and-variable-size-data.html', 15: '0015-configuration-map.html', 16: '0016-signal-packing.html'
+    2: '0002-transfer-property-transmission-mode-signal-processing.html', 3: '0003-repetitions-and-the-minimum-delay-time.html', 4: '0004-transmission-mode-selection.html',
+    5: '0005-init-values-and-update-bits.html', 6: '0006-deadline-monitoring.html', 7: '0007-data-invalid-values.html',
+    8: '0008-filters.html', 9: '0009-notifications.html', 10: '0010-signal-groups.html',
+    11: '0011-i-pdu-groups.html', 12: '0012-signal-gateway.html',
+    13: '0013-large-i-pdus-and-dynamic-length-signals.html', 15: '0015-configuration-map.html', 16: '0016-signal-packing.html'
   };
   const tx = (o) => Object.assign({ dir: 'tx', write: 'pending', timer: false }, o);
   const rx = (o) => Object.assign({ dir: 'rx', cbAck: false }, o);
 
   const RECIPES = [
-    { part: 'Basics', title: 'The settings every signal and packet needs',
-      want: 'A signal that is packed into a packet at all. This is the minimum; all other recipes add to it.',
+    { part: 'Basics', title: 'The parameters every signal and I-PDU needs',
+      want: 'A <span class="term">signal</span> that is packed into an <span class="term">I-PDU</span> at all. This is the minimum; all other recipes add to it.',
       answers: tx({ timer: true }), lesson: [15, 16],
       watch: [
-        'Names of signals, signal groups, members, packets and packet groups must all differ from each other, and must be valid C names.',
-        'Signals in one packet must not overlap.',
-        'The bit size must not be larger than the type. A UINT8 takes at most 8 bits.',
-        'A sending packet needs the box <code>ComTxIPdu</code> with at least one send setting in it. A receiving packet has no <code>ComTxIPdu</code>.',
-        '<code>ComPduIdRef</code> links the packet to the same packet in the layers below. It is required.',
-        'For "low byte first" the start bit is the lowest bit of the signal, for "high byte first" the highest.'
+        'The names of signals, <span class="term">signal groups</span>, <span class="term">group signals</span>, I-PDUs and <span class="term">I-PDU groups</span> must all differ from each other, and must be valid C names.',
+        'Signals in one I-PDU must not overlap.',
+        '<code class="term">ComBitSize</code> must not be larger than the <span class="term">signal type</span>. A UINT8 takes at most 8 bits.',
+        'A sent I-PDU needs the <span class="term">container</span> <code>ComTxIPdu</code> with at least one <span class="term">transmission mode</span> in it. A received I-PDU has no <code>ComTxIPdu</code>.',
+        '<code>ComPduIdRef</code> links the I-PDU to the same I-PDU in the lower layers. It is required.',
+        'For <code class="term">LITTLE_ENDIAN</code>, <code class="term">ComBitPosition</code> is the <span class="term">LSB</span> of the signal, for <code class="term">BIG_ENDIAN</code> the <span class="term">MSB</span>.'
       ] },
 
     { part: 'Sending', title: 'Send a value every 100 ms',
-      want: 'The packet goes out on a timer. Writing the signal only changes what the next packet carries.',
+      want: 'The <span class="term">I-PDU</span> goes out periodically. Writing the <span class="term">signal</span> only changes what the next transmission carries.',
       answers: tx({ timer: true, period: 100 }), lesson: [2],
       show: ['ComTransferProperty', 'ComTxModeMode', 'ComTxModeTimePeriod', 'ComMainTxTimeBase'],
       watch: [
         'The period is in seconds. A value of 100 would mean 100 seconds.',
-        'Choose a period that is a multiple of the send heartbeat. COM counts time in heartbeats.',
-        'Several writes between two sends: only the last value goes out.',
-        'To keep many packets from going out together after a start, give each a different <code>ComTxModeTimeOffset</code>.'
+        'Choose a period that is a multiple of the period of <code class="term">Com_MainFunctionTx</code>. COM counts time in main function calls.',
+        'Several writes between two transmissions: only the last value goes out.',
+        'To keep many I-PDUs from going out together after a start, give each a different <code>ComTxModeTimeOffset</code>.'
       ] },
     { part: 'Sending', title: 'Send at once on every write',
-      want: 'Each write of the signal puts the packet on the bus as soon as possible. No timer.',
+      want: 'Each write of the <span class="term">signal</span> puts the <span class="term">I-PDU</span> on the bus as soon as possible. No periodic transmission.',
       answers: tx({ write: 'always' }), lesson: [2],
       show: ['ComTransferProperty', 'ComTxModeMode'],
       watch: [
-        '"At once" means at COM\'s next send heartbeat at the latest, and at most once per heartbeat.',
+        '"At once" means in the next <code class="term">Com_MainFunctionTx</code> at the latest, and at most once per main function call.',
         'Writing the same value again sends again. If that is not wanted, use the next recipe.',
-        'If the application stops writing, the bus stays silent. A receiver that watches the clock will report a timeout.'
+        'If the <span class="term">SWC</span> stops writing, the bus stays silent. A receiver with <span class="term">reception deadline monitoring</span> will report a timeout.'
       ] },
     { part: 'Sending', title: 'Send on change, plus once a second',
-      want: 'A new value goes out at once. In quiet times the packet still goes out every second, so receivers know the sender is alive.',
+      want: 'A new value goes out at once. In quiet times the <span class="term">I-PDU</span> still goes out every second, so receivers know the sender is alive.',
       answers: tx({ write: 'change', timer: true, period: 1000 }), lesson: [2],
       show: ['ComTransferProperty', 'ComTxModeMode', 'ComTxModeTimePeriod'],
       watch: [
-        '"Changed" means different from the value sent last, or from the start value if nothing was sent yet. A first write that equals the start value does not trigger a send.',
-        'A pending signal in the same packet rides along on both kinds of send.'
+        '"Changed" means different from the value sent last, or from the <span class="term">init value</span> if nothing was sent yet. A first write that equals the init value does not trigger a transmission.',
+        'A <code class="term">PENDING</code> signal in the same I-PDU goes out with both kinds of transmission.'
       ] },
     { part: 'Sending', title: 'Send three times in a row after a change',
       want: 'An important change is put on the bus three times, 20 ms apart, in case one frame gets lost.',
       answers: tx({ write: 'change', reps: 2, repGap: 20 }), lesson: [3],
       show: ['ComTransferProperty', 'ComTxModeMode', 'ComTxModeNumberOfRepetitions', 'ComTxModeRepetitionPeriod'],
       watch: [
-        'The number is the count of extra sends: 2 repeats give 3 sends.',
-        'COM counts confirmed sends. It keeps sending until that many were confirmed by the bus.',
-        'A new write while repeats are still open cancels them and starts the count again.',
-        'A packet with repeats must not carry update-bits.',
-        'A signal in the same packet that should go out only once gets <code>TRIGGERED_WITHOUT_REPETITION</code> or <code>TRIGGERED_ON_CHANGE_WITHOUT_REPETITION</code>.'
+        'The <span class="term">number of repetitions</span> is the count of extra transmissions: 2 repetitions give 3 transmissions.',
+        'COM counts confirmed transmissions. It keeps sending until that many were confirmed.',
+        'A new write while repetitions are still open cancels them and starts the count again.',
+        'An <span class="term">I-PDU</span> with repetitions must not carry <span class="term">update-bits</span>.',
+        'A signal in the same I-PDU that should go out only once gets <code class="term">TRIGGERED_WITHOUT_REPETITION</code> or <code class="term">TRIGGERED_ON_CHANGE_<wbr>WITHOUT_REPETITION</code>.'
       ] },
-    { part: 'Sending', title: 'Limit how often a packet may go out',
-      want: 'However fast the application writes, the packet leaves at most every 50 ms.',
+    { part: 'Sending', title: 'Limit how often an I-PDU may go out',
+      want: 'However fast the <span class="term">SWC</span> writes, the <span class="term">I-PDU</span> leaves at most every 50 ms.',
       answers: tx({ write: 'always', mdt: 50 }), lesson: [3],
       show: ['ComTransferProperty', 'ComTxModeMode', 'ComMinimumDelayTime', 'ComEnableMDTForCyclicTransmission'],
       watch: [
-        'A send asked for during the gap is not lost. It goes out when the gap is over, with the newest values.',
-        'There is one gap per packet. It stays the same when the send setting changes.',
-        '<code>ComEnableMDTForCyclicTransmission</code> is one switch for all of COM. Set to false, timer sends and repeats do not start the gap.',
-        'Starting the packet group clears a running gap. A packet fetched from below is not held back by it.'
+        'A transmission requested during the <span class="term">minimum delay time</span> is not lost. It goes out when the time is over, with the newest values.',
+        'There is one minimum delay time per I-PDU. It stays the same when the <span class="term">transmission mode</span> changes.',
+        '<code>ComEnableMDTForCyclicTransmission</code> is one switch for all of COM. Set to false, periodic transmissions and repetitions do not start the minimum delay time.',
+        'Starting the <span class="term">I-PDU group</span> clears a running minimum delay time. An I-PDU fetched with <code class="term">Com_TriggerTransmit</code> is not held back by it.'
       ] },
     { part: 'Sending', title: 'Fast while active, slow otherwise',
-      want: 'While the signal is not 0 the packet goes out every 20 ms. While it is 0, only once a second.',
+      want: 'While the <span class="term">signal</span> is not 0 the <span class="term">I-PDU</span> goes out every 20 ms. While it is 0, only once a second.',
       answers: tx({ timer: true, period: 20, two: true, alg: 'MASKED_NEW_DIFFERS_X', x: '0', falseMode: 'PERIODIC', falsePeriod: 1000 }), lesson: [4],
       show: ['ComFilterAlgorithm', 'ComFilterMask', 'ComFilterX', 'ComTxModeMode', 'ComTxModeTimePeriod'],
       watch: [
-        'The first <code>ComTxMode</code> in the table is the "true" setting, the second the "false" one.',
-        'A <code>ComFilter</code> on a signal of a sending packet is a condition. It never blocks a value.',
-        'If several signals have a condition, the "true" setting is used as soon as one of them is true.',
-        'A condition <code>ALWAYS</code> keeps the packet on "true" for good. No condition on any signal does the same.',
-        'When the setting switches, the packet goes out once at the next heartbeat, whatever signal caused it.'
+        'The first <code>ComTxMode</code> in the table belongs to <code class="term">ComTxModeTrue</code>, the second to <code>ComTxModeFalse</code>.',
+        'A <code>ComFilter</code> on a signal of a sent I-PDU is a <span class="term">transmission mode condition</span>. It never blocks a value.',
+        'If several signals have a transmission mode condition, ComTxModeTrue is used as soon as one of them is true.',
+        'A condition <code>ALWAYS</code> keeps the I-PDU on ComTxModeTrue for good. No condition on any signal does the same.',
+        'When the <span class="term">transmission mode selector</span> switches, the I-PDU goes out once in the next <span class="term">main function</span>, whatever signal caused it.'
       ] },
-    { part: 'Sending', title: 'Know that the packet really went out',
-      want: 'The application is told when the bus confirmed the send, and when it did not within 200 ms.',
+    { part: 'Sending', title: 'Know that the I-PDU really went out',
+      want: 'The <span class="term">RTE</span> is notified when the transmission was confirmed, and when it was not confirmed within 200 ms.',
       answers: tx({ write: 'always', txTout: 200, cbAck: true, cbTout: true, cbErr: true }), lesson: [6, 9],
       show: ['ComTimeout', 'ComIPduSignalProcessing'],
       watch: [
-        'The "not sent in time" message comes once per failed send. It is not repeated.',
-        'If signals of one packet have different send timeouts, the shortest one counts for the packet.',
-        'Use this only on buses that confirm sends. Without confirmations the timeout always strikes.',
-        'The stopwatch starts when COM hands the packet down, even if that call fails.',
-        'With repeats, "sent" is only reported after all sends were confirmed.'
+        'The timeout <span class="term">notification</span> comes once per failed transmission. It is not repeated.',
+        'If signals of one <span class="term">I-PDU</span> have different transmission timeouts, the shortest one counts for the I-PDU.',
+        'Use <span class="term">transmission deadline monitoring</span> only on buses that confirm transmissions. Without confirmations the timeout always occurs.',
+        'The timer starts when COM passes the I-PDU to the <span class="term">PduR</span>, even if that call fails.',
+        'With repetitions, the transmission is only reported as done after all transmissions were confirmed.'
       ] },
     { part: 'Sending', title: 'Mark fresh values with an update-bit',
-      want: 'The packet goes out on a timer. One extra bit tells the receiver whether this signal was written since the last send.',
+      want: 'The <span class="term">I-PDU</span> goes out periodically. One extra bit, the <span class="term">update-bit</span>, tells the receiver whether this <span class="term">signal</span> was written since the last transmission.',
       answers: tx({ timer: true, period: 100, ub: true, ubPos: 16 }), lesson: [5],
       show: ['ComUpdateBitPosition', 'ComTxIPduClearUpdateBit'],
       watch: [
         'The position must be the same on the sending and the receiving side.',
-        'The bit needs a free place in the packet, like a signal.',
-        'Not allowed together with repeats.',
-        'For a signal group the bit belongs to the group, not to a member.'
+        'The bit needs a free place in the I-PDU, like a signal.',
+        'Not allowed together with <span class="term">repetitions</span>.',
+        'For a <span class="term">signal group</span> the bit belongs to the group, not to a <span class="term">group signal</span>.'
       ] },
-    { part: 'Sending', title: 'Send "I have no good value"',
-      want: 'When a sensor fails, the application marks the signal as invalid and the receivers see a reserved value.',
+    { part: 'Sending', title: 'Send "no valid value available"',
+      want: 'When a sensor fails, the <span class="term">SWC</span> marks the <span class="term">signal</span> as invalid and the receivers see its <span class="term">data invalid value</span>.',
       answers: tx({ write: 'change', timer: true, period: 100, inv: true, invVal: '65535' }), lesson: [7],
       show: ['ComSignalDataInvalidValue', 'ComTransferProperty'],
       watch: [
-        'Marking a signal invalid works like writing the reserved value. Whether the packet goes out at once depends on triggered or pending, as for any write.',
+        'Marking a signal invalid (<code class="term">Com_InvalidateSignal</code>) works like writing the data invalid value. Whether the <span class="term">I-PDU</span> goes out at once depends on the <span class="term">transfer property</span>, as for any write.',
         'Pick a value the real measurement can never have.',
         'Sender and receiver must agree on the value.'
       ] },
 
-    { part: 'Receiving', title: 'Receive a signal and be told about it',
-      want: 'The application gets a message each time a new value arrived.',
+    { part: 'Receiving', title: 'Receive a signal and be notified',
+      want: 'The <span class="term">RTE</span> gets a <span class="term">notification</span> each time a new value arrived.',
       answers: rx({ cbAck: true, proc: 'DEFERRED' }), lesson: [2, 9],
       show: ['ComIPduDirection', 'ComIPduSignalProcessing', 'ComSignalInitValue', 'ComMainRxTimeBase'],
       watch: [
-        '<code>IMMEDIATE</code> gives the message inside the call from below, often an interrupt. The application\'s reaction must then be short.',
-        '<code>DEFERRED</code> gives it at the next receive heartbeat. A read before that still returns the old value.',
-        'The choice is made per packet, for all its signals.',
-        'If a packet arrives shorter than expected, only the signals that are completely in it are unpacked.'
+        '<code class="term">IMMEDIATE</code> gives the notification inside <code class="term">Com_RxIndication</code>, often in an interrupt. The reaction of the <span class="term">SWC</span> must then be short.',
+        '<code class="term">DEFERRED</code> gives it in the next <code class="term">Com_MainFunctionRx</code>. A read before that still returns the old value.',
+        'The choice (<span class="term">signal processing</span>) is made per <span class="term">I-PDU</span>, for all its signals.',
+        'If an I-PDU arrives shorter than expected, only the signals that are completely in it are unpacked.'
       ] },
-    { part: 'Receiving', title: 'Notice a missing packet and fall back to the start value',
-      want: 'If nothing arrives for 300 ms, the application is told and reads the start value again.',
+    { part: 'Receiving', title: 'Notice a missing I-PDU and fall back to the init value',
+      want: 'If nothing arrives for 300 ms, the <span class="term">RTE</span> is notified and the <span class="term">SWC</span> reads the <span class="term">init value</span> again.',
       answers: rx({ cbAck: true, rxTout: 300, rxFirst: 1000, toutAct: 'REPLACE', cbTout: true }), lesson: [6],
       show: ['ComTimeout', 'ComFirstTimeout', 'ComRxDataTimeoutAction', 'ComSignalInitValue'],
       watch: [
-        'A time limit of 0, or none, means the signal is not watched.',
-        'Without <code>ComFirstTimeout</code> the watching only begins after the first arrival. A sender that never starts is then not noticed.',
-        'The "overdue" message repeats after every further time limit.',
-        'Signals without update-bit share one stopwatch per packet, running with the shortest limit of them all.',
+        'A <span class="term">timeout</span> of 0, or none, means no <span class="term">deadline monitoring</span> for the signal.',
+        'Without <code class="term">ComFirstTimeout</code> deadline monitoring only begins after the first reception. A sender that never starts is then not noticed.',
+        'The timeout <span class="term">notification</span> repeats after every further timeout.',
+        'Signals without <span class="term">update-bit</span> share one deadline monitoring timer per <span class="term">I-PDU</span>, running with the shortest timeout of them all.',
         'With <code>REPLACE</code> the last received value is gone.',
-        'Common practice, not a rule: set the limit to a few sender periods, so one lost frame is no alarm.'
+        'Common practice, not a rule: set the timeout to a few sender periods, so one lost frame is no alarm.'
       ] },
-    { part: 'Receiving', title: 'Notice a missing packet and use a substitute value',
-      want: 'As before, but after a timeout the application reads a chosen value, here 255, instead of the start value.',
+    { part: 'Receiving', title: 'Notice a missing I-PDU and use a substitute value',
+      want: 'As before, but after a <span class="term">timeout</span> the <span class="term">SWC</span> reads a chosen value, here 255, instead of the <span class="term">init value</span>.',
       answers: rx({ type: 'UINT8', bits: 8, cbAck: true, rxTout: 300, rxFirst: 1000, toutAct: 'SUBSTITUTE', sub: '255', cbTout: true }), lesson: [6],
       show: ['ComTimeout', 'ComFirstTimeout', 'ComRxDataTimeoutAction', 'ComTimeoutSubstitutionValue'],
       watch: [
-        'In a signal group the action is set on the group and the substitute value on each member.',
+        'In a <span class="term">signal group</span> the action is set on the group and the substitute value on each <span class="term">group signal</span>.',
         'With <code>NONE</code> instead, the last value simply stays.'
       ] },
-    { part: 'Receiving', title: 'React to "I have no good value"',
-      want: 'When the reserved value arrives, the application is told, and keeps the last good value.',
+    { part: 'Receiving', title: 'React to "no valid value available"',
+      want: 'When the <span class="term">data invalid value</span> arrives, the <span class="term">RTE</span> is notified, and the last valid value is kept.',
       answers: rx({ cbAck: true, inv: true, invVal: '65535', invAct: 'NOTIFY', cbInv: true }), lesson: [7],
       show: ['ComSignalDataInvalidValue', 'ComDataInvalidAction'],
       watch: [
-        'With <code>NOTIFY</code> the reserved value is not stored, the filter does not run and no "new value" message is given. Only the "invalid" message.',
-        'With <code>REPLACE</code> COM hands out the start value and carries on as if that had arrived.',
-        'On the receiving side, a signal with an invalid value must also have the action set.',
-        'An invalid value still counts as an arrival for the timeout.'
+        'With <code>NOTIFY</code> the data invalid value is not stored, the <span class="term">filter</span> does not run and no reception <span class="term">notification</span> is given. Only the invalid notification.',
+        'With <code>REPLACE</code> COM uses the <span class="term">init value</span> and carries on as if that had arrived.',
+        'On the receiving side, a signal with a data invalid value must also have <code class="term">ComDataInvalidAction</code> set.',
+        'A data invalid value still counts as a reception for the <span class="term">timeout</span>.'
       ] },
-    { part: 'Receiving', title: 'Be told only when the value changed',
-      want: 'The sender repeats the same value all the time. The application only wants to hear about a new one.',
+    { part: 'Receiving', title: 'Be notified only when the value changed',
+      want: 'The sender repeats the same value all the time. The <span class="term">SWC</span> only wants to hear about a new one.',
       answers: rx({ cbAck: true, filt: true, alg: 'MASKED_NEW_DIFFERS_MASKED_OLD' }), lesson: [8],
       show: ['ComFilterAlgorithm', 'ComFilterMask'],
       watch: [
-        'A blocked value is thrown away: not stored, no message.',
-        'The new value is compared with the last one that passed. Before anything passed, with the start value.',
+        'A value the <span class="term">filter</span> blocks is discarded: not stored, no <span class="term">notification</span>.',
+        'The new value is compared with the last one that passed. Before anything passed, with the <span class="term">init value</span>.',
         'The mask says which bits are compared. All ones compares the whole signal.',
-        'After a timeout, the first value that arrives passes even if it is unchanged.',
-        'Not available for decimal numbers and rows of bytes. A filter on a group member blocks the whole group.'
+        'After a <span class="term">timeout</span>, the first value that arrives passes even if it is unchanged.',
+        'Not available for FLOAT32, FLOAT64 and byte arrays. A filter on a <span class="term">group signal</span> blocks the whole <span class="term">signal group</span>.'
       ] },
     { part: 'Receiving', title: 'Tell fresh values from repeated ones',
-      want: 'The sender sets an update-bit when it wrote the signal. The receiver ignores the signal when the bit is not set.',
+      want: 'The sender sets an <span class="term">update-bit</span> when it wrote the <span class="term">signal</span>. The receiver ignores the signal when the bit is not set.',
       answers: rx({ cbAck: true, ub: true, ubPos: 16, rxTout: 300, cbTout: true }), lesson: [5, 6],
       show: ['ComUpdateBitPosition', 'ComTimeout'],
       watch: [
         'Same position as on the sending side.',
-        'With an update-bit the signal gets its own stopwatch. A packet that arrives with the bit not set does not count as an arrival.'
+        'With an update-bit the signal gets its own deadline monitoring timer. An <span class="term">I-PDU</span> that arrives with the bit not set does not count as a reception.'
       ] },
 
     { part: 'Organising', title: 'Keep values together in a signal group',
-      want: 'X and Y of a position must always arrive as a matching pair.',
+      want: 'X and Y of a position must always arrive as a matching pair, in one <span class="term">signal group</span>.',
       lesson: [10],
       nodes: [
-        N('ComSignalGroup', 'Position', [['ComTransferProperty', 'TRIGGERED', 'Handing over the group asks for a send.']], [
-          N('ComGroupSignal', 'PositionX', [['ComBitPosition', 0, 'Where this member starts in the packet.'], ['ComBitSize', 16, ''], ['ComSignalEndianness', 'LITTLE_ENDIAN', ''], ['ComSignalType', 'UINT16', ''], ['ComSignalInitValue', '0', '']]),
+        N('ComSignalGroup', 'Position', [['ComTransferProperty', 'TRIGGERED', 'Sending the signal group triggers a transmission.']], [
+          N('ComGroupSignal', 'PositionX', [['ComBitPosition', 0, 'Where this group signal starts in the I-PDU.'], ['ComBitSize', 16, ''], ['ComSignalEndianness', 'LITTLE_ENDIAN', ''], ['ComSignalType', 'UINT16', ''], ['ComSignalInitValue', '0', '']]),
           N('ComGroupSignal', 'PositionY', [['ComBitPosition', 16, ''], ['ComBitSize', 16, ''], ['ComSignalEndianness', 'LITTLE_ENDIAN', ''], ['ComSignalType', 'UINT16', ''], ['ComSignalInitValue', '0', '']])
         ]),
-        N('ComIPdu', 'PositionData', [], [], [['ComIPduSignalGroupRef', 'Position', 'The packet points to the group, not to the members. Its other settings are left out here.']])
+        N('ComIPdu', 'PositionData', [], [], [['ComIPduSignalGroupRef', 'Position', 'The I-PDU points to the signal group, not to the group signals. Its other parameters are left out here.']])
       ],
       watch: [
-        'Writing a member only fills the staging area. Nothing reaches the packet until the application hands over the whole group.',
-        'Timeout, update-bit, invalid action and messages are set on the group. Bit position, type, start value, invalid value and filter are set on each member.',
-        'A member may get its own <code>ComTransferProperty</code> to say whether its change counts for "on change". If one member has it, all members need it.',
-        'The other way, handing over a ready-made block of bytes, needs <code>ComSignalGroupArrayAccess</code> on the group and <code>ComEnableSignalGroupArrayApi</code> in <code>ComGeneral</code>. The group must then start on a byte border.'
+        'Writing a <span class="term">group signal</span> only fills the <span class="term">shadow buffer</span>. Nothing reaches the <span class="term">I-PDU</span> until the whole group is sent with <code class="term">Com_SendSignalGroup</code>.',
+        'Timeout, <span class="term">update-bit</span>, <code class="term">ComDataInvalidAction</code> and <span class="term">notifications</span> are set on the signal group. Bit position, type, <span class="term">init value</span>, <span class="term">data invalid value</span> and <span class="term">filter</span> are set on each group signal.',
+        'A group signal may get its own <code class="term">ComTransferProperty</code> to say whether its change counts for <code>TRIGGERED_ON_CHANGE</code>. If one group signal has it, all group signals need it.',
+        'The other way, handing over a ready-made byte array, needs <code>ComSignalGroupArrayAccess</code> on the signal group and <code>ComEnableSignalGroupArrayApi</code> in <code>ComGeneral</code>. The signal group must then start on a byte border.'
       ] },
-    { part: 'Organising', title: 'Switch a set of packets on and off together',
-      want: 'All sending packets of one bus can be started and stopped with one call.',
+    { part: 'Organising', title: 'Start and stop a set of I-PDUs together',
+      want: 'All sent <span class="term">I-PDUs</span> of one bus can be started and stopped with one call, as one <span class="term">I-PDU group</span>.',
       lesson: [11],
-      general: [['ComSupportedIPduGroups', 4, 'The largest number of packet groups COM has to handle.']],
+      general: [['ComSupportedIPduGroups', 4, 'The largest number of I-PDU groups COM has to handle.']],
       nodes: [
-        N('ComIPduGroup', 'BodyBusTx', [['ComIPduGroupHandleId', 0, 'The number used to start and stop the group. Below ComSupportedIPduGroups.']]),
-        N('ComIPdu', 'EngineData', [['ComIPduDirection', 'SEND', 'All packets of one group have the same direction.']], [], [['ComIPduGroupRef', 'BodyBusTx', 'A packet can point to several groups. Its other settings are left out here.']])
+        N('ComIPduGroup', 'BodyBusTx', [['ComIPduGroupHandleId', 0, 'The number used to start and stop the I-PDU group. Below ComSupportedIPduGroups.']]),
+        N('ComIPdu', 'EngineData', [['ComIPduDirection', 'SEND', 'All I-PDUs of one I-PDU group have the same direction.']], [], [['ComIPduGroupRef', 'BodyBusTx', 'An I-PDU can point to several I-PDU groups. Its other parameters are left out here.']])
       ],
       watch: [
-        'After start-up all groups are stopped. Something outside COM, normally the mode manager, has to start them.',
-        'A group holds only sending packets or only receiving packets.',
-        'A packet in several groups is on while at least one of them is started.',
-        'A write to a stopped packet is stored but not sent, and the call reports "not available". A trigger given while stopped is forgotten.',
-        'A packet in no group is on from start-up and can never be stopped.'
+        'After start-up all I-PDU groups are stopped. Something outside COM, normally the <span class="term">BswM</span>, has to start them with <code class="term">Com_IpduGroupStart</code>.',
+        'An I-PDU group holds only sent I-PDUs or only received I-PDUs.',
+        'An I-PDU in several I-PDU groups is started while at least one of them is started.',
+        'A write to a stopped I-PDU is stored but not sent, and the call returns <code>COM_SERVICE_NOT_AVAILABLE</code>. A transmission requested while stopped is forgotten.',
+        'An I-PDU in no I-PDU group is started from start-up and can never be stopped.'
       ] },
     { part: 'Organising', title: 'Forward a signal to another bus',
-      want: 'A speed received on one bus is copied into a packet that is sent on another bus.',
+      want: 'A speed received on one bus is copied into an <span class="term">I-PDU</span> that is sent on another bus, by the <span class="term">signal gateway</span>.',
       lesson: [12],
       nodes: [
         N('ComGwMapping', 'Gw_Speed', [], [
           N('ComGwSource', 'ComGwSource', [], [N('ComGwSignal', 'ComGwSignal', [], [], [['ComGwSignalRef', 'SpeedFromBusA', 'Copy from this received signal.']])]),
           N('ComGwDestination', 'ComGwDestination', [], [N('ComGwSignal', 'ComGwSignal', [], [], [['ComGwSignalRef', 'SpeedToBusB', 'Copy to this sent signal. More destinations are allowed.']])])
         ]),
-        N('ComMainFunctionRouteSignals', 'ComMainFunctionRouteSignals', [['ComMainRouteSignalsTimeBase', '0.01', 'How often the gateway heartbeat runs, in seconds.']])
+        N('ComMainFunctionRouteSignals', 'ComMainFunctionRouteSignals', [['ComMainRouteSignalsTimeBase', '0.01', 'How often Com_MainFunctionRouteSignals runs, in seconds.']])
       ],
       watch: [
-        'The copy happens at the gateway heartbeat, not when the packet arrives.',
-        'Whether the outgoing packet then leaves at once depends on the destination signal: triggered or pending, and the send setting of its packet.',
-        'Source and destination must have the same bit size. The byte order may differ; COM converts it.',
-        'Signals in packets that are sent in pieces cannot be forwarded.',
-        'If the source has an update-bit and it is not set, nothing is forwarded.',
-        'A timeout on the source does not stop the forwarding.'
+        'The copy happens in <code class="term">Com_MainFunctionRouteSignals</code>, not when the I-PDU arrives.',
+        'Whether the outgoing I-PDU then leaves at once depends on the destination signal: its <span class="term">transfer property</span> and the <span class="term">transmission mode</span> of its I-PDU.',
+        'Source and destination must have the same bit size. The <span class="term">endianness</span> may differ; COM converts it.',
+        'Signals in I-PDUs that are sent by a <span class="term">transport protocol</span> cannot be forwarded.',
+        'If the source has an <span class="term">update-bit</span> and it is not set, nothing is forwarded.',
+        'A <span class="term">timeout</span> on the source does not stop the forwarding.'
       ] },
     { part: 'Organising', title: 'Send data that is too big for one frame',
-      want: 'A row of 40 bytes travels in one packet that the layers below cut into pieces.',
+      want: 'A byte array of 40 bytes travels in one <span class="term">large I-PDU</span> that a <span class="term">transport protocol</span> below COM cuts into frames.',
       lesson: [13],
       nodes: [
-        N('ComIPdu', 'BigData', [['ComIPduType', 'TP', 'Sent in pieces by the helper below COM.']], [], [['ComIPduSignalRef', 'Serial', 'Other settings of the packet are left out here.']]),
-        N('ComSignal', 'Serial', [['ComBitPosition', 0, 'Rows of bytes start on a byte border.'], ['ComSignalLength', 40, 'Length in bytes.'], ['ComSignalEndianness', 'OPAQUE', 'No byte swapping for rows of bytes.'], ['ComSignalType', 'UINT8_N', 'A row of bytes with a fixed length.']])
+        N('ComIPdu', 'BigData', [['ComIPduType', 'TP', 'Sent by a transport protocol below COM.']], [], [['ComIPduSignalRef', 'Serial', 'Other parameters of the I-PDU are left out here.']]),
+        N('ComSignal', 'Serial', [['ComBitPosition', 0, 'Byte arrays start on a byte border.'], ['ComSignalLength', 40, 'Length in bytes.'], ['ComSignalEndianness', 'OPAQUE', 'No byte swapping for byte arrays.'], ['ComSignalType', 'UINT8_N', 'A byte array of fixed length.']])
       ],
       watch: [
-        'The start and invalid values of a row of bytes are written as decimal numbers with blanks between them, one per byte.',
-        'If the packet is asked to go out again while the last one is still on its way, COM skips that send.',
-        'The route below COM must be set up for sending in pieces as well. That is outside COM.',
-        'Signals of such a packet cannot be forwarded by the gateway.'
+        'The <span class="term">init value</span> and <span class="term">data invalid value</span> of a byte array are written as decimal numbers with blanks between them, one per byte.',
+        'If the I-PDU is to go out again while the last transmission is still in progress, COM skips that transmission.',
+        'The route below COM (<span class="term">PduR</span> and the transport protocol) must be configured for it as well. That is outside COM.',
+        'Signals of such an I-PDU cannot be forwarded by the <span class="term">signal gateway</span>.'
       ] },
     { part: 'Organising', title: 'Send data whose length changes',
-      want: 'A text of up to 32 bytes. Each send says how long it really is.',
+      want: 'A text of up to 32 bytes, as a <span class="term">dynamic length signal</span>. Each transmission carries only as many bytes as the text has at that moment.',
       lesson: [13],
       nodes: [
-        N('ComSignal', 'Text', [['ComBitPosition', 16, 'Byte border, and behind every other signal of the packet.'], ['ComSignalLength', 32, 'The longest it can get, in bytes.'], ['ComSignalEndianness', 'OPAQUE', ''], ['ComSignalType', 'UINT8_DYN', 'A row of bytes with changing length.']])
+        N('ComSignal', 'Text', [['ComBitPosition', 16, 'Byte border, and behind every other signal of the I-PDU.'], ['ComSignalLength', 32, 'The longest it can get, in bytes.'], ['ComSignalEndianness', 'OPAQUE', ''], ['ComSignalType', 'UINT8_DYN', 'A byte array with changing length.']])
       ],
       watch: [
-        'At most one such signal per packet, and it must be the last one.',
-        'The length is not sent. The receiver works it out from the length of the packet that arrived.',
-        'The application uses the calls made for it, <code>Com_SendDynSignal</code> and <code>Com_ReceiveDynSignal</code>.',
-        'The start value is an empty row unless one is set.'
+        'At most one such signal per <span class="term">I-PDU</span>, and it must be the last one.',
+        'The length is not sent. The receiver works it out from the length of the I-PDU that arrived.',
+        'The RTE uses the APIs made for it, <code class="term">Com_SendDynSignal</code> and <code class="term">Com_ReceiveDynSignal</code>.',
+        'The <span class="term">init value</span> is an empty byte array unless one is set.'
       ] }
   ];
 
@@ -295,7 +295,7 @@
     const built = r.answers ? C.build(Object.assign(C.defaults(r.answers.dir), r.answers)) : { nodes: r.nodes, general: r.general || [], callbacks: [] };
     let rows = C.rows(built.nodes, built.general);
     if (r.show) rows = rows.filter((row) => r.show.includes(row.name));
-    built.callbacks.forEach((c) => rows.push({ where: 'ComUserCallback, in the set-up of COM\'s user', name: 'ComUserCallbackType', value: c[0], why: c[1] }));
+    built.callbacks.forEach((c) => rows.push({ where: 'ComUserCallback, in the configuration of the RTE', name: 'ComUserCallbackType', value: c[0], why: c[1] }));
 
     if (built.issues) r.problems = built.issues.filter((x) => x.level !== 'info').map((x) => x.text);
     const s = document.createElement('section');
@@ -306,7 +306,7 @@
     s.innerHTML =
       '<h3>' + (i + 1) + '. ' + r.title + '</h3>' +
       '<p class="want">' + r.want + '</p>' +
-      '<div class="table-wrap"><table class="data settings"><thead><tr><th>Where</th><th>Setting</th><th>Value</th><th>Why</th></tr></thead><tbody></tbody></table></div>' +
+      '<div class="table-wrap"><table class="data settings"><thead><tr><th>Container</th><th>Parameter</th><th>Value</th><th>Why</th></tr></thead><tbody></tbody></table></div>' +
       '<p><strong>Watch out</strong></p><ul>' + r.watch.map((w) => '<li>' + w + '</li>').join('') + '</ul>' +
       '<details class="more"><summary>Show the ARXML</summary><pre class="code"></pre></details>' +
       '<p class="small">Explained in ' + lessons + '.' +
@@ -341,6 +341,8 @@
   if (location.hash && document.querySelector(location.hash)) document.querySelector(location.hash).scrollIntoView();
 })();
 </script>
+<!-- After the recipes are built, so that the terms in them get hover help. -->
+<script src="../assets/glossary.js"></script>
 <footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
 </body>
 </html>

@@ -8,29 +8,29 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
 <h1>Signal groups</h1>
-<p class="lede">Some values only make sense together, like the x and y of a position. A signal group makes sure they always travel as a matching set.</p>
+<p class="lede">Some values only make sense together, like the x and y of a position. A <span class="term">signal group</span> makes sure they always travel as a matching set.</p>
 
 <h2>The problem</h2>
-<p>An application writes x, then y. These are two separate steps. If the packet happens to go out between them, it carries the new x with the old y. The receiver gets a position that never existed.</p>
+<p>The <span class="term">SWC</span> writes x, then y. The <span class="term">RTE</span> makes two separate calls of <code class="term">Com_SendSignal</code>. If the <span class="term">I-PDU</span> happens to go out between them, it carries the new x with the old y. The receiver gets a position that never existed.</p>
 
-<h2>The fix: a staging area</h2>
-<p>Put x and y into a <strong>signal group</strong>. Now writing x or y does not touch the packet. The values go into a staging area first. When all of them are written, the application says "hand over the group", and COM copies the whole set into the packet in one uninterruptible step.</p>
+<h2>The fix: a shadow buffer</h2>
+<p>Put x and y into a <span class="term">signal group</span> (a set of signals that COM sends and receives consistently, as one matching set). Each of them is now a <span class="term">group signal</span> (one signal inside a signal group). Writing x or y no longer touches the <span class="term">I-PDU</span>. The values go into a <span class="term">shadow buffer</span> first (a copy of the signal group where its group signals are collected). When all of them are written, the <span class="term">RTE</span> calls <code class="term">Com_SendSignalGroup</code> (the COM API that copies the shadow buffer into the I-PDU), and COM copies the whole set in one uninterruptible step.</p>
 <div class="flow">
-  <div class="box"><strong>Application</strong>writes x, writes y, then: "hand over the group"</div>
+  <div class="box"><strong>RTE</strong>Com_SendSignal for x and for y, then Com_SendSignalGroup</div>
   <div class="arrow">→</div>
-  <div class="box main"><strong>Staging area</strong>holds the set while it is being put together</div>
+  <div class="box main"><strong>Shadow buffer</strong>holds the set while it is being put together</div>
   <div class="arrow">→</div>
-  <div class="box"><strong>Packet</strong>only ever sees complete sets</div>
+  <div class="box"><strong>I-PDU</strong>only ever holds complete sets</div>
 </div>
-<p>Receiving works the same way in reverse: "fetch the group" copies the whole set from the packet into the staging area in one step, and the application then reads x and y from there.</p>
+<p>Reception works the same way in reverse: <code class="term">Com_ReceiveSignalGroup</code> (the COM API that copies the signal group from the I-PDU into the shadow buffer) copies the whole set in one step, and the RTE then reads x and y from there with <code class="term">Com_ReceiveSignal</code>.</p>
 
 <h3>Try it</h3>
-<p>Move the position from (1, 1) to (2, 2). Try to catch COM in between: write x, then let the packet go out before writing y.</p>
+<p>Move the position from (1, 1) to (2, 2). Try to catch COM in between: write x, then let the I-PDU go out before writing y.</p>
 <div class="panel no-print">
   <div class="controls">
     <label>x and y are
@@ -40,56 +40,58 @@
       </select>
     </label>
   </div>
-  <p class="pkt-label" id="stage-label">Staging area</p>
+  <p class="pkt-label" id="stage-label">Shadow buffer</p>
   <div class="pkt" id="stage"></div>
-  <p class="pkt-label">Packet</p>
+  <p class="pkt-label">I-PDU</p>
   <div class="pkt" id="pkt"></div>
   <div class="controls" style="margin:0.8rem 0 0">
-    <button type="button" class="primary" id="wx">Write x</button>
-    <button type="button" class="primary" id="wy">Write y</button>
-    <button type="button" class="primary" id="hand">Hand over the group</button>
-    <button type="button" id="send">Packet goes out now</button>
+    <button type="button" class="primary" id="wx">Com_SendSignal(x)</button>
+    <button type="button" class="primary" id="wy">Com_SendSignal(y)</button>
+    <button type="button" class="primary" id="hand">Com_SendSignalGroup</button>
+    <button type="button" id="send">I-PDU goes out now</button>
   </div>
-  <ul class="log" id="log"><li>No packet sent yet.</li></ul>
+  <ul class="log" id="log"><li>No I-PDU sent yet.</li></ul>
 </div>
 
-<h2>What belongs to the group, what to its members</h2>
-<p>The group is treated as one thing. So most extras from the earlier lessons are set once for the whole group, not per member.</p>
+<h2>What belongs to the signal group, what to its group signals</h2>
+<p>The <span class="term">signal group</span> is treated as one thing. So most features from the earlier lessons are set once for the whole signal group, not per <span class="term">group signal</span>.</p>
 <div class="table-wrap">
 <table class="data">
 <thead><tr><th>Feature</th><th>Set for</th></tr></thead>
 <tbody>
-<tr><td>Update-bit</td><td>The whole group</td></tr>
-<tr><td>Messages to the application, timeouts</td><td>The whole group</td></tr>
-<tr><td>Triggered or pending</td><td>The whole group, or finer per member</td></tr>
-<tr><td>Filter, send-setting condition</td><td>Each member</td></tr>
+<tr><td><span class="term">Update-bit</span></td><td>The whole signal group</td></tr>
+<tr><td><span class="term">Notification</span>s, <span class="term">deadline monitoring</span></td><td>The whole signal group</td></tr>
+<tr><td><span class="term">Transfer property</span></td><td>The whole signal group, or finer per group signal</td></tr>
+<tr><td><span class="term">Filter</span>, <span class="term">transmission mode condition</span></td><td>Each group signal</td></tr>
 </tbody>
 </table>
 </div>
-<p>All or nothing also holds on the receiving side: if a filter blocks one member, the whole group is dropped. If one member carries the "invalid" value, the whole group is treated as invalid.</p>
+<p>All or nothing also holds in reception: if a filter blocks one group signal, the whole signal group is dropped. If one group signal carries its <span class="term">data invalid value</span>, the whole signal group is treated as invalid.</p>
 
 <h2>Check yourself</h2>
 <p>Optional. Answer from memory.</p>
 <div id="quiz" class="no-print"></div>
 
-<h2>The AUTOSAR words</h2>
+<h2>New terms in this lesson</h2>
 <div class="table-wrap">
 <table class="data words">
-<thead><tr><th>Plain word here</th><th>AUTOSAR word</th></tr></thead>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td>Values that belong together</td><td>Complex data type (like a struct)</td></tr>
-<tr><td>Member of a group</td><td>Group signal</td></tr>
-<tr><td>Staging area</td><td>Shadow buffer</td></tr>
-<tr><td>Hand over / fetch the group</td><td><code>Com_SendSignalGroup</code> / <code>Com_ReceiveSignalGroup</code></td></tr>
+<tr><td><span class="term">signal group</span></td><td>A set of signals that COM sends and receives consistently, as one matching set.</td></tr>
+<tr><td><span class="term">group signal</span></td><td>One signal inside a signal group.</td></tr>
+<tr><td><span class="term">shadow buffer</span></td><td>A copy of the signal group where its group signals are collected or read, so the I-PDU always holds a consistent set.</td></tr>
+<tr><td><code class="term">Com_SendSignalGroup</code></td><td>Copies the shadow buffer into the I-PDU in one step.</td></tr>
+<tr><td><code class="term">Com_ReceiveSignalGroup</code></td><td>Copies the signal group from the I-PDU into the shadow buffer in one step.</td></tr>
 </tbody>
 </table>
 </div>
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.3 (SWS_Com_00050, 00051, Table 7.5, SWS_Com_00836, 00682). Finer point: there is a second way without a staging area. The application hands COM the whole group as one ready-made block of bytes ("array access"). It is used when the data was already put into bytes by another part of the software.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.3 (SWS_Com_00050, 00051, Table 7.5, SWS_Com_00836, 00682). Finer point: there is a second way without a shadow buffer. The RTE hands COM the whole signal group as one ready-made block of bytes (Com_SendSignalGroupArray, Com_ReceiveSignalGroupArray). It is used when the data was already serialized by another part of the software.</p>
 
 <nav class="course" data-nav></nav>
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/quiz.js"></script>
 <script>
 (function () {
@@ -109,7 +111,7 @@
   }
   function reset() {
     stage = { x: 1, y: 1 }; pkt = { x: 1, y: 1 }; n = 0;
-    log.innerHTML = '<li>No packet sent yet.</li>';
+    log.innerHTML = '<li>No I-PDU sent yet.</li>';
     render();
   }
   function write(k) {
@@ -123,7 +125,7 @@
   document.getElementById('send').onclick = () => {
     n++;
     const li = document.createElement('li');
-    li.innerHTML = 'Packet ' + n + ' carries (' + pkt.x + ', ' + pkt.y + '): ' +
+    li.innerHTML = 'I-PDU ' + n + ' carries (' + pkt.x + ', ' + pkt.y + '): ' +
       (pkt.x === pkt.y ? '<span class="ok">a real position</span>' : '<span class="no">a mixed-up position that never existed</span>');
     if (n === 1) log.replaceChildren();
     log.prepend(li);
@@ -135,22 +137,22 @@
 
 Quiz.mount(document.getElementById('quiz'), [
   {
-    prompt: 'In a signal group, where does a written member value go first?',
-    options: ['Into the staging area', 'Straight into the packet', 'Directly onto the bus'],
+    prompt: 'In a signal group, where does a value written with Com_SendSignal go first?',
+    options: ['Into the shadow buffer', 'Straight into the I-PDU', 'Directly onto the bus'],
     answer: 0,
-    why: 'Members are collected in the staging area. Only "hand over the group" copies them into the packet.'
+    why: 'Group signals are collected in the shadow buffer. Only Com_SendSignalGroup copies them into the I-PDU.'
   },
   {
-    prompt: 'A filter blocks one member of a received group. What happens?',
-    options: ['The whole group is dropped', 'Only that member is dropped', 'The filter result is ignored'],
+    prompt: 'A filter blocks one group signal of a received signal group. What happens?',
+    options: ['The whole group is dropped', 'Only that signal is dropped', 'The filter result is ignored'],
     answer: 0,
-    why: 'A group is all or nothing. Passing on a set with one member missing would be exactly the mix-up groups exist to prevent.'
+    why: 'A signal group is all or nothing. Passing on a set with one group signal missing would be exactly the mix-up signal groups exist to prevent.'
   },
   {
-    prompt: 'How many update-bits does a signal group with five members have?',
+    prompt: 'How many update-bits does a signal group with five group signals have?',
     options: ['One for the whole group', 'One for each of the five', 'None, groups have none'],
     answer: 0,
-    why: 'The group is treated as one thing, so it has one update-bit.'
+    why: 'The signal group is treated as one thing, so it has one update-bit.'
   }
 ]);
 </script>

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Large I-PDUs and dynamic length signals · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Large I-PDUs and dynamic length signals</h1>
+<p class="lede">So far an <span class="term">I-PDU</span> was a few bytes of fixed size. Three special cases remain: an I-PDU too big for one frame of the <span class="term">bus</span>, a <span class="term">signal</span> whose length changes, and data that COM should pass through without unpacking it.</p>
+
+<h2>1. Large I-PDUs</h2>
+<p>What the <span class="term">bus</span> carries in one go is a frame (in AUTOSAR an <span class="term">L-PDU</span>: the unit of the data link layer). A classic <span class="term">CAN</span> frame holds 8 bytes of data, a CAN FD frame up to 64. An <span class="term">I-PDU</span> that is bigger cannot travel in one frame.</p>
+<p>Such an I-PDU is a <span class="term">large I-PDU</span> (an I-PDU that does not fit into one frame of the bus). COM does not cut it up itself. Its configuration says that the I-PDU goes via a <span class="term">transport protocol</span> (a module below the <span class="term">PduR</span>, for example CanTp, that splits a large I-PDU into several frames and joins them again on the other side).</p>
+
+<h3>Try it</h3>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Bus
+      <select id="bus">
+        <option value="8">Classic CAN: 8 bytes per frame</option>
+        <option value="64">CAN FD: 64 bytes per frame</option>
+      </select>
+    </label>
+    <label><span>I-PDU length: <span id="size-out">6</span> bytes</span>
+      <input type="range" id="size" min="1" max="100" value="6">
+    </label>
+  </div>
+  <div class="pkt" id="frames"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<p>For COM, a <span class="term">large I-PDU</span> behaves a little differently:</p>
+<ul>
+<li><strong>Transmission takes time.</strong> While the frames are going out, COM leaves the content of the I-PDU alone. If the same I-PDU is triggered again before the transmission is finished, COM skips that extra transmission and reports an error.</li>
+<li><strong>Reception can fail halfway.</strong> If the frames do not all arrive, COM treats every signal in that I-PDU as if it had received the <span class="term">data invalid value</span> (lesson 7).</li>
+</ul>
+
+<h2>2. Dynamic length signals</h2>
+<p>A text or a list may be 3 bytes long one time and 20 the next. COM supports one kind of <span class="term">signal</span> for this: the <span class="term">dynamic length signal</span> (a signal of type <code class="term">UINT8_DYN</code>: a byte array whose length can change from one transmission to the next). Its maximum length is fixed in the configuration. The <span class="term">RTE</span> writes and reads it with <code class="term">Com_SendDynSignal</code> and <code class="term">Com_ReceiveDynSignal</code> (COM APIs that pass the value together with its current length).</p>
+<div class="cards">
+  <div class="card"><h3>It must be last</h3><p>The dynamic length signal sits at the very end of its I-PDU, behind all signals of fixed size.</p></div>
+  <div class="card"><h3>The length is not sent</h3><p>The I-PDU simply gets shorter or longer. The receiver works out the length of the signal from the length of the I-PDU it received.</p></div>
+</div>
+
+<h2>3. The Large Data Path</h2>
+<p>Sometimes the data is already a finished block of bytes, made by the <span class="term">RTE</span> or another part of the software. This is common for service data on <span class="term">Ethernet</span>. COM has nothing to pack, convert or filter. For such an <span class="term">I-PDU</span> COM offers the <span class="term">Large Data Path</span> (a way through COM without packing, conversion, filtering and without a copy in COM). The I-PDU then holds exactly one signal, a byte array, and COM passes it straight through in both directions.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>On the Large Data Path, COM still does</th><th>and no longer does</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Minimum delay time</span>, <span class="term">deadline monitoring</span> and <span class="term">notifications</span>, starting and stopping by <span class="term">I-PDU group</span>, large I-PDUs via the <span class="term">transport protocol</span></td><td>Packing signals, <span class="term">endianness</span>, <span class="term">update-bits</span>, <span class="term">data invalid values</span>, <span class="term">filters</span>, <span class="term">signal groups</span>, the <span class="term">signal gateway</span>, <span class="term">transmission modes</span></td></tr>
+</tbody>
+</table>
+</div>
+<p>There is no periodic timer and no <code class="term">TRIGGERED</code> here: the RTE requests each transmission itself with <code class="term">Com_Transmit</code> (COM API: send this I-PDU now), or a lower layer asks for the content with <code class="term">Com_TriggerTransmit</code> (a COM callback: give me the content of this I-PDU now; more in lesson 14). Earlier AUTOSAR releases had a separate module for this, LdCom. R25-11 merged it into COM as the Large Data Path.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">large I-PDU</span></td><td>An I-PDU that does not fit into one frame of the bus. It is sent and received via a transport protocol.</td></tr>
+<tr><td><span class="term">transport protocol</span> (TP)</td><td>A module below the PduR, for example CanTp, that splits a large I-PDU into frames and joins them again on reception.</td></tr>
+<tr><td><span class="term">dynamic length signal</span> (<code class="term">UINT8_DYN</code>)</td><td>A byte array whose length can change from one transmission to the next. It must be the last signal in its I-PDU.</td></tr>
+<tr><td><code class="term">Com_SendDynSignal</code>, <code class="term">Com_ReceiveDynSignal</code></td><td>COM APIs that write or read a dynamic length signal together with its current length.</td></tr>
+<tr><td><span class="term">Large Data Path</span></td><td>A way through COM for an I-PDU with one byte-array signal: no packing, conversion or filtering and no copy in COM.</td></tr>
+<tr><td><code class="term">Com_Transmit</code></td><td>COM API with which the RTE requests the transmission of an I-PDU on the Large Data Path.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.4, 7.5, 7.6 and 10.3.7 (SWS_Com_00662, 00863, 00838, 00753, 00757, 00758, 00913, 00914, SWS_Com_CONSTR_00940 to 00945). The frame counts in the simulation are a lower bound: the transport protocol adds a few bytes of its own to each frame.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const bus = document.getElementById('bus');
+  const size = document.getElementById('size');
+  const sizeOut = document.getElementById('size-out');
+  const frames = document.getElementById('frames');
+  const readout = document.getElementById('readout');
+  function render() {
+    const cap = Number(bus.value), n = Number(size.value);
+    sizeOut.textContent = n;
+    if (n <= cap) {
+      frames.innerHTML = '<div class="cell new">one frame<b>' + n + ' of ' + cap + '</b>bytes used</div>';
+      readout.textContent = 'Fits in one frame: a normal I-PDU.';
+      return;
+    }
+    const count = Math.ceil(n / cap);
+    let html = '';
+    for (let i = 0; i < Math.min(count, 8); i++) html += '<div class="cell">frame<b>' + (i + 1) + '</b>&nbsp;</div>';
+    if (count > 8) html += '<div class="cell dim">and<b>' + (count - 8) + '</b>more</div>';
+    frames.innerHTML = html;
+    readout.textContent = 'Too big for one frame: a large I-PDU. The transport protocol sends it in at least ' + count + ' frames.';
+  }
+  bus.onchange = size.oninput = render;
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'An I-PDU is too big for one frame. Who splits it into frames?',
+    options: ['The transport protocol', 'COM, signal by signal', 'The SWC that writes it'],
+    answer: 0,
+    why: 'The transport protocol below the PduR splits and joins the frames. COM only knows from its configuration that this is a large I-PDU.'
+  },
+  {
+    prompt: 'How does a receiver know the length of a dynamic length signal?',
+    options: ['From the I-PDU length', 'From a length byte sent', 'From a fixed setting'],
+    answer: 0,
+    why: 'The signal is last in the I-PDU, so its length is the I-PDU length minus everything in front of it.'
+  },
+  {
+    prompt: 'What does COM do with an I-PDU on the Large Data Path?',
+    options: ['Passes it on untouched', 'Packs and filters it', 'Sends it on a timer'],
+    answer: 0,
+    why: 'The block is already finished. COM passes it through and keeps only a few services such as the minimum delay time and deadline monitoring.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

@@ -9,22 +9,22 @@
 (function () {
   const LESSONS = [
     { part: 'The big picture', file: '0001-what-com-does.html', title: 'What COM does' },
-    { part: 'The big picture', file: '0002-four-timing-words.html', title: 'Four timing words' },
-    { part: 'Sending', file: '0003-repeats-and-minimum-gap.html', title: 'Repeats and the minimum gap' },
-    { part: 'Sending', file: '0004-two-send-settings.html', title: 'Two send settings, switched automatically' },
-    { part: 'Receiving', file: '0005-start-values-and-update-bits.html', title: 'Start values and update-bits' },
-    { part: 'Receiving', file: '0006-timeouts.html', title: 'Timeouts' },
-    { part: 'Receiving', file: '0007-invalid-values.html', title: 'Invalid values' },
-    { part: 'Receiving', file: '0008-filters.html', title: 'Filters' },
-    { part: 'Receiving', file: '0009-what-com-tells-the-application.html', title: 'What COM tells the application' },
-    { part: 'Organising', file: '0010-signal-groups.html', title: 'Signal groups' },
-    { part: 'Organising', file: '0011-switching-packets-on-and-off.html', title: 'Switching packets on and off' },
-    { part: 'Organising', file: '0012-signal-gateway.html', title: 'The signal gateway' },
-    { part: 'Organising', file: '0013-big-and-variable-size-data.html', title: 'Big and variable-size data' },
-    { part: 'Below COM', file: '0014-the-road-below-com.html', title: 'The road below COM' },
+    { part: 'The big picture', file: '0002-transfer-property-transmission-mode-signal-processing.html', title: 'Transfer property, transmission mode and signal processing' },
+    { part: 'Transmission', file: '0003-repetitions-and-the-minimum-delay-time.html', title: 'Repetitions and the minimum delay time' },
+    { part: 'Transmission', file: '0004-transmission-mode-selection.html', title: 'Transmission mode selection' },
+    { part: 'Reception', file: '0005-init-values-and-update-bits.html', title: 'Init values and update-bits' },
+    { part: 'Reception', file: '0006-deadline-monitoring.html', title: 'Deadline monitoring' },
+    { part: 'Reception', file: '0007-data-invalid-values.html', title: 'Data invalid values' },
+    { part: 'Reception', file: '0008-filters.html', title: 'Filters' },
+    { part: 'Reception', file: '0009-notifications.html', title: 'Notifications' },
+    { part: 'Signal groups, I-PDU groups and the gateway', file: '0010-signal-groups.html', title: 'Signal groups' },
+    { part: 'Signal groups, I-PDU groups and the gateway', file: '0011-i-pdu-groups.html', title: 'I-PDU groups' },
+    { part: 'Signal groups, I-PDU groups and the gateway', file: '0012-signal-gateway.html', title: 'The signal gateway' },
+    { part: 'Signal groups, I-PDU groups and the gateway', file: '0013-large-i-pdus-and-dynamic-length-signals.html', title: 'Large I-PDUs and dynamic length signals' },
+    { part: 'Below COM', file: '0014-pdur-and-the-lower-layers.html', title: 'PduR and the lower layers' },
     { part: 'Configuration and bits', file: '0015-configuration-map.html', title: 'The configuration map' },
-    { part: 'Configuration and bits', file: '0016-signal-packing.html', title: 'Packing a signal into a packet' },
-    { part: 'Configuration and bits', file: '0017-types-and-negative-numbers.html', title: 'Types and negative numbers' }
+    { part: 'Configuration and bits', file: '0016-signal-packing.html', title: 'Signal packing' },
+    { part: 'Configuration and bits', file: '0017-signal-types-and-sign-extension.html', title: 'Signal types and sign extension' }
   ];
 
   const here = location.pathname.split('/').pop();
@@ -47,7 +47,7 @@
     const next = idx >= 0 && idx < LESSONS.length - 1 ? LESSONS[idx + 1] : null;
     el.innerHTML =
       '<span>' + (prev ? link(prev, '← ' + prev.title) : '') + '</span>' +
-      '<span><a href="' + root + 'index.html">All lessons</a> · <a href="' + root + 'reference/com-at-a-glance.html">COM at a glance</a> · <a href="' + root + 'config/index.html">Configuration help</a></span>' +
+      '<span><a href="' + root + 'index.html">All lessons</a> · <a href="' + root + 'reference/com-at-a-glance.html">COM at a glance</a> · <a href="' + root + 'reference/words.html">Glossary</a> · <a href="' + root + 'config/index.html">Configuration help</a></span>' +
       '<span>' + (next ? link(next, next.title + ' →') : (idx >= 0 ? 'End of the course' : '')) + '</span>';
   });
 

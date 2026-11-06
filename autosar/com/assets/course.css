@@ -122,6 +122,12 @@ a { color: var(--accent); text-decoration: none; transition: color 0.3s ease-in-
 a:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
 code, kbd, .mono { font-family: var(--mono); font-size: 0.85em; letter-spacing: 0; }
 code { background: var(--head); padding: 0.05em 0.3em; }
+
+/* AUTOSAR terms with hover help (assets/glossary.js) */
+.term { text-decoration: underline dotted var(--muted); text-underline-offset: 0.2em; cursor: help; }
+.term:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.term-tip { position: absolute; z-index: 20; max-width: min(22rem, calc(100vw - 16px)); padding: 0.45rem 0.6rem; background: var(--paper); color: var(--ink); border: 1px solid var(--rule); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); font-family: var(--sans); font-size: 0.8rem; line-height: 1.4; }
+.term-tip b { font-weight: 600; }
 hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
 small, .small { font-size: 0.8rem; color: var(--muted); }
 
@@ -297,6 +303,8 @@ nav.course {
 
 @media print {
   html { font-size: 11pt; }
+  .term { text-decoration: none; }
+  .term-tip { display: none; }
   body { background: #fff; color: #000; border-top: 0; }
   main { max-width: none; padding: 0; }
   .no-print, nav.course { display: none; }

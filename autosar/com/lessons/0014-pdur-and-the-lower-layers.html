@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PduR and the lower layers · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 8 minutes">AUTOSAR COM</p>
+<h1>PduR and the lower layers</h1>
+<p class="lede">COM never touches the <span class="term">bus</span>. It hands <span class="term">I-PDUs</span> to one module below it, the <span class="term">PduR</span>, and gets I-PDUs from it. Here is the whole way down and up again, for <span class="term">CAN</span> and for <span class="term">Ethernet</span>.</p>
+
+<h2>Layers, each with one job</h2>
+<p>The software in an <span class="term">ECU</span> is built in layers. Each layer talks only to the one above and the one below. That is why COM can be the same on every bus: everything specific to a bus lives further down.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Layer</th><th>Its one job</th></tr></thead>
+<tbody>
+<tr><td><span class="term">SWC</span></td><td>The actual function: compute, decide, display.</td></tr>
+<tr><td><span class="term">RTE</span></td><td>Connects the SWCs with each other and with the basic software, COM included.</td></tr>
+<tr><td><strong>COM</strong></td><td>Signals into and out of I-PDUs, and when. This course.</td></tr>
+<tr><td><span class="term">PduR</span></td><td>Looks up where each I-PDU goes. Never looks inside.</td></tr>
+<tr><td>Bus-specific modules</td><td>Turn an I-PDU into what this bus needs, and drive the hardware.</td></tr>
+</tbody>
+</table>
+</div>
+<p>For CAN the bus-specific modules are <span class="term">CanIf</span> (CAN Interface: hands frames between the PduR and the CAN driver), <span class="term">CanTp</span> (CAN Transport Layer: the transport protocol for large I-PDUs, lesson 13) and the <span class="term">CAN Driver</span> (Can: drives the CAN hardware). What travels in one frame is an <span class="term">L-PDU</span> (Data Link Layer PDU: the unit that CanIf hands to the driver). For Ethernet they are <span class="term">SoAd</span> (Socket Adaptor: maps I-PDUs to UDP or TCP connections), <span class="term">TcpIp</span> (the TCP/IP stack), <span class="term">EthIf</span> (Ethernet Interface) and the <span class="term">Ethernet Driver</span> (Eth: drives the Ethernet hardware).</p>
+
+<h2>Step through the layers</h2>
+<p>Pick a bus and a case, then click through it.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Bus
+      <select id="bus"><option value="can">CAN</option><option value="eth">Ethernet</option></select>
+    </label>
+    <label>Case
+      <select id="story">
+        <option value="tx">Transmission of a signal</option>
+        <option value="rx">Reception of a signal</option>
+        <option value="pull">Com_TriggerTransmit</option>
+      </select>
+    </label>
+  </div>
+  <div id="road"></div>
+</div>
+
+<h2>The calls at the borders of COM</h2>
+<p>All traffic between COM and its neighbours goes through a few calls. In real COM code or a trace, these are the names you will see.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Call</th><th>Direction</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Com_SendSignal</code></td><td>RTE to COM</td><td>"Here is a new value for this signal."</td></tr>
+<tr><td><code class="term">Com_ReceiveSignal</code></td><td>RTE to COM</td><td>"Give me the current value of this signal."</td></tr>
+<tr><td><code class="term">PduR_ComTransmit</code></td><td>COM to PduR</td><td>"Transmit this I-PDU."</td></tr>
+<tr><td><code class="term">Com_TxConfirmation</code></td><td>PduR to COM</td><td>"Your I-PDU was transmitted."</td></tr>
+<tr><td><code class="term">Com_RxIndication</code></td><td>PduR to COM</td><td>"An I-PDU arrived for you."</td></tr>
+<tr><td><code class="term">Com_TriggerTransmit</code></td><td>PduR to COM</td><td>"It is about to be sent. Give me the content of this I-PDU now."</td></tr>
+</tbody>
+</table>
+</div>
+<p>A <span class="term">large I-PDU</span> (lesson 13) uses a second set of calls via the <span class="term">transport protocol</span>: <code>Com_CopyTxData</code> and <code>Com_TpTxConfirmation</code> for transmission, <code>Com_StartOfReception</code>, <code>Com_CopyRxData</code> and <code>Com_TpRxIndication</code> for reception.</p>
+
+<h2>Two notes on Ethernet</h2>
+<div class="cards">
+  <div class="card"><h3>Same COM, other modules below</h3><p>Below the <span class="term">PduR</span>, <span class="term">SoAd</span> turns "transmit this I-PDU" into "send these bytes over this socket connection". COM itself does not change.</p></div>
+  <div class="card"><h3>Service data is often serialized above COM</h3><p>On <span class="term">Ethernet</span>, data is often turned into bytes above COM, by a <span class="term">transformer</span> (a module that the RTE calls to serialize data into bytes, for example the SOME/IP transformer). COM then receives a finished block and passes it through, as on the <span class="term">Large Data Path</span> of lesson 13.</p></div>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">L-PDU</span></td><td>Data Link Layer PDU: what the bus carries in one frame.</td></tr>
+<tr><td><span class="term">CanIf</span></td><td>CAN Interface: hands L-PDUs between the PduR (or CanTp) and the CAN Driver.</td></tr>
+<tr><td><span class="term">CanTp</span></td><td>CAN Transport Layer: the transport protocol on CAN for large I-PDUs.</td></tr>
+<tr><td><span class="term">CAN Driver</span> (Can)</td><td>Drives the CAN hardware: writes frames into it and reads them out.</td></tr>
+<tr><td><span class="term">SoAd</span></td><td>Socket Adaptor: maps I-PDUs to UDP or TCP socket connections of TcpIp.</td></tr>
+<tr><td><span class="term">TcpIp</span></td><td>The TCP/IP stack of the Classic Platform.</td></tr>
+<tr><td><span class="term">EthIf</span></td><td>Ethernet Interface: hands Ethernet frames between TcpIp and the Ethernet Driver.</td></tr>
+<tr><td><span class="term">Ethernet Driver</span> (Eth)</td><td>Drives the Ethernet hardware.</td></tr>
+<tr><td><span class="term">transformer</span></td><td>A module that the RTE calls to serialize data into bytes, for example the SOME/IP transformer.</td></tr>
+<tr><td><code class="term">PduR_ComTransmit</code></td><td>PduR API with which COM requests the transmission of an I-PDU.</td></tr>
+<tr><td><code class="term">Com_TxConfirmation</code></td><td>COM callback: the PduR reports that an I-PDU was transmitted.</td></tr>
+<tr><td><code class="term">Com_RxIndication</code></td><td>COM callback: the PduR hands COM a received I-PDU.</td></tr>
+<tr><td><code class="term">Com_TriggerTransmit</code></td><td>COM callback: a lower layer asks COM for the current content of an I-PDU just before it is sent.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Sources: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.4, 7.8 and Table 7.7, SWS_Com_00475 on <code>Com_TriggerTransmit</code>; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R25-11</a>, the communication stack and "Interaction of Layers" pages.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/stepper.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const bus = document.getElementById('bus');
+  const story = document.getElementById('story');
+  const STAGES = {
+    can: ['<strong>SWC</strong>', '<strong>RTE</strong>', '<strong>COM</strong>', '<strong>PduR</strong>',
+      '<strong>CanIf</strong>', '<strong>CAN Driver</strong>', '<strong>CAN bus</strong>'],
+    eth: ['<strong>SWC</strong>', '<strong>RTE</strong>', '<strong>COM</strong>', '<strong>PduR</strong>',
+      '<strong>SoAd</strong>', '<strong>TcpIp, EthIf, Ethernet Driver</strong>', '<strong>Ethernet</strong>']
+  };
+  const T = {
+    ifDown: { can: 'CanIf knows which CAN identifier and which CAN controller belong to this I-PDU, and hands the L-PDU to the CAN Driver.',
+      eth: 'SoAd knows which socket connection (address and port) belongs to this I-PDU, and hands the bytes to TcpIp.' },
+    drvDown: { can: 'The CAN Driver writes the frame into the CAN hardware.',
+      eth: 'TcpIp wraps the bytes in UDP or TCP and IP, and EthIf and the Ethernet Driver hand the frame to the hardware.' },
+    busName: { can: 'CAN bus', eth: 'Ethernet' },
+    ifUp: { can: 'CanIf recognises the frame by its CAN identifier and knows which I-PDU it is.',
+      eth: 'SoAd recognises the socket connection the bytes came in on and knows which I-PDU it is.' },
+    drvUp: { can: 'The CAN Driver takes the frame out of the hardware and passes it up.',
+      eth: 'The Ethernet Driver, EthIf and TcpIp unwrap the frame and pass the bytes up.' }
+  };
+  function steps(b, s) {
+    if (s === 'tx') return [
+      { at: [0], text: 'The SWC has a new speed and writes it.' },
+      { at: [1, 2], text: 'The RTE passes the value to COM with <code>Com_SendSignal</code>.' },
+      { at: [2], text: 'COM puts the value into its I-PDU and decides when to transmit it (lessons 2 to 4).' },
+      { at: [2, 3], text: 'When it is time, COM hands the whole I-PDU down with <code>PduR_ComTransmit</code>.' },
+      { at: [3], text: 'The PduR looks in its routing table: this I-PDU goes to the ' + T.busName[b] + '. It does not look inside the I-PDU.' },
+      { at: [4], text: T.ifDown[b] },
+      { at: [5, 6], text: T.drvDown[b] + ' The I-PDU is on the ' + T.busName[b] + '.' },
+      { at: [5, 4, 3], text: 'The confirmation travels back up the same layers: "it was transmitted".' },
+      { at: [2], text: 'COM receives <code>Com_TxConfirmation</code>. It stops transmission deadline monitoring (lesson 6) and can call the transmission notification of the RTE (lesson 9).' }
+    ];
+    if (s === 'rx') return [
+      { at: [6], text: 'A frame arrives on the ' + T.busName[b] + '.' },
+      { at: [5], text: T.drvUp[b] },
+      { at: [4], text: T.ifUp[b] },
+      { at: [3], text: 'The PduR looks in its routing table: this I-PDU is for COM.' },
+      { at: [3, 2], text: 'It hands the I-PDU up with <code>Com_RxIndication</code>.' },
+      { at: [2], text: 'COM takes each signal through the reception steps: update-bit, data invalid value, filter (lessons 5 to 8).' },
+      { at: [2, 1], text: 'COM calls the notification of the RTE: at once with IMMEDIATE, or in the next Com_MainFunctionRx with DEFERRED (lesson 2).' },
+      { at: [1, 0], text: 'The SWC reads the value. The RTE fetches it from COM with <code>Com_ReceiveSignal</code>.' }
+    ];
+    return [
+      { at: [6], text: 'Some buses run on a strict schedule: every frame has its fixed slot. LIN and FlexRay work like this. COM cannot choose the moment there.' },
+      { at: [4, 5], text: 'Just before the slot comes up, the lower layers need the content of the I-PDU.' },
+      { at: [3, 2], text: 'The request travels up and reaches COM as <code>Com_TriggerTransmit</code>: "give me the content now".' },
+      { at: [2], text: 'COM copies the current content of the I-PDU into the buffer it was given. No timer of COM is involved. Such I-PDUs usually have the transmission mode NONE (lesson 2).' },
+      { at: [3, 4, 5, 6], text: 'The lower layers send that content in the slot.' },
+      { at: [2], text: 'This call works for any I-PDU, whatever its transmission mode. The minimum delay time does not hold it back, and it does not restart the minimum delay time.' }
+    ];
+  }
+  const road = Stepper.create(document.getElementById('road'), {
+    vertical: true, stages: STAGES.can, steps: steps('can', 'tx')
+  });
+  bus.onchange = story.onchange = () => road.set({ stages: STAGES[bus.value], steps: steps(bus.value, story.value) });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module does COM hand its I-PDUs to?',
+    options: ['PduR', 'CanIf', 'RTE'],
+    answer: 0,
+    why: 'COM only ever talks to the PduR below it. That is why COM is the same on every bus.'
+  },
+  {
+    prompt: 'What does the PduR do with an I-PDU?',
+    options: ['Looks up where it goes', 'Unpacks all the signals', 'Decides when to send it'],
+    answer: 0,
+    why: 'It routes whole I-PDUs by a table and never looks inside.'
+  },
+  {
+    prompt: 'What does <code>Com_TxConfirmation</code> tell COM?',
+    options: ['The I-PDU was transmitted', 'An I-PDU has just arrived', 'The bus wants the content'],
+    answer: 0,
+    why: 'It is the answer "it was transmitted", coming back up from the lower layers.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transmission mode selection · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Transmission mode selection</h1>
+<p class="lede">An <span class="term">I-PDU</span> can have two <span class="term">transmission modes</span>, for example fast and slow. COM picks one by looking at the values of the <span class="term">signals</span> inside the I-PDU.</p>
+
+<h2>Why two?</h2>
+<p>Some information matters more in one situation than another. While the car is moving, the speed should be sent often. While it stands still, once in a while is enough, and the <span class="term">bus</span> stays free for other things.</p>
+<p>So every <span class="term">I-PDU</span> can have two <span class="term">transmission modes</span>, one for TRUE and one for FALSE. Each one is a full transmission mode from lesson 2: <code class="term">DIRECT</code>, <code class="term">PERIODIC</code>, <code class="term">MIXED</code> or <code class="term">NONE</code>, with its own period.</p>
+<div class="cards">
+  <div class="card"><p class="tag">used while the selection is TRUE</p><h3>Transmission mode TRUE</h3><p>For example: PERIODIC, every second.</p></div>
+  <div class="card"><p class="tag">used while the selection is FALSE</p><h3>Transmission mode FALSE</h3><p>For example: PERIODIC, every four seconds. Or NONE: no transmission at all.</p></div>
+</div>
+
+<h2>Who decides?</h2>
+<p>A condition on a <span class="term">signal</span>'s value, such as "speed is not 0". AUTOSAR calls it a <span class="term">transmission mode condition</span> (TMC: a condition on one signal of the I-PDU, with the result true or false). The condition is a <span class="term">filter</span> (a rule on a signal value with a true or false result; <a href="0008-filters.html">lesson 8</a> shows all kinds) configured for that signal. COM evaluates it every time the <span class="term">SWC</span> writes that signal.</p>
+<p>COM combines the results of all TMCs of the <span class="term">I-PDU</span> into one result, the <span class="term">transmission mode selector</span> (TMS: the result that picks one of the two transmission modes):</p>
+<ul>
+<li>Several signals in the I-PDU may each have a TMC. If <strong>at least one</strong> is true, the TMS is TRUE and transmission mode TRUE is used.</li>
+<li>If none is true, the TMS is FALSE and transmission mode FALSE is used.</li>
+<li>If no signal has a TMC, the TMS is always TRUE, so the I-PDU simply always uses transmission mode TRUE. That is the normal, simple case.</li>
+</ul>
+<p>When the TMS changes, COM uses the new <span class="term">transmission mode</span> at once and restarts its period. If the new transmission mode is <code class="term">PERIODIC</code> or <code class="term">MIXED</code>, the first transmission goes out right away (as far as the <span class="term">minimum delay time</span> allows), so the receivers learn about the change without waiting.</p>
+
+<h3>Try it</h3>
+<p>The TMC is "speed is not 0". Transmission mode TRUE is PERIODIC, every second. Start the car, stop it, and watch the rhythm of the I-PDUs change.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>Transmission mode FALSE (car stands still)
+      <select id="false-mode">
+        <option value="4">PERIODIC, every 4 seconds</option>
+        <option value="0">NONE: no transmission</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> Each change of the TMS causes one I-PDU right away, if the new transmission mode is PERIODIC. Writing the same speed again changes nothing, because the TMC result did not change.</p>
+</div>
+
+<div class="note">
+<p><strong>Nothing is thrown away.</strong> The TMC only chooses the transmission mode. COM never drops a value on the sending side. Dropping unwanted values is something only a receiver does, with the same kinds of <span class="term">filter</span>. That is <a href="0008-filters.html">lesson 8</a>.</p>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">transmission mode condition</span> (TMC)</td><td>A filter on one signal of an I-PDU. Its result, true or false, feeds the transmission mode selector.</td></tr>
+<tr><td><span class="term">transmission mode selector</span> (TMS)</td><td>The result that picks the transmission mode of an I-PDU: TRUE if at least one TMC is true (or if there is no TMC), otherwise FALSE.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.3.2 (SWS_Com_00676 to 00679, 00245, 00032, 00799, 00239, 00244, 00495).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const TRUE_PERIOD = 1;
+  const falseMode = document.getElementById('false-mode');
+  const readout = document.getElementById('readout');
+  let speed, moving, nextSend;
+
+  const period = () => (moving ? TRUE_PERIOD : Number(falseMode.value));
+  const name = () => (moving ? 'TRUE (PERIODIC, every second)' : 'FALSE (' + (Number(falseMode.value) ? 'PERIODIC, every 4 seconds' : 'NONE') + ')');
+  function send(why) {
+    tl.mark('bus', String(speed), 'bus');
+    readout.textContent = 'I-PDU sent (' + why + '). Active transmission mode: ' + name() + '.';
+  }
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'write', label: 'Speed written by the SWC' },
+      { id: 'bus', label: 'I-PDU on the bus' }
+    ],
+    duration: 20,
+    onTick(prev, now) {
+      const p = period();
+      if (p && now >= nextSend) { send('period'); nextSend += p; }
+    },
+    onReset() {
+      speed = 0; moving = false; nextSend = period() || 0;
+      readout.textContent = 'The car stands still. Press a button to start the clock.';
+    }
+  });
+  function write(v) {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    speed = v;
+    tl.mark('write', String(v));
+    const now = moving;
+    moving = v !== 0;
+    if (moving === now) {
+      readout.textContent = 'Speed ' + v + ' written. The TMS did not change, so the transmission mode stays: ' + name() + '.';
+      return;
+    }
+    const p = period();
+    if (p) { send('TMS changed'); nextSend = tl.now() + p; }
+    else readout.textContent = 'TMS changed. Transmission mode now: ' + name() + '.';
+  }
+  tl.buttons.append(
+    Timeline.button('Car moves: write speed 50', () => write(50), true),
+    Timeline.button('Car stops: write speed 0', () => write(0), true)
+  );
+  falseMode.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'An I-PDU has three signals with a TMC. One TMC is true, two are false. Which transmission mode is used?',
+    options: ['Transmission mode TRUE', 'Transmission mode FALSE', 'Both, one after another'],
+    answer: 0,
+    why: 'One true TMC is enough to make the TMS TRUE.'
+  },
+  {
+    prompt: 'No signal in the I-PDU has a TMC. Which transmission mode is used?',
+    options: ['Always the TRUE one', 'Always the FALSE one', 'Neither, nothing is sent'],
+    answer: 0,
+    why: 'Without any TMC the TMS counts as TRUE, so in practice the I-PDU has just one transmission mode.'
+  },
+  {
+    prompt: 'The TMS changes, and the new transmission mode is PERIODIC. When does the first I-PDU go out?',
+    options: ['Right away at the change', 'After one full period', 'Only at the next write'],
+    answer: 0,
+    why: 'COM sends at once on the change and restarts the period from there.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

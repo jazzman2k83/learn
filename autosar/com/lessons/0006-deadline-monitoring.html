@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadline monitoring · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Deadline monitoring</h1>
+<p class="lede">Silence can be dangerous. If the brake <span class="term">ECU</span> stops sending, the others must find out. COM checks that <span class="term">signal</span>s arrive in time, and that its own transmissions are confirmed in time.</p>
+
+<h2>Reception deadline monitoring</h2>
+<p>For a <span class="term">signal</span> that should arrive regularly, COM can run <span class="term">deadline monitoring</span> (COM checking that something happens within a set time). On the receiving side this is <span class="term">reception deadline monitoring</span> (detecting that a received signal did not arrive within its time). The time allowed is the <span class="term">timeout</span> (the time after which a missing reception or confirmation is reported). COM starts a timer, and each reception of the <span class="term">I-PDU</span> restarts it. If the timer reaches the timeout, COM does two things:</p>
+<div class="cards">
+  <div class="card"><h3>1. Decide the signal value</h3><p>Chosen per signal: <code class="term">NONE</code> (keep the last received value), <code class="term">REPLACE</code> (go back to the <span class="term">init value</span>) or <code class="term">SUBSTITUTE</code> (use the <span class="term">timeout substitution value</span>, a value configured for this case).</p></div>
+  <div class="card"><h3>2. Notify the RTE</h3><p>COM calls a timeout <span class="term">notification</span> (a function of the <span class="term">RTE</span> that COM calls when something happens to a signal; lesson 9), so the <span class="term">SWC</span> can react, for example by showing a warning.</p></div>
+</div>
+<p>Then the timer starts again. As long as nothing arrives, COM calls the timeout notification again each time the timeout passes.</p>
+
+<h3>Try it</h3>
+<p>The timeout is 3 seconds. Let I-PDUs arrive, then stop clicking and watch. The init value is 0 and the timeout substitution value is 99.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label>On a timeout
+      <select id="action">
+        <option value="NONE">NONE: keep the last value</option>
+        <option value="REPLACE">REPLACE: init value</option>
+        <option value="SUBSTITUTE">SUBSTITUTE: substitution value</option>
+      </select>
+    </label>
+  </div>
+  <div id="tl"></div>
+  <p class="readout" id="readout" aria-live="polite"></p>
+</div>
+
+<h2>One timer or several?</h2>
+<p>Normally COM monitors the whole <span class="term">I-PDU</span> with one timer: if the I-PDU arrives, all its <span class="term">signal</span>s are fine. A signal with an <span class="term">update-bit</span> gets its own timer, because the I-PDU may arrive without that signal being new.</p>
+<p>The very first reception after start-up can have its own, usually longer, time: the <span class="term">first timeout</span> (the timeout used for the first reception after the I-PDU was started). Other ECUs may need time to start up.</p>
+
+<h2>Transmission deadline monitoring</h2>
+<p>COM can also monitor its own transmissions. This is <span class="term">transmission deadline monitoring</span> (detecting that the lower layers did not confirm a transmission within its timeout). When COM hands an <span class="term">I-PDU</span> to the <span class="term">PduR</span>, it expects the <span class="term">transmit confirmation</span> (the report from the lower layers that the I-PDU was sent on the bus) within the <span class="term">timeout</span>. If the confirmation does not come, for example because the wire is broken, COM notifies the <span class="term">RTE</span>.</p>
+<p>One difference: this timeout notification comes <strong>once</strong> per failed transmission. The timer is not restarted.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">deadline monitoring</span></td><td>COM checking that a reception or a transmit confirmation happens in time.</td></tr>
+<tr><td><span class="term">reception deadline monitoring</span></td><td>Detecting that a received signal or signal group did not arrive within its timeout.</td></tr>
+<tr><td><span class="term">transmission deadline monitoring</span></td><td>Detecting that the lower layers did not confirm a transmission within its timeout.</td></tr>
+<tr><td><span class="term">timeout</span></td><td>The time allowed before deadline monitoring reports a missing reception or confirmation.</td></tr>
+<tr><td><span class="term">first timeout</span></td><td>The timeout used for the very first reception after the I-PDU was started.</td></tr>
+<tr><td><code class="term">REPLACE</code></td><td>On a timeout: the signal goes back to its init value.</td></tr>
+<tr><td><code class="term">SUBSTITUTE</code></td><td>On a timeout: the signal gets its timeout substitution value.</td></tr>
+<tr><td><span class="term">timeout substitution value</span></td><td>A configured value that a signal gets on a timeout when the action is SUBSTITUTE.</td></tr>
+<tr><td><span class="term">transmit confirmation</span></td><td>The report from the lower layers that an I-PDU was transmitted.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.6 (SWS_Com_00290, 00292, 00470, 00875, 00500, 00889, 00878, 00304). Finer points: a timeout of 0 switches deadline monitoring off. COM can also report timeouts to the diagnostic event manager (Dem). Transmission deadline monitoring only makes sense on a bus that confirms transmissions. Reception deadline monitoring runs only while the I-PDU group of the I-PDU (a set of I-PDUs started and stopped together, lesson 11) has it enabled.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const LIMIT = 3, START = 0, SUBSTITUTE = 99;
+  const action = document.getElementById('action');
+  const readout = document.getElementById('readout');
+  let next, value, deadline;
+  const show = (what) => { readout.textContent = what + ' The SWC now reads ' + value + '.'; };
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: [
+      { id: 'in', label: 'I-PDU received' },
+      { id: 'alarm', label: 'Rx timeout' }
+    ],
+    duration: 18,
+    onTick(prev, now) {
+      if (now < deadline) return;
+      deadline += LIMIT;
+      tl.mark('alarm', '!', 'wait');
+      if (action.value === 'REPLACE') value = START;
+      if (action.value === 'SUBSTITUTE') value = SUBSTITUTE;
+      show('Rx timeout: nothing received for 3 seconds. Timeout notification called.');
+    },
+    onReset() {
+      next = 50; value = START; deadline = LIMIT;
+      readout.textContent = 'Press the button to start the clock. The timer starts with it.';
+    }
+  });
+  tl.buttons.append(Timeline.button('Receive the I-PDU', () => {
+    if (tl.finished()) tl.reset();
+    tl.start();
+    value = next++;
+    deadline = tl.now() + LIMIT;
+    tl.mark('in', String(value));
+    show('I-PDU received, timer restarted.');
+  }, true));
+  action.addEventListener('change', () => tl.reset());
+  tl.reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What restarts the reception deadline monitoring timer?',
+    options: ['Each I-PDU reception', 'Each signal read call', 'Each main function run'],
+    answer: 0,
+    why: 'Every reception of the monitored I-PDU restarts the timer.'
+  },
+  {
+    prompt: 'Nothing is received for a long time. How often is the timeout notification called?',
+    options: ['Again and again', 'One single time', 'Not at all, never'],
+    answer: 0,
+    why: 'After a timeout the timer restarts, so the notification is called again each time the timeout passes.'
+  },
+  {
+    prompt: 'A transmission is not confirmed in time. How often is that timeout notification called?',
+    options: ['One single time', 'Again and again', 'Not at all, never'],
+    answer: 0,
+    why: 'The transmission deadline monitoring timer is not restarted after it runs out, so there is one notification per failed transmission.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

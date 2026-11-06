@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal types and sign extension · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 6 minutes">AUTOSAR COM</p>
+<h1>Signal types and sign extension</h1>
+<p class="lede">A <span class="term">signal</span> often uses fewer bits in its <span class="term">I-PDU</span> than the variable that holds it in the <span class="term">SWC</span>. On reception COM widens it to fit. For negative numbers that takes one extra step: COM copies the sign bit into the new bits.</p>
+
+<h2>Signal types</h2>
+<p>Every signal has a <span class="term">signal type</span> (<code class="term">ComSignalType</code>: the data type of the signal as the RTE and the SWC see it).</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Kind of value</th><th>Signal types</th></tr></thead>
+<tbody>
+<tr><td>Yes / no</td><td><code>BOOLEAN</code></td></tr>
+<tr><td>Whole number, never negative</td><td><code>UINT8</code>, <code>UINT16</code>, <code>UINT32</code>, <code>UINT64</code></td></tr>
+<tr><td>Whole number, may be negative</td><td><code>SINT8</code>, <code>SINT16</code>, <code>SINT32</code>, <code>SINT64</code></td></tr>
+<tr><td>Number with a decimal point</td><td><code>FLOAT32</code>, <code>FLOAT64</code></td></tr>
+<tr><td>Byte array</td><td><code class="term">UINT8_N</code> (a byte array of fixed length) or <code class="term">UINT8_DYN</code> (changing length, lesson 13)</td></tr>
+</tbody>
+</table>
+</div>
+<p>The number in the name is the size of the variable in bits. The size <em>in the I-PDU</em> is a separate parameter, <code class="term">ComBitSize</code>, and is often smaller. A temperature from −400 to 400 needs only 10 bits in the I-PDU, but the smallest variable that can hold it has 16.</p>
+
+<h2>Sign extension</h2>
+<p>When such a <span class="term">signal</span> is received, COM copies its 10 bits into the 16-bit variable. Six bits on the left are left over. What goes in there?</p>
+<div class="cards">
+  <div class="card"><p class="tag">UINT types</p><h3>Fill with zeros</h3><p>Zeros on the left do not change a number, just as 0042 is still 42.</p></div>
+  <div class="card"><p class="tag">SINT types</p><h3>Copy the sign bit</h3><p>The leftmost bit of the signal (its <span class="term">MSB</span>) tells the sign: 0 is plus, 1 is minus. COM copies that bit into every left-over place.</p></div>
+</div>
+<p>Copying the sign bit is called <span class="term">sign extension</span> (widening a signed value to the size of its signal type so that a negative value stays negative). Why is it needed? Computers store negative numbers in two's complement, which counts backwards from all ones: with 10 bits, 1111111111 is −1 and 1111111110 is −2. In 16 bits, −1 is sixteen ones. So a negative number only stays the same number if the new places on the left are also ones.</p>
+
+<h3>Try it</h3>
+<p>A 10-bit <code>SINT16</code> signal is received and goes into a 16-bit variable.</p>
+<div class="panel no-print">
+  <div class="controls">
+    <label><span>Value sent: <span id="v-out">-3</span></span>
+      <input type="range" id="v" min="-512" max="511" value="-3">
+    </label>
+  </div>
+  <p class="pkt-label">10 bits in the I-PDU (the underlined bit is the sign bit)</p>
+  <p class="bits" id="wire"></p>
+  <p class="pkt-label">16 bits for the SWC, with sign extension</p>
+  <p class="bits" id="good"></p>
+  <p class="pkt-label">16 bits if COM only filled with zeros</p>
+  <p class="bits" id="bad"></p>
+</div>
+<div class="note">
+<p><strong>Things to notice.</strong> For zero and positive values both ways give the same result. For any negative value, filling with zeros gives a large wrong positive number.</p>
+</div>
+
+<h2>Three smaller rules</h2>
+<div class="cards">
+  <div class="card"><h3>Transmission needs no sign extension</h3><p>On the way out, COM simply takes the lowest bits of the variable. The SWC is expected to stay within the range of the signal.</p></div>
+  <div class="card"><h3>Init values are cut to size</h3><p>An <span class="term">init value</span> is cut to the lowest bits of the signal in the same way.</p></div>
+  <div class="card"><h3>FLOAT types are left alone</h3><p>For <code>FLOAT32</code> and <code>FLOAT64</code> COM only applies the <span class="term">endianness</span>. It does no sign extension and no other conversion.</p></div>
+</div>
+<p>One more detail from the transmission side: the parts of an I-PDU that no signal uses are filled with a fixed byte pattern, set in <code class="term">ComTxIPduUnusedAreasDefault</code>, often 0xFF.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">signal type</span> (<code class="term">ComSignalType</code>)</td><td>The data type of a signal: BOOLEAN, UINT8 … UINT64, SINT8 … SINT64, FLOAT32, FLOAT64, UINT8_N or UINT8_DYN.</td></tr>
+<tr><td><span class="term">sign extension</span></td><td>On reception, COM copies the sign bit of a signed signal into the higher bits of the larger variable, so a negative value stays negative.</td></tr>
+<tr><td><code class="term">UINT8_N</code></td><td>Signal type: a byte array of fixed length.</td></tr>
+<tr><td><code class="term">ComTxIPduUnusedAreasDefault</code></td><td>Parameter: the byte pattern that fills the parts of a transmitted I-PDU that no signal uses.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.1.3 and 7.2.1 (SWS_Com_00675, 00008, 00723, 00579, 00580, 00098, 00015). The example with −3 in 10 and 16 bits is the specification's own.</p>
+
+<div class="win">
+<p><strong>That was the last lesson.</strong> You have gone from what COM does down to single bits. For a one-page reminder of everything, keep the <a href="../reference/com-at-a-glance.html">COM at a glance</a> sheet.</p>
+</div>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const v = document.getElementById('v');
+  const out = document.getElementById('v-out');
+  function render() {
+    const n = Number(v.value);
+    out.textContent = n;
+    const ten = (n & 0x3ff).toString(2).padStart(10, '0');
+    const sign = ten[0];
+    document.getElementById('wire').innerHTML = '<span class="sign">' + sign + '</span>' + ten.slice(1);
+    document.getElementById('good').innerHTML =
+      '<span class="copy">' + sign.repeat(6) + '</span>' + ten + ' = ' + n;
+    const wrong = n & 0x3ff;
+    document.getElementById('bad').innerHTML =
+      '<span class="copy">000000</span>' + ten + ' = ' + wrong + (wrong === n ? ' (same)' : ' <span class="no">(wrong)</span>');
+  }
+  v.oninput = render;
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A 10-bit signal that may be negative is copied into a 16-bit variable. What goes into the six left-over bits?',
+    options: ['Copies of the sign bit', 'Always zeros, six times', 'Always ones, six times'],
+    answer: 0,
+    why: 'Sign extension copies the sign bit, so positive numbers stay positive and negative numbers stay negative.'
+  },
+  {
+    prompt: 'What does the 16 in <code>UINT16</code> say?',
+    options: ['Bits of the variable', 'Bits in the I-PDU', 'Bytes of the variable'],
+    answer: 0,
+    why: 'The signal type gives the size of the variable. The size in the I-PDU is a separate parameter, ComBitSize, and may be smaller.'
+  },
+  {
+    prompt: 'What does COM do with a <code>FLOAT32</code> signal?',
+    options: ['Only orders the bytes', 'Rounds it to a whole', 'Copies the sign bit up'],
+    answer: 0,
+    why: 'For FLOAT types COM only applies the endianness. It does no sign extension and no other conversion.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

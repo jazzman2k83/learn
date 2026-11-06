@@ -8,17 +8,17 @@
 <link rel="stylesheet" href="../assets/course.css">
 </head>
 <body>
-<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">AUTOSAR COM in plain words</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
 <main>
 
 <p class="kicker">AUTOSAR COM · Configuration help</p>
 <h1>Configurator</h1>
-<p class="lede">Say in plain words what one signal should do. You get the exact settings, what COM will do with them, and a warning where settings do not fit together.</p>
+<p class="lede">Answer questions about what one <span class="term">signal</span> should do. You get the exact configuration parameters, what <span class="term">COM</span> will do with them, and a warning where parameters do not fit together.</p>
 
 <div class="panel no-print">
   <div class="chips" id="dir">
-    <button type="button" data-dir="tx">This control unit sends the signal</button>
-    <button type="button" data-dir="rx">This control unit receives the signal</button>
+    <button type="button" data-dir="tx">This ECU sends the signal</button>
+    <button type="button" data-dir="rx">This ECU receives the signal</button>
   </div>
   <form id="form" autocomplete="off"></form>
   <div class="buttons-row">
@@ -33,34 +33,34 @@
 <ul id="summary"></ul>
 
 <h2>Checks</h2>
-<p class="small">The small code after a line names the rule or setting in the AUTOSAR COM specification it comes from.</p>
+<p class="small">The small code after a line names the rule or <span class="term">parameter</span> in the AUTOSAR COM specification it comes from.</p>
 <ul class="issues" id="issues" aria-live="polite"></ul>
 
 <h2>Where the bits sit</h2>
 <div id="layout"></div>
 
-<h2>The settings</h2>
-<p>Each row is one setting. The first column says in which box of the configuration it lives. Times are always in seconds, so 100 ms is written as 0.1.</p>
+<h2>The configuration parameters</h2>
+<p>Each row is one <span class="term">parameter</span>. The first column says in which <span class="term">container</span> of the configuration it lives. Times are always in seconds, so 100 ms is written as 0.1.</p>
 <div class="table-wrap">
 <table class="data settings">
-<thead><tr><th>Where</th><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+<thead><tr><th>Container</th><th>Parameter</th><th>Value</th><th>Why</th></tr></thead>
 <tbody id="rows"></tbody>
 </table>
 </div>
 
 <div id="messages">
-<h3>Messages to the application</h3>
-<p>Messages are not set in COM itself. They are set in the configuration of whoever uses COM, normally the switchboard (RTE), in a box called <code>ComUserCallback</code>. The signal is linked to it with <code>ComUserCallbackRef</code>.</p>
+<h3>Notifications</h3>
+<p><span class="term">Notifications</span> are not configured in COM itself. They are configured by the user of COM, normally the <span class="term">RTE</span>, in a container called <code>ComUserCallback</code>. The signal is linked to it with <code>ComUserCallbackRef</code>.</p>
 <div class="table-wrap">
 <table class="data">
-<thead><tr><th>ComUserCallbackType</th><th>Tells the application</th></tr></thead>
+<thead><tr><th>ComUserCallbackType</th><th>Tells the RTE</th></tr></thead>
 <tbody id="callbacks"></tbody>
 </table>
 </div>
 </div>
 
 <h2>As ARXML</h2>
-<p>The same settings in the form a configuration file uses. Put it next to your own file to compare.</p>
+<p>The same configuration parameters in the form a configuration file uses. Put it next to your own file to compare.</p>
 <details class="more" id="arxml-box">
   <summary>Show the ARXML</summary>
   <div class="buttons-row no-print"><button type="button" id="copy">Copy</button></div>
@@ -68,7 +68,7 @@
 </details>
 
 <div class="note">
-<p><strong>What this tool does not know.</strong> It looks at one signal in one packet. It cannot see the other signals in the packet, the layers below COM, or the extra settings your tool vendor adds. Handle numbers are left out because tools assign them. Names follow AUTOSAR release R25-11. In projects on older releases the messages are set on the signal itself, with names such as <code>ComNotification</code> and <code>ComTimeoutNotification</code>.</p>
+<p><strong>What this tool does not know.</strong> It looks at one <span class="term">signal</span> in one <span class="term">I-PDU</span>. It cannot see the other signals in the I-PDU, the layers below COM, or the extra parameters your tool vendor adds. Handle numbers are left out because tools assign them. Names follow AUTOSAR release R25-11. In projects on older releases the notifications are configured on the signal itself, with names such as <code>ComNotification</code> and <code>ComTimeoutNotification</code>.</p>
 </div>
 
 <p class="small">Rules and names: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10. ARXML form: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_ECUConfiguration.pdf">Specification of ECU Configuration, R25-11</a>. More help: <a href="recipes.html">recipe book</a>, <a href="troubleshooting.html">troubleshooting</a>.</p>
@@ -77,6 +77,7 @@
 
 </main>
 <script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/pdu-grid.js"></script>
 <script src="../assets/com-config.js"></script>
 <script>
@@ -90,91 +91,91 @@
   const needs = (p) => (a) => C.FILTERS[a.alg].params.includes(p);
 
   const SETS = [
-    { title: 'The signal and its packet' + lesson('0016-signal-packing.html', 16), items: [
+    { title: 'The signal and its I-PDU' + lesson('0016-signal-packing.html', 16), items: [
       { k: 'sig', label: 'Name of the signal', type: 'text' },
-      { k: 'pdu', label: 'Name of the packet it travels in', type: 'text' },
-      { k: 'pduBytes', label: 'Length of the packet', unit: 'bytes', min: 1 },
-      { k: 'type', label: 'Kind of value', options: [
+      { k: 'pdu', label: 'Name of the I-PDU it travels in', type: 'text' },
+      { k: 'pduBytes', label: 'Length of the I-PDU', unit: 'bytes', min: 1 },
+      { k: 'type', label: 'Signal type', options: [
         ['BOOLEAN', 'on or off (BOOLEAN)'], ['UINT8', 'whole number from 0 (UINT8)'], ['UINT16', 'whole number from 0 (UINT16)'],
         ['UINT32', 'whole number from 0 (UINT32)'], ['UINT64', 'whole number from 0 (UINT64)'],
         ['SINT8', 'whole number, can be negative (SINT8)'], ['SINT16', 'whole number, can be negative (SINT16)'],
         ['SINT32', 'whole number, can be negative (SINT32)'], ['SINT64', 'whole number, can be negative (SINT64)'],
-        ['FLOAT32', 'decimal number (FLOAT32)'], ['FLOAT64', 'decimal number (FLOAT64)'], ['UINT8_N', 'row of bytes (UINT8_N)']] },
-      { k: 'bits', label: 'Bits it takes in the packet', unit: 'bits', min: 1, max: 64, show: (a) => !T(a).float && !T(a).array && a.type !== 'BOOLEAN' },
-      { k: 'len', label: 'Length of the row', unit: 'bytes', min: 1, show: (a) => T(a).array },
-      { k: 'start', label: 'Start bit in the packet', help: 'The lowest bit for "low byte first", the highest bit for "high byte first".', min: 0 },
-      { k: 'endian', label: 'Byte order', options: [['LITTLE_ENDIAN', 'low byte first (LITTLE_ENDIAN)'], ['BIG_ENDIAN', 'high byte first (BIG_ENDIAN)']], show: (a) => !T(a).array },
-      { k: 'init', label: 'Start value', type: 'text' },
-      { k: 'group', label: 'Packet group', help: 'Leave empty if the packet is always switched on.', type: 'text' },
-      { k: 'main', label: 'COM\'s heartbeat', unit: 'ms', min: 1 }
+        ['FLOAT32', 'decimal number (FLOAT32)'], ['FLOAT64', 'decimal number (FLOAT64)'], ['UINT8_N', 'byte array of fixed length (UINT8_N)']] },
+      { k: 'bits', label: 'Bits it takes in the I-PDU (ComBitSize)', unit: 'bits', min: 1, max: 64, show: (a) => !T(a).float && !T(a).array && a.type !== 'BOOLEAN' },
+      { k: 'len', label: 'Length of the byte array', unit: 'bytes', min: 1, show: (a) => T(a).array },
+      { k: 'start', label: 'Bit position in the I-PDU (ComBitPosition)', help: 'The LSB for LITTLE_ENDIAN, the MSB for BIG_ENDIAN.', min: 0 },
+      { k: 'endian', label: 'Endianness', options: [['LITTLE_ENDIAN', 'low byte first (LITTLE_ENDIAN)'], ['BIG_ENDIAN', 'high byte first (BIG_ENDIAN)']], show: (a) => !T(a).array },
+      { k: 'init', label: 'Init value', type: 'text' },
+      { k: 'group', label: 'I-PDU group', help: 'Leave empty if the I-PDU is always started.', type: 'text' },
+      { k: 'main', label: 'Main function period', unit: 'ms', min: 1 }
     ] },
 
-    { title: 'When should it go out?' + lesson('0002-four-timing-words.html', 2), show: tx, items: [
+    { title: 'When should it go out?' + lesson('0002-transfer-property-transmission-mode-signal-processing.html', 2), show: tx, items: [
       { k: 'write', label: 'What should writing this signal do?', options: [
-        ['change', 'send the packet if the value changed'], ['always', 'send the packet, every time'], ['pending', 'nothing, the value waits for the next send']] },
-      { k: 'others', label: 'Other signals in this packet send it on a write', type: 'check' },
-      { k: 'timer', label: 'Also send the packet on a timer', type: 'check' },
-      { k: 'period', label: 'Timer period', unit: 'ms', min: 1, show: (a) => a.timer },
-      { k: 'offset', label: 'Delay before the first timer send', unit: 'ms', min: 0, show: (a) => a.timer }
+        ['change', 'send the I-PDU if the value changed'], ['always', 'send the I-PDU, every time'], ['pending', 'nothing, the value waits for the next transmission']] },
+      { k: 'others', label: 'Other signals in this I-PDU trigger its transmission', type: 'check' },
+      { k: 'timer', label: 'Also send the I-PDU periodically', type: 'check' },
+      { k: 'period', label: 'Period', unit: 'ms', min: 1, show: (a) => a.timer },
+      { k: 'offset', label: 'Time offset before the first periodic transmission', unit: 'ms', min: 0, show: (a) => a.timer }
     ] },
-    { title: 'Repeats and minimum gap' + lesson('0003-repeats-and-minimum-gap.html', 3), show: tx, items: [
-      { k: 'reps', label: 'Repeats after a send on a write', help: '0 means the packet goes out once.', min: 0, max: 255 },
-      { k: 'repGap', label: 'Time between the repeats', unit: 'ms', min: 1, show: (a) => a.reps > 0 },
-      { k: 'sigReps', label: 'A write of this signal uses the repeats', type: 'check', show: (a) => a.reps > 0 && a.write !== 'pending' },
-      { k: 'mdt', label: 'Minimum gap between two sends', help: '0 means no gap.', unit: 'ms', min: 0 },
-      { k: 'mdtCyclic', label: 'The gap also holds for timer sends and repeats', type: 'check', show: (a) => a.mdt > 0 }
+    { title: 'Repetitions and minimum delay time' + lesson('0003-repetitions-and-the-minimum-delay-time.html', 3), show: tx, items: [
+      { k: 'reps', label: 'Number of repetitions after a triggered transmission', help: '0 means the I-PDU goes out once.', min: 0, max: 255 },
+      { k: 'repGap', label: 'Repetition period', unit: 'ms', min: 1, show: (a) => a.reps > 0 },
+      { k: 'sigReps', label: 'A write of this signal uses the repetitions', type: 'check', show: (a) => a.reps > 0 && a.write !== 'pending' },
+      { k: 'mdt', label: 'Minimum delay time between two transmissions', help: '0 means none.', unit: 'ms', min: 0 },
+      { k: 'mdtCyclic', label: 'Also for periodic transmissions and repetitions', type: 'check', show: (a) => a.mdt > 0 }
     ] },
-    { title: 'A second send setting' + lesson('0004-two-send-settings.html', 4), show: tx, items: [
-      { k: 'two', label: 'Send differently depending on this signal\'s value', type: 'check' },
-      { k: 'alg', label: 'Use the setting above while…', options: algOptions(['MASKED_NEW_DIFFERS_X', 'MASKED_NEW_EQUALS_X', 'NEW_IS_WITHIN', 'NEW_IS_OUTSIDE']), show: (a) => a.two },
+    { title: 'A second transmission mode' + lesson('0004-transmission-mode-selection.html', 4), show: tx, items: [
+      { k: 'two', label: 'Choose the transmission mode by this signal\'s value', type: 'check' },
+      { k: 'alg', label: 'Use the transmission mode above (ComTxModeTrue) while…', options: algOptions(['MASKED_NEW_DIFFERS_X', 'MASKED_NEW_EQUALS_X', 'NEW_IS_WITHIN', 'NEW_IS_OUTSIDE']), show: (a) => a.two },
       { k: 'x', label: 'X', type: 'text', show: (a) => a.two && needs('x')(a) },
       { k: 'min', label: 'Range from', type: 'text', show: (a) => a.two && needs('min')(a) },
       { k: 'max', label: 'Range to', type: 'text', show: (a) => a.two && needs('min')(a) },
-      { k: 'falseMode', label: 'Otherwise…', options: [['NONE', 'do not send the packet (NONE)'], ['PERIODIC', 'send it on a slower timer (PERIODIC)']], show: (a) => a.two },
-      { k: 'falsePeriod', label: 'Slower timer period', unit: 'ms', min: 1, show: (a) => a.two && a.falseMode === 'PERIODIC' }
+      { k: 'falseMode', label: 'Otherwise (ComTxModeFalse)…', options: [['NONE', 'do not send the I-PDU (NONE)'], ['PERIODIC', 'send it with a longer period (PERIODIC)']], show: (a) => a.two },
+      { k: 'falsePeriod', label: 'Longer period', unit: 'ms', min: 1, show: (a) => a.two && a.falseMode === 'PERIODIC' }
     ] },
-    { title: 'Fresh, lost and invalid' + lesson('0005-start-values-and-update-bits.html', 5) + lesson('0006-timeouts.html', 6) + lesson('0007-invalid-values.html', 7), show: tx, items: [
+    { title: 'Update-bit, deadline monitoring and data invalid value' + lesson('0005-init-values-and-update-bits.html', 5) + lesson('0006-deadline-monitoring.html', 6) + lesson('0007-data-invalid-values.html', 7), show: tx, items: [
       { k: 'ub', label: 'Mark fresh values with an update-bit', type: 'check' },
       { k: 'ubPos', label: 'Position of the update-bit', min: 0, show: (a) => a.ub },
-      { k: 'ubClear', label: 'Clear the update-bit…', options: [['Transmit', 'when the packet was handed down (Transmit)'], ['Confirmation', 'when the bus confirmed it (Confirmation)'], ['TriggerTransmit', 'when the packet was fetched from below (TriggerTransmit)']], show: (a) => a.ub },
-      { k: 'txTout', label: 'Send timeout', help: '0 means sends are not watched.', unit: 'ms', min: 0 },
-      { k: 'inv', label: 'The application can mark the signal as invalid', type: 'check' },
-      { k: 'invVal', label: 'Reserved value that means "invalid"', type: 'text', show: (a) => a.inv }
+      { k: 'ubClear', label: 'Clear the update-bit…', options: [['Transmit', 'when the I-PDU was passed to the PduR (Transmit)'], ['Confirmation', 'when the transmission was confirmed (Confirmation)'], ['TriggerTransmit', 'when Com_TriggerTransmit fetched the I-PDU (TriggerTransmit)']], show: (a) => a.ub },
+      { k: 'txTout', label: 'Transmission timeout', help: '0 means no transmission deadline monitoring.', unit: 'ms', min: 0 },
+      { k: 'inv', label: 'The SWC can mark the signal as invalid', type: 'check' },
+      { k: 'invVal', label: 'Data invalid value', type: 'text', show: (a) => a.inv }
     ] },
-    { title: 'Messages to the application' + lesson('0009-what-com-tells-the-application.html', 9), show: tx, items: [
-      { k: 'cbAck', label: 'Tell it: sent', type: 'check' },
-      { k: 'cbTout', label: 'Tell it: not sent in time', type: 'check' },
-      { k: 'cbErr', label: 'Tell it: could not be sent', type: 'check' },
-      { k: 'proc', label: 'Give these messages…', options: [['DEFERRED', 'at COM\'s next heartbeat (DEFERRED)'], ['IMMEDIATE', 'at once (IMMEDIATE)']] }
+    { title: 'Notifications' + lesson('0009-notifications.html', 9), show: tx, items: [
+      { k: 'cbAck', label: 'Notify: transmitted', type: 'check' },
+      { k: 'cbTout', label: 'Notify: transmission timeout', type: 'check' },
+      { k: 'cbErr', label: 'Notify: transmission failed', type: 'check' },
+      { k: 'proc', label: 'Give these notifications…', options: [['DEFERRED', 'in COM\'s next main function (DEFERRED)'], ['IMMEDIATE', 'at once (IMMEDIATE)']] }
     ] },
 
-    { title: 'When is the application told?' + lesson('0002-four-timing-words.html', 2), show: rx, items: [
-      { k: 'proc', label: 'Unpack the packet and tell the application…', options: [['DEFERRED', 'at COM\'s next heartbeat (DEFERRED)'], ['IMMEDIATE', 'the moment it arrives (IMMEDIATE)']] },
-      { k: 'cbAck', label: 'Tell it: new value', type: 'check' }
+    { title: 'When is the RTE notified?' + lesson('0002-transfer-property-transmission-mode-signal-processing.html', 2), show: rx, items: [
+      { k: 'proc', label: 'Unpack the I-PDU and notify the RTE…', options: [['DEFERRED', 'in COM\'s next main function (DEFERRED)'], ['IMMEDIATE', 'the moment it arrives (IMMEDIATE)']] },
+      { k: 'cbAck', label: 'Notify: new value received', type: 'check' }
     ] },
-    { title: 'Fresh and invalid' + lesson('0005-start-values-and-update-bits.html', 5) + lesson('0007-invalid-values.html', 7), show: rx, items: [
+    { title: 'Update-bit and data invalid value' + lesson('0005-init-values-and-update-bits.html', 5) + lesson('0007-data-invalid-values.html', 7), show: rx, items: [
       { k: 'ub', label: 'The sender marks fresh values with an update-bit', type: 'check' },
       { k: 'ubPos', label: 'Position of the update-bit', min: 0, show: (a) => a.ub },
-      { k: 'inv', label: 'A reserved value means "invalid"', type: 'check' },
-      { k: 'invVal', label: 'That reserved value', type: 'text', show: (a) => a.inv },
-      { k: 'invAct', label: 'When it arrives…', options: [['NOTIFY', 'keep the last good value and report it (NOTIFY)'], ['REPLACE', 'hand out the start value instead (REPLACE)']], show: (a) => a.inv },
-      { k: 'cbInv', label: 'Tell it: invalid value arrived', type: 'check', show: (a) => a.inv }
+      { k: 'inv', label: 'The signal has a data invalid value', type: 'check' },
+      { k: 'invVal', label: 'Data invalid value', type: 'text', show: (a) => a.inv },
+      { k: 'invAct', label: 'When it arrives…', options: [['NOTIFY', 'keep the last valid value and notify (NOTIFY)'], ['REPLACE', 'use the init value instead (REPLACE)']], show: (a) => a.inv },
+      { k: 'cbInv', label: 'Notify: data invalid value received', type: 'check', show: (a) => a.inv }
     ] },
     { title: 'Filter' + lesson('0008-filters.html', 8), show: rx, items: [
-      { k: 'filt', label: 'Take over only some of the values', type: 'check' },
-      { k: 'alg', label: 'Take a value over only if…', options: algOptions(['MASKED_NEW_DIFFERS_MASKED_OLD', 'MASKED_NEW_DIFFERS_X', 'MASKED_NEW_EQUALS_X', 'NEW_IS_WITHIN', 'NEW_IS_OUTSIDE', 'ONE_EVERY_N', 'ALWAYS', 'NEVER']), show: (a) => a.filt },
+      { k: 'filt', label: 'Let only some of the values pass', type: 'check' },
+      { k: 'alg', label: 'Let a value pass only if…', options: algOptions(['MASKED_NEW_DIFFERS_MASKED_OLD', 'MASKED_NEW_DIFFERS_X', 'MASKED_NEW_EQUALS_X', 'NEW_IS_WITHIN', 'NEW_IS_OUTSIDE', 'ONE_EVERY_N', 'ALWAYS', 'NEVER']), show: (a) => a.filt },
       { k: 'x', label: 'X', type: 'text', show: (a) => a.filt && needs('x')(a) },
       { k: 'min', label: 'Range from', type: 'text', show: (a) => a.filt && needs('min')(a) },
       { k: 'max', label: 'Range to', type: 'text', show: (a) => a.filt && needs('min')(a) },
       { k: 'n', label: 'N', min: 2, show: (a) => a.filt && needs('n')(a) },
       { k: 'off', label: 'Which of the N, counted from 0', min: 0, show: (a) => a.filt && needs('n')(a) }
     ] },
-    { title: 'Timeout' + lesson('0006-timeouts.html', 6), show: rx, items: [
-      { k: 'rxTout', label: 'Longest allowed time between two arrivals', help: '0 means the signal is not watched.', unit: 'ms', min: 0 },
-      { k: 'rxFirst', label: 'Longest allowed wait for the very first arrival', help: '0 means not watched until the first arrival.', unit: 'ms', min: 0, show: (a) => a.rxTout > 0 },
-      { k: 'toutAct', label: 'When the time is up…', options: [['NONE', 'keep the last value (NONE)'], ['REPLACE', 'go back to the start value (REPLACE)'], ['SUBSTITUTE', 'use a substitute value (SUBSTITUTE)']], show: (a) => a.rxTout > 0 },
+    { title: 'Deadline monitoring' + lesson('0006-deadline-monitoring.html', 6), show: rx, items: [
+      { k: 'rxTout', label: 'Timeout between two receptions', help: '0 means no deadline monitoring.', unit: 'ms', min: 0 },
+      { k: 'rxFirst', label: 'First timeout, for the very first reception', help: '0 means no deadline monitoring until the first reception.', unit: 'ms', min: 0, show: (a) => a.rxTout > 0 },
+      { k: 'toutAct', label: 'When the time is up…', options: [['NONE', 'keep the last value (NONE)'], ['REPLACE', 'go back to the init value (REPLACE)'], ['SUBSTITUTE', 'use a substitute value (SUBSTITUTE)']], show: (a) => a.rxTout > 0 },
       { k: 'sub', label: 'Substitute value', type: 'text', show: (a) => a.rxTout > 0 && a.toutAct === 'SUBSTITUTE' },
-      { k: 'cbTout', label: 'Tell it: overdue', type: 'check' }
+      { k: 'cbTout', label: 'Notify: timeout', type: 'check' }
     ] }
   ];
 
@@ -216,7 +217,7 @@
     form.appendChild(fs);
   });
 
-  /* A new kind of value gets a size and values that suit it. */
+  /* A new signal type gets a size and values that suit it. */
   function onType() {
     const t = T(a);
     if (t.array) a.init = new Array(Math.max(1, Number(a.len) || 1)).fill('0').join(' ');

@@ -116,20 +116,20 @@
     const endian = T.array ? 'OPAQUE' : a.endian;
     const start = num('start');
     const sig = node('ComSignal', a.sig, [
-      ['ComBitPosition', start, 'Where the signal starts in the packet.'],
-      ['ComSignalEndianness', endian, T.array ? 'A row of bytes is always OPAQUE: no byte swapping.' : 'Byte order on the bus.'],
-      ['ComSignalType', a.type, 'The kind of number the application sees.']
+      ['ComBitPosition', start, 'Where the signal starts in the I-PDU.'],
+      ['ComSignalEndianness', endian, T.array ? 'A byte array is always OPAQUE: no byte swapping.' : 'Byte order on the bus.'],
+      ['ComSignalType', a.type, 'The data type the SWC sees.']
     ]);
     if (T.array) sig.params.splice(1, 0, ['ComSignalLength', num('len'), 'Length in bytes.']);
-    else if (!T.float) sig.params.splice(1, 0, ['ComBitSize', bits, 'How many bits it takes in the packet.']);
-    sig.params.push(['ComSignalInitValue', a.init, 'The start value, used until a real value exists.']);
+    else if (!T.float) sig.params.splice(1, 0, ['ComBitSize', bits, 'How many bits it takes in the I-PDU.']);
+    sig.params.push(['ComSignalInitValue', a.init, 'The init value, used until a real value is received or written.']);
 
     if (!T.array && !T.float && !isBool) {
       if (bits < 1) error('The bit size must be at least 1.');
       if (bits > T.bits) error('The bit size (' + bits + ') is larger than the type ' + a.type + ' can hold (' + T.bits + ' bits).', 'SWS_Com_CONSTR_00785');
     }
     if (T.array) {
-      if (start % 8 !== 0) error('A row of bytes must start on a byte border: the start bit must be a multiple of 8.', 'SWS_Com_CONSTR_00105');
+      if (start % 8 !== 0) error('A byte array must start on a byte border: the bit position must be a multiple of 8.', 'SWS_Com_CONSTR_00105');
       if (num('len') < 1) error('The length must be at least 1 byte.');
     }
 
@@ -137,7 +137,7 @@
       if (T.array) {
         const parts = String(text).trim().split(/\s+/).filter(Boolean);
         if (parts.length !== num('len') || parts.some((p) => !/^\d+$/.test(p) || Number(p) > 255))
-          error(label + ' of a row of bytes is written as ' + num('len') + ' decimal numbers from 0 to 255 with blanks between them, for example "97 98 100".', 'ECUC_Com_00170');
+          error(label + ' of a byte array is written as ' + num('len') + ' decimal numbers from 0 to 255 with blanks between them, for example "97 98 100".', 'ECUC_Com_00170');
         return;
       }
       if (T.float) {
@@ -155,7 +155,7 @@
       const hi = T.signed ? (1n << (n - 1n)) - 1n : (1n << n) - 1n;
       if (v < lo || v > hi) error(label + ' ' + text + ' does not fit: ' + bits + ' bits of ' + a.type + ' hold ' + lo + ' to ' + hi + '.');
     }
-    checkValue(a.init, 'The start value');
+    checkValue(a.init, 'The init value');
 
     /* Where the bits sit */
     let sigBits = [];
@@ -164,12 +164,12 @@
     }
     const total = num('pduBytes') * 8;
     if (sigBits.some((p) => p < 0 || p >= total))
-      error('The signal does not fit into a packet of ' + num('pduBytes') + ' bytes at this start bit.');
+      error('The signal does not fit into an I-PDU of ' + num('pduBytes') + ' bytes at this bit position.');
     const ubPos = a.ub ? num('ubPos') : null;
     if (a.ub) {
-      if (ubPos < 0 || ubPos >= total) error('The update-bit position ' + ubPos + ' lies outside the packet.');
+      if (ubPos < 0 || ubPos >= total) error('The update-bit position ' + ubPos + ' lies outside the I-PDU.');
       if (sigBits.includes(ubPos)) error('The update-bit sits on a bit that the signal itself uses.', 'SWS_Com_CONSTR_00102');
-      sig.params.push(['ComUpdateBitPosition', ubPos, 'Where the "this is new" bit sits. Must be the same on both sides.']);
+      sig.params.push(['ComUpdateBitPosition', ubPos, 'Where the update-bit sits. Must be the same on both sides.']);
     }
 
     const rule = () => ({
@@ -179,7 +179,7 @@
       NEW_IS_OUTSIDE: 'the value lies outside ' + a.min + ' to ' + a.max
     }[a.alg] || (FILTERS[a.alg] || FILTERS.ALWAYS).text);
 
-    /* Filter, also used as the condition for the second send setting */
+    /* Filter, also used as the transmission mode condition */
     function filterNode(why) {
       const f = FILTERS[a.alg] || FILTERS.ALWAYS;
       const p = [['ComFilterAlgorithm', a.alg, why]];
@@ -201,7 +201,7 @@
       }
       const simple = ['ALWAYS', 'NEVER', 'ONE_EVERY_N'];
       if ((T.float || T.array) && !simple.includes(a.alg))
-        error('For decimal numbers and rows of bytes only ALWAYS, NEVER and ONE_EVERY_N are supported.', 'SWS_Com_CONSTR_00380');
+        error('For FLOAT32, FLOAT64 and byte arrays only ALWAYS, NEVER and ONE_EVERY_N are supported.', 'SWS_Com_CONSTR_00380');
       if (isBool && /^NEW_IS/.test(a.alg))
         error('A range rule makes no sense for a BOOLEAN and is not supported.', 'SWS_Com_CONSTR_00439');
       if (bits > 32 && f.params.length && !simple.includes(a.alg))
@@ -209,38 +209,38 @@
       return node('ComFilter', 'ComFilter', p);
     }
 
-    /* The packet */
+    /* The I-PDU */
     const pdu = node('ComIPdu', a.pdu, [
-      ['ComIPduDirection', tx ? 'SEND' : 'RECEIVE', tx ? 'This control unit sends the packet.' : 'This control unit receives the packet.'],
+      ['ComIPduDirection', tx ? 'SEND' : 'RECEIVE', tx ? 'This ECU sends the I-PDU.' : 'This ECU receives the I-PDU.'],
       ['ComIPduSignalProcessing', a.proc, a.proc === 'IMMEDIATE'
-        ? 'Messages to the application are given at once, inside the call from below.'
-        : 'Messages to the application are given at COM\'s next heartbeat.'],
-      ['ComIPduType', 'NORMAL', 'Fits into one frame. TP would mean "sent in pieces".'],
-      ['ComIPduLargeData', 'false', 'Not on the fast lane: COM packs and unpacks this packet.']
+        ? 'Received I-PDUs are processed and notifications given at once, inside Com_RxIndication.'
+        : 'Received I-PDUs are processed and notifications given in COM\'s next main function.'],
+      ['ComIPduType', 'NORMAL', 'Fits into one frame. TP would mean: sent by a transport protocol.'],
+      ['ComIPduLargeData', 'false', 'Not on the large data path: COM packs and unpacks this I-PDU.']
     ], [], [
-      ['ComIPduSignalRef', a.sig, 'The packet points to each of its signals.'],
-      ['ComPduIdRef', '/EcucValues/EcuC/EcucConfigSet/EcucPduCollection/' + a.pdu, 'The same packet as the layers below know it. This link also fixes its length.']
+      ['ComIPduSignalRef', a.sig, 'The I-PDU points to each of its signals.'],
+      ['ComPduIdRef', '/EcucValues/EcuC/EcucConfigSet/EcucPduCollection/' + a.pdu, 'The same I-PDU as the lower layers know it. This link also fixes its length.']
     ]);
     const nodes = [];
     const heartbeat = num('main');
     nodes.push(node(tx ? 'ComMainFunctionTx' : 'ComMainFunctionRx', tx ? 'ComMainFunctionTx' : 'ComMainFunctionRx', [
-      [tx ? 'ComMainTxTimeBase' : 'ComMainRxTimeBase', secs(heartbeat), 'How often this heartbeat runs. In seconds, like every time in COM.']
+      [tx ? 'ComMainTxTimeBase' : 'ComMainRxTimeBase', secs(heartbeat), 'How often this main function runs. In seconds, like every time in COM.']
     ]));
-    if (heartbeat <= 0) error('The heartbeat period must be above 0.', 'ECUC_Com_10010');
+    if (heartbeat <= 0) error('The main function period must be above 0.', 'ECUC_Com_10010');
 
     function onGrid(value, label) {
       if (heartbeat > 0 && value > 0 && Math.abs(value / heartbeat - Math.round(value / heartbeat)) > 1e-9)
-        warn(label + ' (' + ms(value) + ') is not a multiple of the heartbeat (' + ms(heartbeat) + '). COM counts time in heartbeats, so the real time gets rounded; how is up to the implementation.', 'ECUC_Com_10010');
+        warn(label + ' (' + ms(value) + ') is not a multiple of the main function period (' + ms(heartbeat) + '). COM counts time in main function calls, so the real time gets rounded; how is up to the implementation.', 'ECUC_Com_10010');
     }
 
     if (a.group) {
       nodes.push(node('ComIPduGroup', a.group, [
-        ['ComIPduGroupHandleId', 0, 'The number used to start and stop this group. Usually given by the tool.']
+        ['ComIPduGroupHandleId', 0, 'The number used to start and stop this I-PDU group. Usually given by the tool.']
       ]));
-      pdu.refs.push(['ComIPduGroupRef', a.group, 'The packet group this packet belongs to.']);
-      info('All packet groups are stopped after start-up. Nothing is ' + (tx ? 'sent' : 'received') + ' until something outside COM starts the group "' + a.group + '".', 'SWS_Com_00444');
+      pdu.refs.push(['ComIPduGroupRef', a.group, 'The I-PDU group this I-PDU belongs to.']);
+      info('All I-PDU groups are stopped after start-up. Nothing is ' + (tx ? 'sent' : 'received') + ' until something outside COM (normally BswM) starts the I-PDU group "' + a.group + '".', 'SWS_Com_00444');
     } else {
-      info('The packet is in no packet group. It is started when COM starts and can never be stopped.', 'SWS_Com_00840');
+      info('The I-PDU is in no I-PDU group. It is started when COM starts and can never be stopped.', 'SWS_Com_00840');
     }
 
     if (tx) {
@@ -251,170 +251,170 @@
         : (once ? 'TRIGGERED_ON_CHANGE_WITHOUT_REPETITION' : 'TRIGGERED_ON_CHANGE');
       sig.params.push(['ComTransferProperty', prop, a.write === 'pending'
         ? 'Writing the signal sends nothing by itself.'
-        : a.write === 'always' ? 'Every write asks for a send.' : 'A write asks for a send only if the value changed.']);
+        : a.write === 'always' ? 'Every write triggers a transmission.' : 'A write triggers a transmission only if the value changed.']);
 
-      /* Send setting */
+      /* Transmission mode */
       const triggered = a.write !== 'pending' || a.others;
       const mode = triggered ? (a.timer ? 'MIXED' : 'DIRECT') : (a.timer ? 'PERIODIC' : 'NONE');
       const modeWhy = {
-        MIXED: 'Timer, plus at once when a triggered signal is written.',
+        MIXED: 'Periodic, plus at once when a triggered signal is written.',
         DIRECT: 'No timer. Sent only when a triggered signal is written.',
-        PERIODIC: 'Timer only.',
-        NONE: 'COM never starts a send for this packet.'
+        PERIODIC: 'Periodic only.',
+        NONE: 'COM never starts a transmission of this I-PDU.'
       };
       const txMode = node('ComTxMode', 'ComTxMode', [['ComTxModeMode', mode, modeWhy[mode]]]);
       if (a.timer) {
-        txMode.params.push(['ComTxModeTimePeriod', secs(a.period), 'The timer period, in seconds.']);
-        if (num('period') <= 0) error('The timer period must be above 0.');
-        onGrid(num('period'), 'The timer period');
+        txMode.params.push(['ComTxModeTimePeriod', secs(a.period), 'The period, in seconds.']);
+        if (num('period') <= 0) error('The period must be above 0.');
+        onGrid(num('period'), 'The period');
         if (num('offset') > 0) {
-          txMode.params.push(['ComTxModeTimeOffset', secs(a.offset), 'Wait this long after the packet is started before the first timer send.']);
-          onGrid(num('offset'), 'The start delay');
+          txMode.params.push(['ComTxModeTimeOffset', secs(a.offset), 'Wait this long after the I-PDU group is started before the first periodic transmission.']);
+          onGrid(num('offset'), 'The time offset');
         }
       }
       const reps = (mode === 'DIRECT' || mode === 'MIXED') ? num('reps') : 0;
       if (reps > 0) {
         txMode.params.push(
-          ['ComTxModeNumberOfRepetitions', reps, 'Extra sends after the first one: ' + (reps + 1) + ' sends in total.'],
-          ['ComTxModeRepetitionPeriod', secs(a.repGap), 'Time between these sends, in seconds.']);
-        if (reps > 255) error('At most 255 repeats.', 'ECUC_Com_00281');
-        if (num('repGap') <= 0) warn('Repeats need a time between them (above 0).', 'ECUC_Com_00282');
-        onGrid(num('repGap'), 'The time between repeats');
-        if (a.ub) error('A packet with repeats must not carry update-bits.', 'SWS_Com_CONSTR_00310');
+          ['ComTxModeNumberOfRepetitions', reps, 'Extra transmissions after the first one: ' + (reps + 1) + ' transmissions in total.'],
+          ['ComTxModeRepetitionPeriod', secs(a.repGap), 'Time between these transmissions, in seconds.']);
+        if (reps > 255) error('At most 255 repetitions.', 'ECUC_Com_00281');
+        if (num('repGap') <= 0) warn('Repetitions need a repetition period above 0.', 'ECUC_Com_00282');
+        onGrid(num('repGap'), 'The repetition period');
+        if (a.ub) error('An I-PDU with repetitions must not carry update-bits.', 'SWS_Com_CONSTR_00310');
       } else if (num('reps') > 0) {
-        info('Repeats only exist for packets that are sent on a write. This packet is not, so the repeats are left out.', 'ECUC_Com_00281');
+        info('Repetitions only exist for transmission mode DIRECT or MIXED. This I-PDU has neither, so the repetitions are left out.', 'ECUC_Com_00281');
       }
 
       const txIPdu = node('ComTxIPdu', 'ComTxIPdu', [
-        ['ComTxIPduUnusedAreasDefault', 255, 'What goes into the parts of the packet no signal uses (0xFF here).']
+        ['ComTxIPduUnusedAreasDefault', 255, 'What goes into the parts of the I-PDU no signal uses (0xFF here).']
       ], [node('ComTxModeTrue', 'ComTxModeTrue', [], [txMode])]);
       if (num('mdt') > 0) {
-        txIPdu.params.unshift(['ComMinimumDelayTime', secs(a.mdt), 'The minimum gap after a send, in seconds.']);
+        txIPdu.params.unshift(['ComMinimumDelayTime', secs(a.mdt), 'The minimum delay time after a transmission, in seconds.']);
         general.push(['ComEnableMDTForCyclicTransmission', String(!!a.mdtCyclic), a.mdtCyclic
-          ? 'The gap also holds for timer sends and repeats. One switch for all of COM.'
-          : 'Timer sends and repeats do not start the gap. One switch for all of COM.']);
-        onGrid(num('mdt'), 'The minimum gap');
+          ? 'Periodic transmissions and repetitions also start the minimum delay time. One switch for all of COM.'
+          : 'Periodic transmissions and repetitions do not start the minimum delay time. One switch for all of COM.']);
+        onGrid(num('mdt'), 'The minimum delay time');
         if (a.mdtCyclic && a.timer && num('mdt') > num('period'))
-          warn('The minimum gap is longer than the timer period, so the timer sends will be held back.', 'SWS_Com_00789');
+          warn('The minimum delay time is longer than the period, so the periodic transmissions will be held back.', 'SWS_Com_00789');
         if (a.mdtCyclic && reps > 0 && num('mdt') > num('repGap'))
-          warn('The minimum gap is longer than the time between repeats, so the repeats will be held back.', 'SWS_Com_00789');
+          warn('The minimum delay time is longer than the repetition period, so the repetitions will be held back.', 'SWS_Com_00789');
       }
       if (a.ub) txIPdu.params.push(['ComTxIPduClearUpdateBit', a.ubClear, {
-        Transmit: 'Update-bits are cleared right after the packet was handed down.',
-        Confirmation: 'Update-bits are cleared when the bus confirmed the send.',
-        TriggerTransmit: 'Update-bits are cleared after the packet was fetched from below.'
+        Transmit: 'Update-bits are cleared right after the I-PDU was passed to the PduR.',
+        Confirmation: 'Update-bits are cleared when the transmission was confirmed (Com_TxConfirmation).',
+        TriggerTransmit: 'Update-bits are cleared after the I-PDU was fetched with Com_TriggerTransmit.'
       }[a.ubClear]]);
 
-      /* Second send setting */
+      /* ComTxModeFalse */
       if (a.two) {
-        sig.subs.push(filterNode('The condition on this signal. While it is true, the "true" send setting is used.'));
+        sig.subs.push(filterNode('The transmission mode condition on this signal. While it is true, ComTxModeTrue is used.'));
         const fm = node('ComTxMode', 'ComTxMode', [['ComTxModeMode', a.falseMode, modeWhy[a.falseMode]]]);
         if (a.falseMode === 'PERIODIC') {
-          fm.params.push(['ComTxModeTimePeriod', secs(a.falsePeriod), 'The timer period while the condition is false, in seconds.']);
-          if (num('falsePeriod') <= 0) error('The second timer period must be above 0.');
-          onGrid(num('falsePeriod'), 'The second timer period');
+          fm.params.push(['ComTxModeTimePeriod', secs(a.falsePeriod), 'The period while the condition is false, in seconds.']);
+          if (num('falsePeriod') <= 0) error('The period of ComTxModeFalse must be above 0.');
+          onGrid(num('falsePeriod'), 'The period of ComTxModeFalse');
         }
         txIPdu.subs.push(node('ComTxModeFalse', 'ComTxModeFalse', [], [fm]));
-        if (a.others) info('If another signal in this packet also has a condition, the "true" setting is used as soon as one of them is true.', 'SWS_Com_00678');
+        if (a.others) info('If another signal in this I-PDU also has a transmission mode condition, ComTxModeTrue is used as soon as one of them is true.', 'SWS_Com_00678');
       }
       pdu.subs.push(txIPdu);
 
       if (num('txTout') > 0) {
-        sig.params.push(['ComTimeout', secs(a.txTout), 'The limit for the bus to confirm a send, in seconds.']);
-        onGrid(num('txTout'), 'The send timeout');
+        sig.params.push(['ComTimeout', secs(a.txTout), 'The time allowed for the confirmation of a transmission, in seconds.']);
+        onGrid(num('txTout'), 'The transmission timeout');
         if (reps > 0 && reps * num('repGap') >= num('txTout'))
-          warn('All ' + (reps + 1) + ' sends take about ' + ms(reps * num('repGap')) + ', longer than the send timeout. When the timeout strikes, the remaining repeats are dropped.', 'SWS_Com_00392');
-        if (!a.cbTout) warn('A send timeout is set but no "not sent in time" message, so the application is never told.', 'SWS_Com_00304');
+          warn('All ' + (reps + 1) + ' transmissions take about ' + ms(reps * num('repGap')) + ', longer than the transmission timeout. When the timeout occurs, the remaining repetitions are dropped.', 'SWS_Com_00392');
+        if (!a.cbTout) warn('A transmission timeout is set but no COM_TX_TOUT notification, so the RTE is never told.', 'SWS_Com_00304');
       } else if (a.cbTout) {
-        warn('The "not sent in time" message needs a send timeout above 0.', 'SWS_Com_00333');
+        warn('The COM_TX_TOUT notification needs a transmission timeout above 0.', 'SWS_Com_00333');
       }
       if (a.inv) {
-        sig.params.push(['ComSignalDataInvalidValue', a.invVal, 'The reserved value that means "no good value".']);
-        checkValue(a.invVal, 'The invalid value');
+        sig.params.push(['ComSignalDataInvalidValue', a.invVal, 'The value that means "no valid value available".']);
+        checkValue(a.invVal, 'The data invalid value');
       }
 
       /* In plain words */
-      const others = a.others ? ' Another signal in the packet can also make it go out.' : '';
+      const others = a.others ? ' Another signal in the I-PDU can also trigger its transmission.' : '';
       summary.push(a.write === 'pending'
-        ? 'Writing ' + a.sig + ' sends nothing by itself. The value rides along the next time ' + a.pdu + ' goes out.' + others
-        : 'Writing ' + a.sig + (a.write === 'change' ? ' with a new value' : '') + ' makes ' + a.pdu + ' go out at COM\'s next heartbeat at the latest (every ' + ms(heartbeat) + ').' + (a.write === 'change' ? ' Writing the same value again sends nothing.' : ''));
+        ? 'Writing ' + a.sig + ' sends nothing by itself. The value goes out with the next transmission of ' + a.pdu + '.' + others
+        : 'Writing ' + a.sig + (a.write === 'change' ? ' with a new value' : '') + ' makes ' + a.pdu + ' go out in the next Com_MainFunctionTx at the latest (every ' + ms(heartbeat) + ').' + (a.write === 'change' ? ' Writing the same value again sends nothing.' : ''));
       if (reps > 0) summary.push(once
-        ? 'The packet has ' + reps + ' repeats, but a write of ' + a.sig + ' sends it only once.'
-        : 'Each such write puts the packet on the bus ' + (reps + 1) + ' times, ' + ms(a.repGap) + ' apart. A new write in between starts the count again.');
-      if (a.timer) summary.push(a.pdu + ' also goes out every ' + ms(a.period) + (num('offset') > 0 ? ', the first time ' + ms(a.offset) + ' after it was started.' : '.'));
-      if (mode === 'NONE') warn('COM never starts a send for this packet. It only leaves when a layer below fetches it.', 'SWS_Com_00135');
-      if (num('mdt') > 0) summary.push('After a send, the packet waits at least ' + ms(a.mdt) + ' before it may go out again. A send asked for in that time is not lost, only late.');
-      if (a.two) summary.push('While ' + rule().replace('the value', 'the value of ' + a.sig) + ', the setting above is used. Otherwise ' + (a.falseMode === 'NONE' ? 'COM does not send the packet at all.' : 'the packet goes out every ' + ms(a.falsePeriod) + ' only.'));
+        ? 'The I-PDU has ' + reps + ' repetitions, but a write of ' + a.sig + ' sends it only once.'
+        : 'Each such write puts the I-PDU on the bus ' + (reps + 1) + ' times, ' + ms(a.repGap) + ' apart. A new write in between starts the count again.');
+      if (a.timer) summary.push(a.pdu + ' also goes out every ' + ms(a.period) + (num('offset') > 0 ? ', the first time ' + ms(a.offset) + ' after its I-PDU group was started.' : '.'));
+      if (mode === 'NONE') warn('COM never starts a transmission of this I-PDU. It only leaves when a lower layer fetches it with Com_TriggerTransmit.', 'SWS_Com_00135');
+      if (num('mdt') > 0) summary.push('After a transmission, the I-PDU waits at least ' + ms(a.mdt) + ' before it may go out again. A transmission requested in that time is not lost, only late.');
+      if (a.two) summary.push('While ' + rule().replace('the value', 'the value of ' + a.sig) + ', ComTxModeTrue (the transmission mode above) is used. Otherwise ' + (a.falseMode === 'NONE' ? 'COM does not send the I-PDU at all.' : 'the I-PDU goes out every ' + ms(a.falsePeriod) + ' only.'));
       if (a.ub) summary.push('Each write also sets the update-bit at position ' + ubPos + ', so the receiver can tell a fresh value from a repeated one.');
-      if (num('txTout') > 0) summary.push('If the bus does not confirm a send within ' + ms(a.txTout) + ', COM reports this once.');
-      if (a.inv) summary.push('The application can mark the signal as invalid. COM then sends the reserved value ' + a.invVal + '.');
+      if (num('txTout') > 0) summary.push('If a transmission is not confirmed within ' + ms(a.txTout) + ', COM reports this once.');
+      if (a.inv) summary.push('The SWC can mark the signal as invalid. COM then sends the data invalid value ' + a.invVal + '.');
 
-      if (a.cbAck) callbacks.push(['COM_TX_ACK', 'Sent: the bus confirmed the packet.']);
-      if (a.cbTout) callbacks.push(['COM_TX_TOUT', 'Not sent in time.']);
-      if (a.cbErr) callbacks.push(['COM_TX_ERR', 'Could not be sent, because the packet was stopped.']);
+      if (a.cbAck) callbacks.push(['COM_TX_ACK', 'Transmitted: the transmission of the I-PDU was confirmed.']);
+      if (a.cbTout) callbacks.push(['COM_TX_TOUT', 'Not confirmed within the timeout.']);
+      if (a.cbErr) callbacks.push(['COM_TX_ERR', 'Transmission failed, because the I-PDU group was stopped.']);
     } else {
       /* Receiving */
-      if (a.filt) sig.subs.push(filterNode('The pass-or-block rule for received values.'));
+      if (a.filt) sig.subs.push(filterNode('The filter for received values: pass or block.'));
       const hasTout = num('rxTout') > 0;
       if (hasTout) {
-        sig.params.push(['ComTimeout', secs(a.rxTout), 'The time limit between two arrivals, in seconds.']);
+        sig.params.push(['ComTimeout', secs(a.rxTout), 'The timeout between two receptions, in seconds.']);
         onGrid(num('rxTout'), 'The timeout');
         if (num('rxFirst') > 0) {
-          sig.params.push(['ComFirstTimeout', secs(a.rxFirst), 'The limit for the very first wait after the packet is started, in seconds.']);
+          sig.params.push(['ComFirstTimeout', secs(a.rxFirst), 'The timeout for the very first reception after the I-PDU group is started, in seconds.']);
           onGrid(num('rxFirst'), 'The first timeout');
         } else {
-          info('No first timeout: the signal is not watched until the first packet has arrived. A sender that never starts goes unnoticed.', 'SWS_Com_00716');
+          info('No first timeout: deadline monitoring of the signal begins only after the first reception. A sender that never starts goes unnoticed.', 'SWS_Com_00716');
         }
         sig.params.push(['ComRxDataTimeoutAction', a.toutAct, {
           NONE: 'On timeout, keep the last value.',
-          REPLACE: 'On timeout, go back to the start value.',
+          REPLACE: 'On timeout, go back to the init value.',
           SUBSTITUTE: 'On timeout, switch to the substitute value.'
         }[a.toutAct]]);
         if (a.toutAct === 'SUBSTITUTE') {
-          sig.params.push(['ComTimeoutSubstitutionValue', a.sub, 'The value handed out after a timeout.']);
+          sig.params.push(['ComTimeoutSubstitutionValue', a.sub, 'The value given to the RTE after a timeout.']);
           checkValue(a.sub, 'The substitute value');
         }
         info(a.ub
-          ? 'The signal has an update-bit, so it gets its own stopwatch: only packets with the bit set count as an arrival.'
-          : 'Signals without update-bit share one stopwatch per packet. It runs with the shortest limit of all of them.', a.ub ? 'SWS_Com_00292' : 'SWS_Com_00291');
-        if (!a.cbTout && a.toutAct === 'NONE') warn('The timeout has no visible effect: no message is given and the last value is kept.', 'SWS_Com_00500');
+          ? 'The signal has an update-bit, so it gets its own deadline monitoring timer: only I-PDUs with the bit set count as a reception.'
+          : 'Signals without update-bit share one deadline monitoring timer per I-PDU. It runs with the shortest timeout of all of them.', a.ub ? 'SWS_Com_00292' : 'SWS_Com_00291');
+        if (!a.cbTout && a.toutAct === 'NONE') warn('The timeout has no visible effect: no notification is given and the last value is kept.', 'SWS_Com_00500');
       } else if (a.cbTout) {
-        warn('The "overdue" message needs a timeout above 0. Without one the signal is not watched.', 'SWS_Com_00333');
+        warn('The COM_RX_TOUT notification needs a timeout above 0. Without one there is no deadline monitoring.', 'SWS_Com_00333');
       }
       if (a.inv) {
         sig.params.push(
-          ['ComSignalDataInvalidValue', a.invVal, 'The reserved value that means "no good value".'],
+          ['ComSignalDataInvalidValue', a.invVal, 'The value that means "no valid value available".'],
           ['ComDataInvalidAction', a.invAct, a.invAct === 'NOTIFY'
-            ? 'Tell the application and keep the last good value.'
-            : 'Hand out the start value instead, as if it had been received.']);
-        checkValue(a.invVal, 'The invalid value');
-        if (a.invAct === 'NOTIFY' && !a.cbInv) warn('Invalid values are only reported, but no "invalid" message is set, so the application never notices.', 'SWS_Com_00680');
+            ? 'Call the invalid notification and keep the last valid value.'
+            : 'Give the init value instead, as if it had been received.']);
+        checkValue(a.invVal, 'The data invalid value');
+        if (a.invAct === 'NOTIFY' && !a.cbInv) warn('Data invalid values are only reported, but no COM_RX_INV notification is set, so the RTE never notices.', 'SWS_Com_00680');
       }
       if (a.filt && a.alg === 'MASKED_NEW_DIFFERS_MASKED_OLD' && hasTout)
-        info('After a timeout, the first value that arrives passes the "changed" filter even if it is the old one.', 'SWS_Com_00793');
-      if (a.filt && a.alg === 'NEVER') warn('This filter blocks every value. The application will never see one.', 'SWS_Com_00273');
+        info('After a timeout, the first value received passes MASKED_NEW_DIFFERS_MASKED_OLD even if it is the old one.', 'SWS_Com_00793');
+      if (a.filt && a.alg === 'NEVER') warn('This filter blocks every value. The RTE will never get one.', 'SWS_Com_00273');
 
       summary.push(a.proc === 'IMMEDIATE'
-        ? 'When ' + a.pdu + ' arrives, COM unpacks ' + a.sig + ' at once.'
-        : 'When ' + a.pdu + ' arrives, COM takes a copy. It unpacks ' + a.sig + ' at its next receive heartbeat (every ' + ms(heartbeat) + ').');
-      summary.push('Until the first packet arrives, the application reads the start value ' + a.init + '.');
+        ? 'When ' + a.pdu + ' arrives, COM unpacks ' + a.sig + ' at once (IMMEDIATE).'
+        : 'When ' + a.pdu + ' arrives, COM takes a copy. It unpacks ' + a.sig + ' in its next Com_MainFunctionRx (every ' + ms(heartbeat) + ').');
+      summary.push('Until the first I-PDU arrives, the SWC reads the init value ' + a.init + '.');
       if (a.ub) summary.push('COM looks at the update-bit at position ' + ubPos + ' first. If it is not set, the signal is ignored and the old value stays.');
       if (a.inv) summary.push(a.invAct === 'NOTIFY'
-        ? 'If the reserved value ' + a.invVal + ' arrives, COM does not store it. It only gives the "invalid" message.'
-        : 'If the reserved value ' + a.invVal + ' arrives, COM hands out the start value ' + a.init + ' instead.');
+        ? 'If the data invalid value ' + a.invVal + ' arrives, COM does not store it. It only calls the invalid notification.'
+        : 'If the data invalid value ' + a.invVal + ' arrives, COM uses the init value ' + a.init + ' instead.');
       if (a.filt) summary.push({
         ALWAYS: 'The filter lets every value pass.',
-        NEVER: 'The filter blocks every value. None is ever taken over.',
-        ONE_EVERY_N: 'Only one of every ' + num('n') + ' arrivals is taken over. The others are thrown away.'
-      }[a.alg] || 'A value is only taken over if ' + rule() + '. A blocked value is thrown away and the old one stays.');
-      if (hasTout) summary.push('If nothing arrives for ' + ms(a.rxTout) + ', COM ' + ({ NONE: 'keeps the last value', REPLACE: 'goes back to the start value ' + a.init, SUBSTITUTE: 'switches to the substitute value ' + a.sub }[a.toutAct]) + (a.cbTout ? ' and gives the "overdue" message. It does so again after every further ' + ms(a.rxTout) + '.' : '.'));
+        NEVER: 'The filter blocks every value. None ever passes.',
+        ONE_EVERY_N: 'Only one of every ' + num('n') + ' received values passes. The others are discarded.'
+      }[a.alg] || 'A value only passes if ' + rule() + '. A blocked value is discarded and the old one stays.');
+      if (hasTout) summary.push('If nothing arrives for ' + ms(a.rxTout) + ', COM ' + ({ NONE: 'keeps the last value', REPLACE: 'goes back to the init value ' + a.init, SUBSTITUTE: 'switches to the substitute value ' + a.sub }[a.toutAct]) + (a.cbTout ? ' and calls the timeout notification. It does so again after every further ' + ms(a.rxTout) + '.' : '.'));
       summary.push(a.cbAck
-        ? 'After a value was taken over, the application gets the "new value" message.'
-        : 'No "new value" message is set: the application has to ask for the value itself.');
+        ? 'After a value has passed, the RTE gets the reception notification (COM_RX_ACK).'
+        : 'No reception notification is set: the SWC has to read the value itself.');
 
-      if (a.cbAck) callbacks.push(['COM_RX_ACK', 'New value arrived.']);
-      if (a.cbTout) callbacks.push(['COM_RX_TOUT', 'Overdue: nothing arrived in time.']);
-      if (a.inv && a.cbInv) callbacks.push(['COM_RX_INV', 'The invalid value arrived.']);
+      if (a.cbAck) callbacks.push(['COM_RX_ACK', 'Received: a new value arrived.']);
+      if (a.cbTout) callbacks.push(['COM_RX_TOUT', 'Timeout: nothing arrived within the timeout.']);
+      if (a.inv && a.cbInv) callbacks.push(['COM_RX_INV', 'The data invalid value arrived.']);
     }
 
     nodes.push(pdu, sig);
@@ -525,7 +525,7 @@
       : '<li class="fine"><strong>Nothing to report.</strong> These settings fit together.</li>';
   }
 
-  /* The rows of the packet that the signal touches, drawn like the bit grid of the packing lesson. */
+  /* The rows of the I-PDU that the signal touches, drawn like the bit grid of the packing lesson. */
   function renderLayout(el, layout) {
     el.innerHTML = '';
     const used = layout.sig.filter((p) => p >= 0 && p < layout.bytes * 8);

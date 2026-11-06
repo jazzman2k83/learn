@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 7 minutes">AUTOSAR COM</p>
+<h1>Notifications</h1>
+<p class="lede">When something happens to a <span class="term">signal</span>, COM can call a function of the <span class="term">RTE</span> to say so. Such a call is a <span class="term">notification</span>. A signal can have up to six of them. This lesson also puts the reception steps of lessons 5 to 8 in order.</p>
+
+<h2>Two ways to stay informed</h2>
+<p>An <span class="term">SWC</span> never calls COM itself. The <span class="term">RTE</span> does it for the SWC: it writes a <span class="term">signal</span> with <code class="term">Com_SendSignal</code> (the COM API that writes a signal value for transmission) and reads one with <code class="term">Com_ReceiveSignal</code> (the COM API that returns the current value of a received signal).</p>
+<div class="cards">
+  <div class="card"><h3>Ask</h3><p>The SWC reads the signal whenever it likes and gets the current value through Com_ReceiveSignal. Simple, but it does not know <em>when</em> something changed.</p></div>
+  <div class="card"><h3>Be told</h3><p>COM calls a <span class="term">notification</span> (a callback function of the RTE) at the moment something happens. Each kind is configured per signal or signal group.</p></div>
+</div>
+
+<h2>The six notifications</h2>
+<p>The specification knows four kinds of <span class="term">notification</span>. Two of them exist on both sides, which makes six. For each one the RTE provides its own callback.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Side</th><th>Notification</th><th>Callback in the RTE</th><th>When</th></tr></thead>
+<tbody>
+<tr><td>Reception</td><td><code class="term">ComNotification</code></td><td><code class="term">Rte_COMCbk</code></td><td>A signal arrived and passed all checks.</td></tr>
+<tr><td>Reception</td><td><code class="term">ComTimeoutNotification</code></td><td><code class="term" data-term="Rte_COMCbk">Rte_COMCbkRxTOut</code></td><td>The <span class="term">timeout</span> of <span class="term">reception deadline monitoring</span> ran out (lesson 6).</td></tr>
+<tr><td>Reception</td><td><code class="term">ComInvalidNotification</code></td><td><code class="term" data-term="Rte_COMCbk">Rte_COMCbkInv</code></td><td>The <span class="term">data invalid value</span> arrived and the <code class="term">ComDataInvalidAction</code> is NOTIFY (lesson 7).</td></tr>
+<tr><td>Transmission</td><td>ComNotification</td><td><code class="term" data-term="Rte_COMCbk">Rte_COMCbkTAck</code></td><td>The lower layers confirmed the transmission of the <span class="term">I-PDU</span>. With repetitions: after the last one.</td></tr>
+<tr><td>Transmission</td><td>ComTimeoutNotification</td><td><code class="term" data-term="Rte_COMCbk">Rte_COMCbkTxTOut</code></td><td><span class="term">Transmission deadline monitoring</span>: no confirmation within the timeout (lesson 6).</td></tr>
+<tr><td>Transmission</td><td><code class="term">ComErrorNotification</code></td><td><code class="term" data-term="Rte_COMCbk">Rte_COMCbkTErr</code></td><td>The I-PDU was stopped while a transmission was still not confirmed (lesson 11).</td></tr>
+</tbody>
+</table>
+</div>
+<p>The RTE generates one such callback per signal, with the signal's name added, for example <code>Rte_COMCbk_Speed</code>. Remember <code class="term">IMMEDIATE</code> and <code class="term">DEFERRED</code> from lesson 2? This <span class="term">signal processing</span> setting of the I-PDU decides <em>when</em> these calls are made: in the moment itself, or in COM's next <span class="term">main function</span>.</p>
+
+<h2>The reception steps, in order</h2>
+<p>When an <span class="term">I-PDU</span> arrives, each <span class="term">signal</span> in it goes through the same fixed line of steps. A signal can drop out along the way. Pick a situation and see how far it gets.</p>
+<div class="panel no-print">
+  <div class="controls" style="margin-bottom:0">
+    <label>Situation
+      <select id="case">
+        <option value="ok">A normal, new value that passes the filter</option>
+        <option value="old">The update-bit is not set</option>
+        <option value="inv-n">The data invalid value, action NOTIFY</option>
+        <option value="inv-r">The data invalid value, action REPLACE</option>
+        <option value="filter">The filter blocks the value</option>
+      </select>
+    </label>
+  </div>
+  <ol class="pipeline" id="pipe"></ol>
+  <p class="readout" id="result" aria-live="polite"></p>
+</div>
+<p>The order explains some behaviour you might otherwise find odd. The <span class="term">reception deadline monitoring</span> timer of the I-PDU is reset first, so even an I-PDU whose signals are all dropped still counts as "the sender is alive". And the <span class="term">filter</span> comes after the check for the <span class="term">data invalid value</span>, so with NOTIFY an invalid value never reaches the filter.</p>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">notification</span></td><td>A callback function of the RTE that COM calls when something happens to a signal or signal group.</td></tr>
+<tr><td><code class="term">Com_SendSignal</code></td><td>COM API with which the RTE writes a signal value for transmission.</td></tr>
+<tr><td><code class="term">Com_ReceiveSignal</code></td><td>COM API with which the RTE reads the current value of a received signal.</td></tr>
+<tr><td><code class="term">ComNotification</code></td><td>Notification that a signal was received, or that its transmission was confirmed.</td></tr>
+<tr><td><code class="term">ComTimeoutNotification</code></td><td>Notification that deadline monitoring found a timeout, in reception or in transmission.</td></tr>
+<tr><td><code class="term">ComInvalidNotification</code></td><td>Notification that the data invalid value was received.</td></tr>
+<tr><td><code class="term">ComErrorNotification</code></td><td>Notification that a transmission could not take place because its I-PDU was stopped.</td></tr>
+<tr><td><code class="term">Rte_COMCbk</code>, <code class="term" data-term="Rte_COMCbk">Rte_COMCbkTAck</code> …</td><td>The callbacks in the RTE that COM calls for these notifications, one per signal.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.7, 7.12 and 8.6.3.1 (SWS_Com_00883, 00396, 00680, 00479, ECUC_Com_10034). Finer point: the specification writes the callbacks as &lt;ComUser_CbkRxAck&gt;, &lt;ComUser_CbkTxAck&gt;, &lt;ComUser_CbkRxTOut&gt;, &lt;ComUser_CbkTxTOut&gt;, &lt;ComUser_CbkInv&gt; and &lt;ComUser_CbkTxErr&gt;, because a COM user other than the RTE can receive them too. For the RTE they are the Rte_COMCbk… functions.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const STEPS = [
+    'Reset the reception deadline monitoring timer of the I-PDU',
+    'Check the update-bit: is the signal new?',
+    'Convert the bits into a value (byte order, sign)',
+    'Check for the data invalid value',
+    'Ask the filter: pass or block?',
+    'Reset the reception deadline monitoring timer of the signal',
+    'Notify the RTE: ComNotification'
+  ];
+  // For each situation: state of each step (d = done, x = stops here, s = skipped) and a note.
+  const CASES = {
+    'ok': { states: 'ddddddd', note: 'The value is stored and the RTE gets the ComNotification.' },
+    'old': { states: 'dxsssss', note: 'Not new: this signal is dropped. The SWC keeps the previous value and gets no notification.' },
+    'inv-n': { states: 'dddxsds', note: 'The RTE gets the ComInvalidNotification instead. Nothing is stored. The timer of the signal is still reset, because the sender is alive.' },
+    'inv-r': { states: 'ddddddd', note: 'At step 4 the data invalid value is replaced by the init value. Everything after that runs as if the init value had arrived.' },
+    'filter': { states: 'ddddxss', note: 'Blocked: the value is dropped. The SWC keeps the previous value and gets no notification.' }
+  };
+  const pipe = document.getElementById('pipe');
+  const result = document.getElementById('result');
+  const sel = document.getElementById('case');
+  const CLASS = { d: 'done', x: 'stop', s: 'skip' };
+  const MARK = { d: '✓', x: '✗ stops here', s: 'not reached' };
+  function render() {
+    const c = CASES[sel.value];
+    pipe.innerHTML = STEPS.map((t, i) =>
+      '<li class="' + CLASS[c.states[i]] + '"><strong>' + (i + 1) + '.</strong> ' + t + ' <span class="mono">' + MARK[c.states[i]] + '</span></li>'
+    ).join('');
+    result.textContent = c.note;
+  }
+  sel.onchange = render;
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which step comes first when an I-PDU arrives?',
+    options: ['Reset the I-PDU timeout timer', 'Ask the filter: pass or block', 'Notify the RTE of the value'],
+    answer: 0,
+    why: 'The reception deadline monitoring timer of the I-PDU is reset before anything else, so any arrival counts as a sign of life.'
+  },
+  {
+    prompt: 'A signal\'s update-bit is not set. Is the filter asked?',
+    options: ['No, it stops before', 'Yes, it always is', 'Only if it changed'],
+    answer: 0,
+    why: 'The update-bit check is step 2. A signal that is not new drops out there and never reaches the filter.'
+  },
+  {
+    prompt: 'What decides whether the RTE is notified at once or in the next main function?',
+    options: ['IMMEDIATE or DEFERRED', 'TRIGGERED or PENDING', 'DIRECT or PERIODIC'],
+    answer: 0,
+    why: 'IMMEDIATE or DEFERRED is the signal processing of the I-PDU, from lesson 2.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>
