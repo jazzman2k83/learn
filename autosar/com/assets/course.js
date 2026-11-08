@@ -24,7 +24,8 @@
     { part: 'Below COM', file: '0014-pdur-and-the-lower-layers.html', title: 'PduR and the lower layers' },
     { part: 'Configuration and bits', file: '0015-configuration-map.html', title: 'The configuration map' },
     { part: 'Configuration and bits', file: '0016-signal-packing.html', title: 'Signal packing' },
-    { part: 'Configuration and bits', file: '0017-signal-types-and-sign-extension.html', title: 'Signal types and sign extension' }
+    { part: 'Configuration and bits', file: '0017-signal-types-and-sign-extension.html', title: 'Signal types and sign extension' },
+    { part: 'The whole stack', file: '0018-the-whole-call-sequence.html', title: 'The whole call sequence' }
   ];
 
   const here = location.pathname.split('/').pop();

@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The whole call sequence · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker" data-kicker="about 15 minutes">AUTOSAR COM</p>
+<h1>The whole call sequence</h1>
+<p class="lede">Lesson 14 showed the layers between the <span class="term">SWC</span> and the <span class="term">bus</span>. This lesson follows one <span class="term">signal</span> through them call by call, with the real function names, on transmission and on reception. It also shows where each call runs: in a task of the SWC, in an interrupt, or in a <span class="term">main function</span>.</p>
+
+<h2>How to read the diagram</h2>
+<div class="cards">
+  <div class="card"><h3>One column per module</h3><p>Each module has a column with a dashed line below it, its lifeline. Time runs downwards. COM is the green column.</p></div>
+  <div class="card"><h3>Calls and returns</h3><p>A solid arrow is a function call, from the caller to the module that provides the function. A dashed arrow is the return value coming back. A grey box is work inside one module.</p></div>
+  <div class="card"><h3>Contexts</h3><p>A grey band marks where a new piece of code starts running: a <span class="term">runnable</span> (a function of an SWC that the RTE starts in an OS task), an interrupt of the hardware, or a main function called by the scheduler. Everything below a band runs inside it, until the next band.</p></div>
+</div>
+<p>The example is one signal, the vehicle speed, sent by one <span class="term">ECU</span> and received by another. The SWC writes it with <code class="term">Rte_Write</code> (the RTE API for writing a data element of a port) and the receiving SWC reads it with <code class="term">Rte_Read</code> (the RTE API for reading one). The port is called VehicleSpeed and the data element Speed, so the real names are <code>Rte_Write_VehicleSpeed_Speed</code> and <code>Rte_Read_VehicleSpeed_Speed</code>.</p>
+
+<h2>Try it</h2>
+<p>Pick a path, a direction and the timing, then click through the calls. "Show the whole sequence" draws all of it at once.</p>
+<div class="panel">
+  <div class="controls no-print">
+    <label>Path
+      <select id="path">
+        <option value="can">CAN, through CanIf</option>
+        <option value="tp">CAN, large I-PDU through CanTp</option>
+        <option value="eth">Ethernet, through SoAd (UDP)</option>
+      </select>
+    </label>
+    <label>Direction
+      <select id="dir"><option value="tx">Transmission</option><option value="rx">Reception</option></select>
+    </label>
+    <label id="trig-label">Transmission
+      <select id="trig">
+        <option value="trig">TRIGGERED signal, DIRECT I-PDU</option>
+        <option value="per">PERIODIC I-PDU</option>
+      </select>
+    </label>
+    <label>Signal processing
+      <select id="proc"><option value="imm">IMMEDIATE</option><option value="def">DEFERRED</option></select>
+    </label>
+  </div>
+  <div id="seq"></div>
+</div>
+
+<h2>Things to notice</h2>
+<ul>
+<li><strong>COM has only two neighbours here.</strong> It calls nobody but the <span class="term">PduR</span> and the <span class="term">RTE</span>, and nobody else calls it. CanIf, SoAd and the drivers are always reached through the PduR.</li>
+<li><strong>No call waits for the bus.</strong> <code class="term">Com_SendSignal</code> returns before anything is sent, and <code class="term">PduR_ComTransmit</code> returns before the frame is on the bus. The result comes back later as a separate call from below: <code class="term">Com_TxConfirmation</code>.</li>
+<li><strong>The context changes two or three times.</strong> A transmission starts in a runnable, goes out in a main function of COM (or still inside <code>Com_SendSignal</code>), and is confirmed in an interrupt or a main function of a lower module. Reception starts in an interrupt and ends in a runnable.</li>
+<li><strong><span class="term">signal processing</span> decides where COM's work runs.</strong> With <code class="term">IMMEDIATE</code> the reception steps and the notification run inside <code class="term">Com_RxIndication</code>, often in an interrupt. With <code class="term">DEFERRED</code> COM only copies the <span class="term">I-PDU</span> there and does the rest in <code>Com_MainFunctionRx</code>.</li>
+<li><strong>A <span class="term">transmit confirmation</span> does not mean the same on every bus.</strong> On CAN it means the frame was sent on the bus. On Ethernet with UDP, <span class="term">SoAd</span> confirms in its next <code class="term">SoAd_MainFunction</code> once <code class="term">TcpIp_UdpTransmit</code> has accepted the data. That shows the I-PDU was handed on, not that it reached the network.</li>
+<li><strong>With <span class="term">CanTp</span>, COM sees no frames.</strong> CanTp asks COM for the bytes piece by piece (<code class="term">Com_CopyTxData</code>) and gets the frame confirmations itself. COM only hears at the very end, with <code class="term">Com_TpTxConfirmation</code>.</li>
+</ul>
+
+<h2>The same chain in other set-ups</h2>
+<p>The diagram shows the common case. Real ECUs often have more modules in the chain, or fewer. COM's own calls stay the same in all of them.</p>
+<div class="cards">
+  <div class="card"><h3>IpduM between PduR and CanIf</h3><p>With <span class="term">IpduM</span> (I-PDU Multiplexer: puts several I-PDUs into one container I-PDU), the PduR sends COM's I-PDU to IpduM first. IpduM collects it and later hands the container I-PDU on through the PduR. The confirmation comes back the same way.</p></div>
+  <div class="card"><h3>SecOC between PduR and CanIf</h3><p>With <span class="term">SecOC</span> (Secure Onboard Communication: adds an authenticator to an I-PDU), the PduR routes COM's I-PDU to SecOC. SecOC adds the authenticator and transmits the secured I-PDU through the PduR. On reception COM only gets the I-PDU after SecOC has checked it.</p></div>
+  <div class="card"><h3><code>Com_TriggerTransmit</code></h3><p>Some I-PDUs are fetched instead of pushed. Just before the frame goes out, the lower layer calls <code class="term">Com_TriggerTransmit</code> through the PduR and COM copies the current content. This is the rule on LIN and FlexRay, and an option on CAN (CanIf can ask at the time of <code class="term">Can_Write</code>).</p></div>
+  <div class="card"><h3>The hardware is busy</h3><p>If the CAN Driver has no free transmit buffer, <code>Can_Write</code> returns CAN_BUSY. CanIf can then keep the L-PDU in its own transmit buffer and send it after the next <code class="term">CanIf_TxConfirmation</code>. COM does not notice: for COM the call was successful.</p></div>
+  <div class="card"><h3>TCP instead of UDP</h3><p>On a TCP socket connection SoAd confirms only when TCP has acknowledged all the data, inside the confirmation callback of TcpIp. The confirmation then means that the TCP stack of the other side has acknowledged the data.</p></div>
+  <div class="card"><h3>Serialized data on Ethernet</h3><p>Service-oriented data is often serialized above COM by a <span class="term">transformer</span> and then passed through COM on the <span class="term">Large Data Path</span> (<code class="term">Com_Transmit</code>, lesson 13). Or the RTE uses <span class="term">LdCom</span> (Large Data COM: a slim alternative to COM for such data) and COM is not in the chain at all.</p></div>
+  <div class="card"><h3>Gateways</h3><p>The PduR can route an I-PDU from one bus straight to another without COM. The <span class="term">signal gateway</span> of COM (lesson 12) copies single signals instead: reception ends in COM, and <code>Com_MainFunctionRouteSignals</code> starts a new transmission.</p></div>
+  <div class="card"><h3>Interrupt or polling</h3><p>Every driver can work in interrupt mode or in <span class="term">polling mode</span> (it checks the hardware in its own main function, for example <code class="term">Can_MainFunction_Read</code>). The call chain above it stays the same; only the context in the band changes.</p></div>
+</div>
+
+<h2>Check yourself</h2>
+<p>Optional. Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">runnable</span></td><td>A function of an SWC that the RTE starts, inside an OS task, when its event occurs.</td></tr>
+<tr><td><code class="term">Rte_Write</code>, <code class="term">Rte_Read</code></td><td>RTE APIs with which an SWC writes or reads a data element of a port.</td></tr>
+<tr><td><code class="term">DataReceivedEvent</code>, <code class="term">DataSendCompletedEvent</code></td><td>RTE events that start a runnable when data arrived, or when its transmission was confirmed.</td></tr>
+<tr><td><span class="term">polling mode</span>, interrupt mode</td><td>Whether a driver learns about the hardware from an interrupt or by checking in its main function.</td></tr>
+<tr><td><code class="term">Can_MainFunction_Write</code>, <code class="term">Can_MainFunction_Read</code></td><td>Main functions of the CAN Driver for polling mode.</td></tr>
+<tr><td><code class="term">CanIf_Transmit</code>, <code class="term">Can_Write</code></td><td>Transmit an I-PDU on CAN (CanIf), and write the L-PDU into the hardware (CAN Driver).</td></tr>
+<tr><td><code class="term">CanIf_TxConfirmation</code>, <code class="term">CanIf_RxIndication</code></td><td>The CAN Driver reports a transmitted frame, or hands up a received one.</td></tr>
+<tr><td><code class="term">PduR_CanIfTxConfirmation</code>, <code class="term">PduR_CanIfRxIndication</code></td><td>CanIf reports to the PduR; the PduR passes it on to COM.</td></tr>
+<tr><td><code class="term">SoAd_IfTransmit</code>, <code class="term">TcpIp_UdpTransmit</code></td><td>Transmit an I-PDU over its socket connection (SoAd), and send bytes as a UDP message (TcpIp).</td></tr>
+<tr><td><code class="term">EthIf_Transmit</code>, <code class="term">Eth_Transmit</code></td><td>Send a filled transmit buffer as an Ethernet frame (EthIf, Ethernet Driver).</td></tr>
+<tr><td><code class="term">SoAd_MainFunction</code>, <code class="term">PduR_SoAdIfTxConfirmation</code></td><td>Where SoAd confirms UDP transmissions, and the confirmation to the PduR.</td></tr>
+<tr><td><code class="term">EthIf_RxIndication</code>, <code class="term">TcpIp_RxIndication</code>, <code class="term">SoAd_RxIndication</code>, <code class="term">PduR_SoAdIfRxIndication</code></td><td>The reception chain on Ethernet, from the Ethernet Driver up to the PduR.</td></tr>
+<tr><td><code class="term">EthIf_MainFunctionRx</code></td><td>Main function of EthIf that fetches received frames in polling mode.</td></tr>
+<tr><td><code class="term">CanTp_Transmit</code>, <code class="term">CanTp_RxIndication</code></td><td>Start a large transmission on CAN, and hand a received frame to CanTp.</td></tr>
+<tr><td><code class="term">PduR_CanTpCopyTxData</code> …</td><td>PduR callbacks for CanTp; the PduR passes each on to COM with the same name.</td></tr>
+<tr><td><code class="term">Com_CopyTxData</code>, <code class="term">Com_TpTxConfirmation</code></td><td>COM callbacks for a large transmission: copy the next bytes, and the end result.</td></tr>
+<tr><td><code class="term">Com_StartOfReception</code>, <code class="term">Com_CopyRxData</code>, <code class="term">Com_TpRxIndication</code></td><td>COM callbacks for a large reception: announce it, hand over the next bytes, and the end result.</td></tr>
+<tr><td><code class="term">BUFREQ_OK</code></td><td>Return value of the copy callbacks: the request was served.</td></tr>
+<tr><td><span class="term">first frame</span>, flow control frame, consecutive frame</td><td>The frames of a CanTp transmission: total length and first bytes, the receiver's answer, the rest.</td></tr>
+<tr><td><span class="term">IpduM</span>, <span class="term">SecOC</span>, <span class="term">LdCom</span></td><td>Modules that can appear beside the PduR or instead of COM: I-PDU Multiplexer, Secure Onboard Communication, Large Data COM.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Sources: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 9 (sequence diagrams), sections 7.2.5.4 and 8.4 to 8.6 (SWS_Com_00300, 00301, ECUC_Com_10034 on IMMEDIATE and DEFERRED; "within the next main function at the latest" for triggered transmissions); the R25-11 specifications of the <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_PDURouter.pdf">PDU Router</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">CAN Interface</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANDriver.pdf">CAN Driver</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANTransportLayer.pdf">CAN Transport Layer</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_SocketAdaptor.pdf">Socket Adaptor</a> (SWS_SoAd_00545 and the UDP confirmation in the next SoAd_MainFunction), <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_TcpIp.pdf">TcpIp</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_EthernetInterface.pdf">Ethernet Interface</a> and <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_RTE.pdf">RTE</a>. Finer point: when exactly CanTp and the drivers do their work (in the callback itself or in their main function) is partly left to the implementation; the order of the calls is not.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const LANES = {
+    can: ['SWC', 'RTE', 'COM', 'PduR', 'CanIf', 'Can', 'CAN bus'],
+    tp: ['SWC', 'RTE', 'COM', 'PduR', 'CanTp', 'CanIf', 'Can', 'CAN bus'],
+    eth: ['SWC', 'RTE', 'COM', 'PduR', 'SoAd', 'TcpIp', 'EthIf', 'Eth', 'Ethernet']
+  };
+  const BUS = { can: 'CAN bus', tp: 'CAN bus', eth: 'Ethernet' };
+
+  // ---------- Transmission ----------
+  function txTop(trig) {
+    const s = [
+      { ctx: 'SWC runnable (OS task)', from: 'SWC', to: 'RTE', call: 'Rte_Write_VehicleSpeed_Speed()',
+        text: 'The SWC has a new speed and writes it through its port with Rte_Write_VehicleSpeed_Speed. It knows nothing about COM, I-PDUs or buses.' },
+      { from: 'RTE', to: 'COM', call: 'Com_SendSignal()',
+        text: 'The RTE knows from its configuration which COM signal belongs to this data element. It calls Com_SendSignal with the signal ID and a pointer to the value.' },
+      { from: 'COM', note: 'value packed into the I-PDU',
+        text: 'COM copies the value into its place in the I-PDU buffer, in the right byte order (lesson 16). The buffer now holds the new speed next to the other signals of the I-PDU.' }
+    ];
+    if (trig) s.push({ from: 'COM', note: 'transmission requested',
+      text: 'The signal is TRIGGERED and the I-PDU is DIRECT, so this write requests a transmission. COM must start it at once, or in its next Com_MainFunctionTx at the latest. The minimum delay time can still hold it back (lesson 3).' });
+    else s.push({ from: 'COM', note: 'no transmission requested',
+      text: 'The I-PDU is PERIODIC, so the write requests nothing. The new value waits in the I-PDU buffer and goes out with the next periodic transmission.' });
+    s.push(
+      { from: 'COM', to: 'RTE', call: 'E_OK', ret: true,
+        text: 'Com_SendSignal returns E_OK. It does not wait for the bus.' },
+      { from: 'RTE', to: 'SWC', call: 'RTE_E_OK', ret: true,
+        text: 'Rte_Write returns and the runnable carries on. So far nothing has left the ECU.' },
+      { ctx: trig ? 'Com_MainFunctionTx (or still inside Com_SendSignal)' : 'Com_MainFunctionTx: the period has run out',
+        from: 'COM', to: 'PduR', call: 'PduR_ComTransmit()',
+        text: (trig ? 'Either still inside Com_SendSignal or in the next Com_MainFunctionTx: the implementation may choose. ' : 'In one of its cyclic calls, Com_MainFunctionTx finds that the period of the I-PDU has run out. ') +
+          'COM hands the whole I-PDU down with PduR_ComTransmit: the I-PDU ID and a PduInfoType (a pointer to the bytes and their length). The minimum delay time of the I-PDU starts.' }
+    );
+    return s;
+  }
+
+  function txCan() {
+    return [
+      { from: 'PduR', to: 'CanIf', call: 'CanIf_Transmit()',
+        text: 'The PduR looks up the routing path of this I-PDU: it goes to CanIf. The PduR passes the same PduInfoType on, with the ID that CanIf uses for this I-PDU. It does not look inside.' },
+      { from: 'CanIf', to: 'Can', call: 'Can_Write()',
+        text: 'CanIf knows the CAN identifier of the I-PDU and the hardware transmit object (Hth) to use. It calls Can_Write with an L-PDU: identifier, length and data.' },
+      { from: 'Can', to: 'CAN bus', call: 'CAN frame',
+        text: 'The CAN Driver writes the frame into a hardware buffer. The CAN controller sends it as soon as it wins arbitration on the bus.' },
+      { from: 'Can', to: 'COM', call: 'E_OK (through CanIf and PduR)', ret: true,
+        text: 'E_OK goes back up through CanIf and the PduR, and PduR_ComTransmit returns. Again nobody waits: the frame may not be on the bus yet.' },
+      { ctx: 'CAN Tx interrupt (or Can_MainFunction_Write in polling mode)', from: 'CAN bus', to: 'Can', call: 'transmitted',
+        text: 'The CAN controller reports that the frame was sent. In interrupt mode it raises an interrupt; in polling mode the CAN Driver finds out in Can_MainFunction_Write.' },
+      { from: 'Can', to: 'CanIf', call: 'CanIf_TxConfirmation()',
+        text: 'The CAN Driver tells CanIf which L-PDU was sent: CanIf_TxConfirmation.' },
+      { from: 'CanIf', to: 'PduR', call: 'PduR_CanIfTxConfirmation()',
+        text: 'CanIf finds the I-PDU that belongs to it and confirms it to the PduR with the result E_OK.' },
+      { from: 'PduR', to: 'COM', call: 'Com_TxConfirmation()',
+        text: 'The PduR passes the confirmation on to COM: Com_TxConfirmation with E_OK. COM stops transmission deadline monitoring. With repetitions, only the last confirmation counts (lesson 3).' }
+    ];
+  }
+
+  function txEth() {
+    return [
+      { from: 'PduR', to: 'SoAd', call: 'SoAd_IfTransmit()',
+        text: 'The routing path of this I-PDU leads to SoAd. The PduR calls SoAd_IfTransmit with the same PduInfoType.' },
+      { from: 'SoAd', to: 'TcpIp', call: 'TcpIp_UdpTransmit()',
+        text: 'SoAd knows the socket connection of the I-PDU: a UDP socket and the remote address and port. If configured, it puts a PDU header (ID and length) in front of the I-PDU. Then it calls TcpIp_UdpTransmit.' },
+      { from: 'TcpIp', to: 'EthIf', call: 'EthIf_ProvideTxBuffer()',
+        text: 'TcpIp asks EthIf for a transmit buffer of the Ethernet Driver. It writes the IP and UDP headers into it and copies the bytes behind them.' },
+      { from: 'TcpIp', to: 'EthIf', call: 'EthIf_Transmit()',
+        text: 'TcpIp hands the filled buffer to EthIf for transmission.' },
+      { from: 'EthIf', to: 'Eth', call: 'Eth_Transmit()',
+        text: 'EthIf passes it to the Ethernet Driver, which starts the transmission in the hardware.' },
+      { from: 'Eth', to: 'Ethernet', call: 'Ethernet frame',
+        text: 'The frame goes out on the Ethernet link.' },
+      { from: 'Eth', to: 'COM', call: 'E_OK (through all layers)', ret: true,
+        text: 'E_OK goes back up through EthIf, TcpIp, SoAd and the PduR, and PduR_ComTransmit returns.' },
+      { ctx: 'SoAd_MainFunction', from: 'SoAd', to: 'PduR', call: 'PduR_SoAdIfTxConfirmation()',
+        text: 'For a UDP socket connection SoAd confirms in its next SoAd_MainFunction, because TcpIp_UdpTransmit returned E_OK. Note what this means: the I-PDU was handed to TcpIp. Nobody has seen it arrive.' },
+      { from: 'PduR', to: 'COM', call: 'Com_TxConfirmation()',
+        text: 'The PduR passes the confirmation on to COM: Com_TxConfirmation with E_OK. COM stops transmission deadline monitoring.' }
+    ];
+  }
+
+  function txTp() {
+    return [
+      { from: 'PduR', to: 'CanTp', call: 'CanTp_Transmit()',
+        text: 'The routing path leads to CanTp. The PduR calls CanTp_Transmit with the total length of the I-PDU. CanTp only accepts the job here; no data are copied yet.' },
+      { from: 'CanTp', to: 'COM', call: 'E_OK (through PduR)', ret: true,
+        text: 'E_OK goes back through the PduR to COM.' },
+      { ctx: 'CanTp_MainFunction', from: 'CanTp', to: 'PduR', call: 'PduR_CanTpCopyTxData()',
+        text: 'CanTp needs the bytes for the first frame (FF: it carries the total length and the first bytes). It asks for them through the PduR.' },
+      { from: 'PduR', to: 'COM', call: 'Com_CopyTxData()',
+        text: 'COM copies the requested bytes into the buffer of CanTp and returns BUFREQ_OK and how many bytes are still left.' },
+      { from: 'CanTp', to: 'CanIf', call: 'CanIf_Transmit()',
+        text: 'CanTp builds the first frame and transmits it through CanIf, like any other L-PDU.' },
+      { from: 'CanIf', to: 'Can', call: 'Can_Write()',
+        text: 'CanIf writes it into the CAN hardware.' },
+      { from: 'Can', to: 'CAN bus', call: 'first frame',
+        text: 'The first frame goes out on the bus.' },
+      { ctx: 'CAN Tx interrupt (or Can_MainFunction_Write)', from: 'Can', to: 'CanIf', call: 'CanIf_TxConfirmation()',
+        text: 'The first frame was sent. The CAN Driver confirms it to CanIf.' },
+      { from: 'CanIf', to: 'CanTp', call: 'CanTp_TxConfirmation()',
+        text: 'CanIf confirms it to CanTp, not to the PduR: this frame belongs to CanTp. COM hears nothing.' },
+      { ctx: 'CAN Rx interrupt (or Can_MainFunction_Read)', from: 'CAN bus', to: 'Can', call: 'flow control frame',
+        text: 'The receiver answers with a flow control frame (FC): how many consecutive frames it can take, and how fast.' },
+      { from: 'Can', to: 'CanIf', call: 'CanIf_RxIndication()',
+        text: 'The CAN Driver hands the received frame up to CanIf.' },
+      { from: 'CanIf', to: 'CanTp', call: 'CanTp_RxIndication()',
+        text: 'CanIf passes the flow control frame on to CanTp.' },
+      { ctx: 'CanTp_MainFunction, for each consecutive frame', from: 'CanTp', to: 'PduR', call: 'PduR_CanTpCopyTxData()',
+        text: 'Now CanTp sends the consecutive frames (CF). For each one it asks for the next bytes.' },
+      { from: 'PduR', to: 'COM', call: 'Com_CopyTxData()',
+        text: 'COM copies the next bytes. These steps repeat until all bytes are sent.' },
+      { from: 'CanTp', to: 'CanIf', call: 'CanIf_Transmit()',
+        text: 'CanTp transmits the consecutive frame through CanIf. Each one is confirmed to CanTp, as before.' },
+      { from: 'CanIf', to: 'Can', call: 'Can_Write()', text: 'CanIf writes it into the CAN hardware.' },
+      { from: 'Can', to: 'CAN bus', call: 'consecutive frames', text: 'The consecutive frames go out on the bus, one after the other.' },
+      { ctx: 'after the confirmation of the last consecutive frame', from: 'CanTp', to: 'PduR', call: 'PduR_CanTpTxConfirmation()',
+        text: 'The last consecutive frame was confirmed. CanTp reports the end of the whole transmission to the PduR with E_OK.' },
+      { from: 'PduR', to: 'COM', call: 'Com_TpTxConfirmation()',
+        text: 'Only now does COM hear about the transmission: Com_TpTxConfirmation with E_OK. COM stops transmission deadline monitoring.' }
+    ];
+  }
+
+  function txEnd(imm) {
+    const s = [];
+    if (imm) s.push({ from: 'COM', to: 'RTE', call: 'Rte_COMCbkTAck_Speed()',
+      text: 'With signal processing IMMEDIATE, COM calls the transmission notification of the RTE at once, still inside the confirmation (lesson 9).' });
+    else s.push(
+      { from: 'COM', note: 'confirmation noted',
+        text: 'With signal processing DEFERRED, COM only notes the confirmation here and returns. That keeps this call short, which matters in an interrupt.' },
+      { ctx: 'Com_MainFunctionTx (a later cyclic call)', from: 'COM', to: 'RTE', call: 'Rte_COMCbkTAck_Speed()',
+        text: 'In one of its later cyclic calls, COM finds the note and calls the transmission notification of the RTE (lesson 9).' });
+    s.push({ from: 'RTE', to: 'SWC', call: 'DataSendCompletedEvent',
+      text: 'Only if the SWC asked for it: the RTE starts its runnable for the DataSendCompletedEvent, and the SWC can check the result with Rte_Feedback. Many SWCs do not care and have no such runnable.' });
+    return s;
+  }
+
+  // ---------- Reception ----------
+  function rxCan() {
+    return [
+      { ctx: 'CAN Rx interrupt (or Can_MainFunction_Read in polling mode)', from: 'CAN bus', to: 'Can', call: 'CAN frame',
+        text: 'A frame arrives and the CAN controller accepts it by its hardware filter. In interrupt mode it raises an interrupt; in polling mode the CAN Driver finds it in Can_MainFunction_Read.' },
+      { from: 'Can', to: 'CanIf', call: 'CanIf_RxIndication()',
+        text: 'The CAN Driver hands the frame up: hardware receive object (Hrh), CAN identifier, length and data.' },
+      { from: 'CanIf', to: 'PduR', call: 'PduR_CanIfRxIndication()',
+        text: 'CanIf finds the I-PDU that belongs to this CAN identifier and, if configured, checks the length (DLC check). Then it hands the I-PDU to the PduR.' },
+      { from: 'PduR', to: 'COM', call: 'Com_RxIndication()',
+        text: 'The PduR looks up the routing path: this I-PDU is for COM. It calls Com_RxIndication with the I-PDU ID and a PduInfoType.' }
+    ];
+  }
+
+  function rxEth() {
+    return [
+      { ctx: 'Ethernet Rx interrupt (or EthIf_MainFunctionRx in polling mode)', from: 'Ethernet', to: 'Eth', call: 'Ethernet frame',
+        text: 'A frame arrives at the Ethernet controller. In polling mode EthIf_MainFunctionRx fetches it from the Ethernet Driver.' },
+      { from: 'Eth', to: 'EthIf', call: 'EthIf_RxIndication()',
+        text: 'The Ethernet Driver hands the frame up to EthIf.' },
+      { from: 'EthIf', to: 'TcpIp', call: 'TcpIp_RxIndication()',
+        text: 'EthIf looks at the frame type: IP, so it goes to TcpIp.' },
+      { from: 'TcpIp', to: 'SoAd', call: 'SoAd_RxIndication()',
+        text: 'TcpIp checks the IP and UDP headers and finds the socket by its port. It hands the payload to SoAd, with the socket and the address of the sender.' },
+      { from: 'SoAd', to: 'PduR', call: 'PduR_SoAdIfRxIndication()',
+        text: 'SoAd finds the socket connection and from it the I-PDU. With PDU headers, one UDP message can carry several I-PDUs; SoAd then calls the PduR once for each.' },
+      { from: 'PduR', to: 'COM', call: 'Com_RxIndication()',
+        text: 'The PduR looks up the routing path: this I-PDU is for COM. It calls Com_RxIndication.' }
+    ];
+  }
+
+  function rxTp() {
+    return [
+      { ctx: 'CAN Rx interrupt (or Can_MainFunction_Read)', from: 'CAN bus', to: 'Can', call: 'first frame',
+        text: 'The first frame (FF) of a large I-PDU arrives. It carries the total length and the first bytes.' },
+      { from: 'Can', to: 'CanIf', call: 'CanIf_RxIndication()', text: 'The CAN Driver hands it up to CanIf.' },
+      { from: 'CanIf', to: 'CanTp', call: 'CanTp_RxIndication()',
+        text: 'CanIf knows this CAN identifier belongs to CanTp and passes the frame there, not to the PduR.' },
+      { from: 'CanTp', to: 'PduR', call: 'PduR_CanTpStartOfReception()',
+        text: 'CanTp announces a new large I-PDU and its total length through the PduR.' },
+      { from: 'PduR', to: 'COM', call: 'Com_StartOfReception()',
+        text: 'COM checks that it has room for the announced length and returns BUFREQ_OK and the size of its free buffer.' },
+      { from: 'CanTp', to: 'PduR', call: 'PduR_CanTpCopyRxData()', text: 'CanTp hands over the first bytes.' },
+      { from: 'PduR', to: 'COM', call: 'Com_CopyRxData()', text: 'COM copies them into its buffer.' },
+      { ctx: 'CanTp_MainFunction (or still inside CanTp_RxIndication)', from: 'CanTp', to: 'CanIf', call: 'CanIf_Transmit()',
+        text: 'CanTp answers the sender with a flow control frame (FC): go ahead, this many frames, this fast.' },
+      { from: 'CanIf', to: 'Can', call: 'Can_Write()', text: 'CanIf writes the flow control frame into the hardware.' },
+      { from: 'Can', to: 'CAN bus', call: 'flow control frame', text: 'The flow control frame goes out on the bus.' },
+      { ctx: 'CAN Rx interrupt, for each consecutive frame', from: 'CAN bus', to: 'Can', call: 'consecutive frame',
+        text: 'The sender sends the consecutive frames (CF). The next steps repeat for each one.' },
+      { from: 'Can', to: 'CanIf', call: 'CanIf_RxIndication()', text: 'The CAN Driver hands the frame up to CanIf.' },
+      { from: 'CanIf', to: 'CanTp', call: 'CanTp_RxIndication()', text: 'CanIf passes it on to CanTp.' },
+      { from: 'CanTp', to: 'PduR', call: 'PduR_CanTpCopyRxData()', text: 'CanTp hands over the bytes of this frame.' },
+      { from: 'PduR', to: 'COM', call: 'Com_CopyRxData()', text: 'COM copies them behind the previous ones.' },
+      { from: 'CanTp', to: 'PduR', call: 'PduR_CanTpRxIndication()',
+        text: 'After the last consecutive frame CanTp reports the end of the reception, with E_OK.' },
+      { from: 'PduR', to: 'COM', call: 'Com_TpRxIndication()',
+        text: 'The PduR passes it on: Com_TpRxIndication with E_OK. Now the whole I-PDU is in COM\'s buffer.' }
+    ];
+  }
+
+  function rxTop(imm, call) {
+    const s = [];
+    if (imm) s.push(
+      { from: 'COM', note: 'reception steps',
+        text: 'With IMMEDIATE, COM works through the reception steps of lesson 9 right inside ' + call + ': reset the reception deadline monitoring timer, check the update-bit, unpack and convert, check the data invalid value, ask the filter.' },
+      { from: 'COM', to: 'RTE', call: 'Rte_COMCbk_Speed()',
+        text: 'The signal passed. COM calls the reception notification of the RTE (lesson 9), still in the same context.' });
+    else s.push(
+      { from: 'COM', note: 'I-PDU copied',
+        text: 'With DEFERRED, COM only copies the I-PDU into its own buffer and returns. The reception steps wait, so the interrupt stays short.' },
+      { ctx: 'Com_MainFunctionRx (cyclic task)', from: 'COM', note: 'reception steps',
+        text: 'In its next cyclic call, Com_MainFunctionRx works through the reception steps of lesson 9: update-bit, unpack and convert, data invalid value, filter.' },
+      { from: 'COM', to: 'RTE', call: 'Rte_COMCbk_Speed()',
+        text: 'The signal passed. COM calls the reception notification of the RTE (lesson 9).' });
+    s.push(
+      { from: 'RTE', to: 'SWC', call: 'DataReceivedEvent',
+        text: 'If a runnable of the SWC waits for this data (a DataReceivedEvent), the RTE starts it. Otherwise the SWC simply reads the value in its next cycle.' },
+      { ctx: 'SWC runnable (OS task)', from: 'SWC', to: 'RTE', call: 'Rte_Read_VehicleSpeed_Speed()',
+        text: 'The runnable of the SWC runs and reads the speed with Rte_Read_VehicleSpeed_Speed.' },
+      { from: 'RTE', to: 'COM', call: 'Com_ReceiveSignal()',
+        text: 'The RTE fetches the value from COM with Com_ReceiveSignal. (Whether this happens here or already in the RTE\'s notification callback is up to the RTE.)' },
+      { from: 'COM', to: 'RTE', call: 'E_OK, value', ret: true,
+        text: 'COM copies the current value of the signal and returns E_OK.' },
+      { from: 'RTE', to: 'SWC', call: 'RTE_E_OK, value', ret: true,
+        text: 'The SWC has the speed, 50, and moves the needle.' });
+    return s;
+  }
+
+  const els = {
+    path: document.getElementById('path'), dir: document.getElementById('dir'),
+    trig: document.getElementById('trig'), proc: document.getElementById('proc'),
+    trigLabel: document.getElementById('trig-label')
+  };
+  function story() {
+    const p = els.path.value;
+    const imm = els.proc.value === 'imm';
+    if (els.dir.value === 'tx') {
+      const mid = p === 'can' ? txCan() : p === 'eth' ? txEth() : txTp();
+      return txTop(els.trig.value === 'trig').concat(mid, txEnd(imm));
+    }
+    const low = p === 'can' ? rxCan() : p === 'eth' ? rxEth() : rxTp();
+    return low.concat(rxTop(imm, p === 'tp' ? 'Com_TpRxIndication' : 'Com_RxIndication'));
+  }
+  const seq = Sequence.create(document.getElementById('seq'), { lanes: LANES.can, steps: story() });
+  function update() {
+    els.trigLabel.hidden = els.dir.value !== 'tx';
+    seq.set({ lanes: LANES[els.path.value], steps: story() });
+  }
+  ['path', 'dir', 'trig', 'proc'].forEach((k) => { els[k].onchange = update; });
+  update();
+  window.SequenceStory = { story, els, update, LANES, BUS };
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'When does Com_SendSignal return to the RTE?',
+    options: ['Before anything is sent', 'After the bus confirms it', 'After PduR_ComTransmit'],
+    answer: 0,
+    why: 'Com_SendSignal only stores the value and, for a triggered signal, requests a transmission. The confirmation comes much later, as a separate call.'
+  },
+  {
+    prompt: 'With DEFERRED, what does Com_RxIndication still do?',
+    options: ['It copies the I-PDU only', 'It notifies the RTE', 'It runs the filters'],
+    answer: 0,
+    why: 'With DEFERRED, COM copies the I-PDU in Com_RxIndication and does the reception steps and notifications in Com_MainFunctionRx.'
+  },
+  {
+    prompt: 'A large I-PDU goes out through CanTp. Who gets each frame confirmation?',
+    options: ['CanTp, not COM', 'COM, for every frame', 'The RTE, for every frame'],
+    answer: 0,
+    why: 'CanIf confirms each frame to CanTp. COM only gets Com_TpTxConfirmation once the whole I-PDU has been sent.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>

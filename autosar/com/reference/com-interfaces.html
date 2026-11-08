@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference: COM's interfaces · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker">AUTOSAR COM · Sheet</p>
+<h1>COM's interfaces</h1>
+<p class="lede">Every module COM talks to, and every function between them: what COM provides, what it calls, and who calls what. Click a module to jump to its table. Lesson 18, <a href="../lessons/0018-the-whole-call-sequence.html">The whole call sequence</a>, shows the calls in action.</p>
+
+<div class="ctxmap">
+  <a class="node" href="#det-dem"><strong>Det, Dem</strong><span><em>COM calls:</em> Det_ReportError, Dem_SetEventStatus</span></a>
+  <a class="node" href="#users"><strong>RTE (COM users)</strong><span><em>calls COM:</em> Com_SendSignal, Com_ReceiveSignal …</span><span><em>COM calls:</em> Rte_COMCbk…</span></a>
+  <a class="node" href="#bswm"><strong>BswM</strong><span><em>calls COM:</em> Com_Init, Com_IpduGroupStart/Stop, Com_EnableReceptionDM …</span></a>
+  <a class="node" href="#callouts"><strong>I-PDU callouts</strong><span><em>COM calls:</em> project code, per I-PDU</span></a>
+  <div class="node com"><strong>COM</strong><span>provides the Com_… functions</span></div>
+  <a class="node" href="#schm"><strong>BSW Scheduler</strong><span><em>calls COM:</em> Com_MainFunctionRx, Com_MainFunctionTx, Com_MainFunctionRouteSignals</span></a>
+  <div class="node empty"></div>
+  <a class="node" href="#pdur"><strong>PduR</strong><span><em>COM calls:</em> PduR_ComTransmit</span><span><em>calls COM:</em> Com_RxIndication, Com_TxConfirmation, Com_TriggerTransmit, TP callbacks</span></a>
+  <div class="node empty"></div>
+  <a class="node below" href="#below"><strong>Below the PduR</strong><span>CanIf · CanTp · SoAd · IpduM · SecOC · … COM never calls them directly</span></a>
+</div>
+
+<h2 id="users">RTE and the other COM users</h2>
+<p>The <span class="term">RTE</span> is COM's main user. In a system built from software clusters, SwCluC takes this role for the clusters (both are a <span class="term">COM user</span>). The application SWCs never call COM themselves.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Com_SendSignal</code>, <code>Com_ReceiveSignal</code></td><td>RTE → COM</td><td>Write a signal for transmission; read the current value of a received signal.</td><td>9</td></tr>
+<tr><td><code class="term">Com_SendSignalGroup</code>, <code>Com_ReceiveSignalGroup</code></td><td>RTE → COM</td><td>Copy a signal group between its shadow buffer and the I-PDU. The group signals themselves go through <code>Com_SendSignal</code> / <code>Com_ReceiveSignal</code>.</td><td>10</td></tr>
+<tr><td><code>Com_SendSignalGroupArray</code>, <code>Com_ReceiveSignalGroupArray</code></td><td>RTE → COM</td><td>The same for a whole signal group as one byte array, without a shadow buffer.</td><td>10</td></tr>
+<tr><td><code class="term">Com_SendDynSignal</code>, <code>Com_ReceiveDynSignal</code></td><td>RTE → COM</td><td>Write or read a dynamic length signal together with its length.</td><td>13</td></tr>
+<tr><td><code class="term">Com_InvalidateSignal</code>, <code>Com_InvalidateSignalGroup</code></td><td>RTE → COM</td><td>Write the data invalid value.</td><td>7</td></tr>
+<tr><td><code class="term">Com_Transmit</code></td><td>RTE → COM</td><td>Transmit an I-PDU on the Large Data Path.</td><td>13</td></tr>
+<tr><td><code>Com_Send…WithMetaData</code>, <code>Com_Receive…WithMetaData</code></td><td>RTE → COM</td><td>Variants of all the above that also pass the meta data of the I-PDU (for example a CAN identifier).</td><td>–</td></tr>
+<tr><td><code class="term">Com_TriggerIPDUSend</code> (and <code>…WithMetaData</code>)</td><td>COM user or BswM → COM</td><td>Send a whole I-PDU once, now.</td><td>–</td></tr>
+<tr><td><code>Rte_COMCbk_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComNotification</span> on reception: the signal (or signal group) arrived and passed all checks.</td><td>9</td></tr>
+<tr><td><code>Rte_COMCbkTAck_&lt;sn&gt;</code></td><td>COM → RTE</td><td>ComNotification on transmission: the I-PDU was confirmed.</td><td>9</td></tr>
+<tr><td><code>Rte_COMCbkTErr_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComErrorNotification</span>: the I-PDU was stopped before it was confirmed.</td><td>9, 11</td></tr>
+<tr><td><code>Rte_COMCbkInv_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComInvalidNotification</span>: the data invalid value arrived.</td><td>7, 9</td></tr>
+<tr><td><code>Rte_COMCbkRxTOut_&lt;sn&gt;</code>, <code>Rte_COMCbkTxTOut_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComTimeoutNotification</span> of reception or transmission deadline monitoring.</td><td>6, 9</td></tr>
+<tr><td><code>Rte_COMCbkTxConfirmation</code>, <code>…RxIndication</code>, <code>…TriggerTransmit</code>, <code>…CopyTxData</code>, <code>…StartOfReception</code>, <code>…CopyRxData</code>, <code>…TpRxIndication</code>, <code>…TpTxConfirmation</code></td><td>COM → RTE</td><td>Large Data Path only: COM passes the PduR's calls for this I-PDU straight on to the RTE.</td><td>13</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">&lt;sn&gt; is the name of the signal or signal group. The specification writes the callbacks neutrally, for any COM user: <code>&lt;ComUser_CbkRxAck&gt;</code>, <code>&lt;ComUser_CbkTxAck&gt;</code>, <code>&lt;ComUser_CbkTxErr&gt;</code>, <code>&lt;ComUser_CbkInv&gt;</code>, <code>&lt;ComUser_CbkRxTOut&gt;</code>, <code>&lt;ComUser_CbkTxTOut&gt;</code> and <code>&lt;ComUser_ComCbk…&gt;</code> for the Large Data Path. Their names are configured in ComUserCallback.</p>
+
+<h2 id="pdur">PduR</h2>
+<p>The only module below COM. COM uses both kinds of PduR interface: the one for interface modules (CanIf, SoAd, …) and the one for <span class="term">transport protocols</span> (CanTp, …).</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">PduR_ComTransmit</code></td><td>COM → PduR</td><td>Transmit this I-PDU. The only mandatory interface of COM.</td><td>14</td></tr>
+<tr><td><code class="term">PduR_ComCancelTransmit</code></td><td>COM → PduR</td><td>Cancel an ongoing transmission (only with ComIPduCancellationSupport).</td><td>–</td></tr>
+<tr><td><code class="term">Com_RxIndication</code></td><td>PduR → COM</td><td>An I-PDU has arrived.</td><td>14</td></tr>
+<tr><td><code class="term">Com_TxConfirmation</code></td><td>PduR → COM</td><td>An I-PDU was transmitted (or not: result E_NOT_OK).</td><td>14</td></tr>
+<tr><td><code class="term">Com_TriggerTransmit</code></td><td>PduR → COM</td><td>Give me the current content of this I-PDU, now.</td><td>14</td></tr>
+<tr><td><code class="term">Com_CopyTxData</code>, <code class="term">Com_TpTxConfirmation</code></td><td>PduR → COM</td><td>Transmission of a large I-PDU: copy the next bytes; the whole I-PDU was sent.</td><td>13, 18</td></tr>
+<tr><td><code class="term">Com_StartOfReception</code>, <code class="term">Com_CopyRxData</code>, <code class="term">Com_TpRxIndication</code></td><td>PduR → COM</td><td>Reception of a large I-PDU: one is coming, with this length; here are the next bytes; it is complete.</td><td>13, 18</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="bswm">BswM</h2>
+<p>The <span class="term">BswM</span> switches COM on and off and decides which I-PDUs run, depending on the mode of the ECU and its networks. The BSW Mode Manager specification lists these functions as the ones it may call; in a project they are configured as BswM actions.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Com_Init</code></td><td>BswM → COM</td><td>Initialise COM at start-up. All I-PDU groups are still stopped afterwards.</td><td>11</td></tr>
+<tr><td><code>Com_DeInit</code></td><td>BswM (or EcuM) → COM</td><td>Stop COM: all I-PDU groups are stopped and COM is no longer initialised.</td><td>–</td></tr>
+<tr><td><code class="term">Com_IpduGroupStart</code>, <code>Com_IpduGroupStop</code></td><td>BswM → COM</td><td>Start or stop all I-PDUs of an I-PDU group.</td><td>11</td></tr>
+<tr><td><code class="term">Com_EnableReceptionDM</code>, <code>Com_DisableReceptionDM</code></td><td>BswM → COM</td><td>Switch reception deadline monitoring on or off for an I-PDU group.</td><td>6, 11</td></tr>
+<tr><td><code class="term">Com_SwitchIpduTxMode</code></td><td>BswM → COM</td><td>Select the true or false transmission mode of an I-PDU from outside.</td><td>4</td></tr>
+<tr><td><code>Com_TriggerIPDUSend</code></td><td>BswM → COM</td><td>Send an I-PDU once, now, as a configured BswM action.</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">Older 4.x releases controlled I-PDU groups with a group vector instead: <code>Com_IpduGroupControl</code> and <code>Com_ReceptionDMControl</code>. You may still see them in existing code.</p>
+
+<h2 id="schm">BSW Scheduler</h2>
+<p>The <span class="term">BSW Scheduler</span> (SchM, part of the RTE) calls COM's <span class="term">main functions</span> from OS tasks, at the period configured for each one. Several instances of each are possible; each gets the short name of its configuration container added, for example <code>Com_MainFunctionTx_Fast</code>.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>Com_MainFunctionTx</code></td><td>SchM → COM</td><td>Periodic transmissions, repetitions, minimum delay time, transmission deadline monitoring, deferred transmission notifications.</td><td>2, 3, 6</td></tr>
+<tr><td><code>Com_MainFunctionRx</code></td><td>SchM → COM</td><td>Deferred processing of received I-PDUs (<code class="term">DEFERRED</code>), reception deadline monitoring.</td><td>2, 6</td></tr>
+<tr><td><code>Com_MainFunctionRouteSignals</code></td><td>SchM → COM</td><td>The signal gateway. Its period sets the latency of the gateway.</td><td>12</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="det-dem">Det and Dem</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>Det_ReportError</code></td><td>COM → <span class="term">Det</span></td><td>Development errors: wrong parameter, called before <code>Com_Init</code>, null pointer … (only with ComConfigurationUseDet).</td><td>–</td></tr>
+<tr><td><code>Det_ReportRuntimeError</code></td><td>COM → Det</td><td>Runtime errors, for example a transmission request that was skipped.</td><td>–</td></tr>
+<tr><td><code>Dem_SetEventStatus</code></td><td>COM → <span class="term">Dem</span></td><td>Deadline monitoring timeouts as diagnostic events: PREFAILED on a timeout, PREPASSED when data or a confirmation comes in again. Only if COM_E_TIMEOUT is configured for the signal.</td><td>6</td></tr>
+<tr><td><code class="term">Com_GetStatus</code>, <code>Com_GetVersionInfo</code></td><td>any → COM</td><td>Is COM initialised; which version is it.</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="callouts">I-PDU callouts</h2>
+<p>An <span class="term">I-PDU callout</span> is a function written for the project, not a module. COM calls it for one I-PDU, under the name given in the configuration (ComIPduCallout, ComIPduTriggerTransmitCallout).</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Rx I-PDU callout</td><td>COM → project code</td><td>Called for a received I-PDU before COM unpacks it. Returns false: COM drops the I-PDU (for example as a filter of your own).</td><td>–</td></tr>
+<tr><td>Tx I-PDU callout</td><td>COM → project code</td><td>Called before an I-PDU is handed to the PduR, for example to fill in a counter or a checksum. Returns false: COM does not transmit it.</td><td>–</td></tr>
+<tr><td>Trigger transmit callout</td><td>COM → project code</td><td>The same, inside <code>Com_TriggerTransmit</code>.</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="below">Below the PduR</h2>
+<p>COM never calls CanIf, CanTp, SoAd, <span class="term">IpduM</span>, <span class="term">SecOC</span> or a driver, and none of them calls COM. Everything goes through the <span class="term">PduR</span>, which uses the same COM functions whatever sits below it. That is why COM works the same on every bus. Lesson 14 shows the layers; lesson 18 shows the full call chains for CAN, CanTp and Ethernet.</p>
+
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>: chapter 5 (dependencies, Figure 5.1 context view), sections 8.3 to 8.6 (provided, scheduled, expected and configurable interfaces, Tables 7.6 and 8.1), 7.11 (Det and Dem); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">BSW Mode Manager, R25-11</a>, SWS_BswM_00008; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_RTE.pdf">RTE, R25-11</a>, for the <code>Rte_COMCbk…</code> names. <code>Com_DeInit</code> has no fixed caller in the specifications; BswM or EcuM is the usual choice.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../index.html#about">About</a></footer>
+</body>
+</html>
