@@ -2,10 +2,12 @@
 # One-time setup of a course repo for publishing to the hub "learn".
 #
 #   setup-course.sh <course-dir> [--title T] [--description D] [--path P]
-#                   [--language en|de] [--topic T] [--yes] [--no-publish]
+#                   [--language en|de] [--topic T] --audience work|personal
+#                   [--yes] [--no-publish]
 #
 # 1. Writes course.json (missing values are asked for, with defaults read from index.html)
-#    and commits it in the course repo. Also starts CHANGES.md (the learners' change history,
+#    and commits it in the course repo. The audience must always be chosen: "work" courses
+#    are listed on the landing page, "personal" ones only on the unlinked personal.html. Also starts CHANGES.md (the learners' change history,
 #    shown as "What's new") if there is none.
 # 2. If the course repo has a GitHub remote: installs .github/workflows/publish-learn.yml,
 #    commits it, and sets the secret HUB_DEPLOY_KEY from ~/.config/learn-hub/hub_deploy_key.
@@ -16,9 +18,9 @@ set -euo pipefail
 
 tools=$(cd "$(dirname "$0")" && pwd)
 key="${LEARN_HUB_KEY:-$HOME/.config/learn-hub/hub_deploy_key}"
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
-course= title= desc= path= lang= topic= yes=0 publish=1
+course= title= desc= path= lang= topic= audience= yes=0 publish=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --title) title="$2"; shift 2;;
@@ -26,6 +28,7 @@ while [ $# -gt 0 ]; do
     --path) path="$2"; shift 2;;
     --language) lang="$2"; shift 2;;
     --topic) topic="$2"; shift 2;;
+    --audience) audience="$2"; shift 2;;
     --yes) yes=1; shift;;
     --no-publish) publish=0; shift;;
     -h|--help) usage;;
@@ -70,12 +73,21 @@ PY
   ask topic "Topic (landing page group, e.g. AUTOSAR, Astronomy)" "Other"
   t_slug=$(tr '[:upper:]' '[:lower:]' <<<"$topic" | sed -E 's/[^a-z0-9]+/-/g; s/^-|-$//g')
   ask path "Folder in the hub" "$t_slug/$g_slug"
+  # audience: never defaulted, so the work/personal question is always answered
+  while [ "$audience" != work ] && [ "$audience" != personal ]; do
+    if [ "$yes" = 1 ] || [ ! -t 0 ]; then
+      echo "Choose the audience: --audience work (landing page) or --audience personal (only personal.html)"; exit 1
+    fi
+    read -r -p "Audience: work (listed on the landing page) or personal (only on personal.html)? " audience
+  done
 
-  python3 - "$course/course.json" "$title" "$desc" "$path" "$lang" "$topic" <<'PY'
+  python3 - "$course/course.json" "$title" "$desc" "$path" "$lang" "$topic" "$audience" <<'PY'
 import json, sys
-f, title, desc, path, lang, topic = sys.argv[1:]
-json.dump({"title": title, "description": desc, "path": path, "language": lang, "topic": topic},
-          open(f, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+f, title, desc, path, lang, topic, audience = sys.argv[1:]
+meta = {"title": title, "description": desc, "path": path, "language": lang, "topic": topic}
+if audience == "personal":
+    meta["audience"] = "personal"
+json.dump(meta, open(f, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 open(f, "a").write("\n")
 PY
   echo "Wrote course.json:"
