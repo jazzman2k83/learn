@@ -68,7 +68,7 @@
 </tbody>
 </table>
 </div>
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.6 (SWS_Com_00290, 00292, 00470, 00875, 00500, 00889, 00878, 00304). Finer points: a timeout of 0 switches deadline monitoring off. COM can also report timeouts to the diagnostic event manager (Dem). Transmission deadline monitoring only makes sense on a bus that confirms transmissions. Reception deadline monitoring runs only while the I-PDU group of the I-PDU (a set of I-PDUs started and stopped together, lesson 11) has it enabled.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, section 7.2.6 (SWS_Com_00290, 00292, 00470, 00875, 00500, 00889, 00878, 00304). Finer points: a timeout of 0 switches deadline monitoring off. From release R25-11 on, COM can also report timeouts to the diagnostic event manager (Dem); in earlier releases, such as 4.4.0 and R20-11, only the COM user hears about them. Everything else in this lesson applies to those releases as well. Transmission deadline monitoring only makes sense on a bus that confirms transmissions. Reception deadline monitoring runs only while the I-PDU group of the I-PDU (a set of I-PDUs started and stopped together, lesson 11) has it enabled.</p>
 
 <nav class="course" data-nav></nav>
 

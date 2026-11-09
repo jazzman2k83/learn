@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Differences between releases · AUTOSAR COM</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">COM in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<main>
+
+<p class="kicker">AUTOSAR COM · Sheet</p>
+<h1>Differences between releases</h1>
+<p class="lede">The course follows release R25-11. Many ECUs still run on 4.4.0 or R20-11. What <span class="term">COM</span> does is the same in all three; some of the configuration and a few functions around it differ. This sheet lists those differences.</p>
+
+<h2>The same in 4.4.0, R20-11 and R25-11</h2>
+<p>Every feature of lessons 1 to 12 and 16 to 17 works the same in all three releases, with the same names and the same values: <span class="term">transfer property</span>, <span class="term">transmission mode</span> and transmission mode selection, repetitions and <span class="term">minimum delay time</span>, <span class="term">init value</span>s and <span class="term">update-bit</span>s, <span class="term">deadline monitoring</span> with NONE, REPLACE and SUBSTITUTE, <span class="term">data invalid value</span>s, the eight <span class="term">filter</span> algorithms, <code class="term">IMMEDIATE</code> and <code class="term">DEFERRED</code>, <span class="term">signal group</span>s, <span class="term">I-PDU group</span>s with <code>Com_IpduGroupStart</code> and <code>Com_IpduGroupStop</code>, the <span class="term">signal gateway</span>, <span class="term">large I-PDU</span>s and <span class="term">dynamic length signal</span>s, signal types and byte order. The functions the <span class="term">RTE</span> and the <span class="term">PduR</span> call are the same too, except <code>Com_Transmit</code> (below).</p>
+
+<h2>What differs</h2>
+<div class="table-wrap">
+<table class="data" style="table-layout: fixed; overflow-wrap: anywhere">
+<colgroup><col style="width: 15%"><col style="width: 26%"><col style="width: 26%"><col style="width: 27%"><col style="width: 6%"></colgroup>
+<thead><tr><th>Topic</th><th>4.4.0</th><th>R20-11</th><th>R25-11</th><th></th></tr></thead>
+<tbody>
+<tr><td><span class="term">Notification</span>s: where they are configured</td><td colspan="2">On the <code>ComSignal</code> or <code>ComSignalGroup</code> itself: <code>ComNotification</code>, <code>ComTimeoutNotification</code>, <code>ComInvalidNotification</code>, <code>ComErrorNotification</code>, each with the name of the function COM calls.</td><td>With the <span class="term">COM user</span>: <code>ComUserModuleCnf</code> with one <code>ComUserCallback</code> per notification and its <code>ComUserCallbackType</code> (<code>COM_RX_ACK</code>, <code>COM_TX_TOUT</code> …). Added in R21-11; the old parameters were removed in R22-11.</td><td><a href="../lessons/0009-notifications.html">9</a>, <a href="../lessons/0015-configuration-map.html">15</a></td></tr>
+<tr><td><span class="term">Main function</span>s</td><td>One each of <code>Com_MainFunctionRx</code>, <code>Com_MainFunctionTx</code> and <code>Com_MainFunctionRouteSignals</code>. Their periods: <code>ComRxTimeBase</code>, <code>ComTxTimeBase</code>, <code>ComGwTimeBase</code>, in the container <code>ComTimeBase</code>.</td><td colspan="2">Any number of each, one container per instance (<code>ComMainFunctionRx</code>, <code>ComMainFunctionTx</code>, <code>ComMainFunctionRouteSignals</code>), named <code>Com_MainFunctionRx_&lt;name&gt;</code> and so on. Each I-PDU picks its main function with <code>ComIPduMainFunctionRef</code>. Added in R19-11 for multicore ECUs.</td><td><a href="../lessons/0002-transfer-property-transmission-mode-signal-processing.html">2</a>, <a href="../lessons/0015-configuration-map.html">15</a></td></tr>
+<tr><td><span class="term">Large Data Path</span></td><td colspan="2">Not part of COM. The separate module <span class="term">LdCom</span> (Large Data COM) does this job: the RTE calls <code>LdCom_Transmit</code>, LdCom calls <code>Rte_LdComCbk…</code>, and the I-PDUs are configured as <code>LdComIPdu</code>.</td><td>Part of COM: <code>Com_Transmit</code>, <code>ComIPduLargeData</code>, <code>ComLargeDataSupport</code>. LdCom no longer exists.</td><td><a href="../lessons/0013-large-i-pdus-and-dynamic-length-signals.html">13</a>, <a href="../lessons/0018-the-whole-call-sequence.html">18</a></td></tr>
+<tr><td>Timeouts reported to the <span class="term">Dem</span></td><td colspan="2">No. Only the COM user hears about a timeout.</td><td>Optional: with <code>COM_E_TIMEOUT</code> configured, COM reports PREFAILED on a timeout and PREPASSED when data or a confirmation comes in again (<code>Dem_SetEventStatus</code>).</td><td><a href="../lessons/0006-deadline-monitoring.html">6</a></td></tr>
+<tr><td>I-PDU counter and I-PDU replication</td><td colspan="2">Present: a sequence counter inside the I-PDU that the receiver checks (<code>ComIPduCounter</code>), and a received I-PDU that arrives up to three times, with COM comparing the copies and passing the signals on only if enough of them are identical (<code>ComIPduReplication</code>).</td><td>Removed in R21-11.</td><td>–</td></tr>
+<tr><td>Transmission preparation notification</td><td>No.</td><td colspan="2"><code>ComPreparationNotification</code>, per <code>ComMainFunctionTx</code>: COM tells its user that it is about to prepare the signals of this main function for transmission. Added in R19-11.</td><td>–</td></tr>
+<tr><td>Meta data in the signal functions</td><td>Only <code>Com_TriggerIPDUSendWithMetaData</code>.</td><td colspan="2">Also <code>Com_SendSignalWithMetaData</code>, <code>Com_ReceiveSignalWithMetaData</code> and the same for signal groups and dynamic length signals. Added in R19-11.</td><td>–</td></tr>
+<tr><td>Security events</td><td colspan="2">No.</td><td>COM can report a security event when a filter drops a received signal (filters other than ONE_EVERY_N and NEVER). Added in R24-11.</td><td>–</td></tr>
+<tr><td>Software clusters</td><td colspan="2">No. The RTE is the only COM user.</td><td>SwCluC can be a COM user too. Added in R21-11.</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+<p>Two smaller points. Some rules were only written down more precisely in later releases, without a change in behaviour: for example that reception deadline monitoring starts again after a timeout, so the timeout notification repeats. And in R25-11, many configuration rules got their own IDs (<code>SWS_Com_CONSTR_…</code>); their content is unchanged.</p>
+
+<h2>Reading an older configuration</h2>
+<p>These names tell you which release a COM configuration comes from, and what they mean in this course.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>You find</th><th>Release</th><th>Read it as</th></tr></thead>
+<tbody>
+<tr><td><code>ComTimeBase</code> with <code>ComRxTimeBase</code>, <code>ComTxTimeBase</code>, <code>ComGwTimeBase</code></td><td>4.4.0 and older</td><td>The periods of the three main functions (in R25-11: <code>ComMainRxTimeBase</code>, <code>ComMainTxTimeBase</code>, <code>ComMainRouteSignalsTimeBase</code>).</td></tr>
+<tr><td><code>ComNotification</code> on a signal</td><td>up to R21-11</td><td><code>COM_RX_ACK</code> on a received signal, <code>COM_TX_ACK</code> on a sent one.</td></tr>
+<tr><td><code>ComTimeoutNotification</code></td><td>up to R21-11</td><td><code>COM_RX_TOUT</code> or <code>COM_TX_TOUT</code>.</td></tr>
+<tr><td><code>ComInvalidNotification</code></td><td>up to R21-11</td><td><code>COM_RX_INV</code>.</td></tr>
+<tr><td><code>ComErrorNotification</code></td><td>up to R21-11</td><td><code>COM_TX_ERR</code>.</td></tr>
+<tr><td><code>ComIPduCounter</code>, <code>ComIPduReplication</code></td><td>up to R20-11</td><td>I-PDU counter and I-PDU replication, see the table above. Not covered in this course.</td></tr>
+<tr><td>An <code>LdCom</code> module next to COM</td><td>up to R24-11</td><td>The Large Data Path of lesson 13, as a module of its own.</td></tr>
+<tr><td><code>Com_IpduGroupControl</code>, <code>Com_ReceptionDMControl</code> in code</td><td>4.0 to 4.3.0</td><td>Starting and stopping I-PDU groups, and switching reception deadline monitoring, with a group vector instead of <code>Com_IpduGroupStart</code> and <code>Com_EnableReceptionDM</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The <a href="../config/index.html">configuration help</a> produces R25-11 only. Its <a href="../config/configurator.html">configurator</a> lists what to change by hand for 4.4.0 and R20-11.</p>
+
+<p class="small">Sources: the AUTOSAR COM specifications <a href="https://www.autosar.org/fileadmin/standards/R18-10_R4.4.0_R1.5.0/CP/AUTOSAR_SWS_COM.pdf">4.4.0</a>, <a href="https://www.autosar.org/fileadmin/standards/R19-11/CP/AUTOSAR_SWS_COM.pdf">R19-11</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COM.pdf">R20-11</a>, <a href="https://www.autosar.org/fileadmin/standards/R21-11/CP/AUTOSAR_SWS_COM.pdf">R21-11</a>, <a href="https://www.autosar.org/fileadmin/standards/R22-11/CP/AUTOSAR_SWS_COM.pdf">R22-11</a>, <a href="https://www.autosar.org/fileadmin/standards/R24-11/CP/AUTOSAR_CP_SWS_COM.pdf">R24-11</a> and <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">R25-11</a>: document change history, chapter 10 (configuration parameters) and appendix C (changed items); the LdCom specifications <a href="https://www.autosar.org/fileadmin/standards/R18-10_R4.4.0_R1.5.0/CP/AUTOSAR_SWS_LargeDataCOM.pdf">4.4.0</a> and <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_LargeDataCOM.pdf">R20-11</a>. Only the differences that touch this course or a typical configuration are listed. Releases before 4.4.0 have more differences, which are not listed here.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script>
+document.querySelectorAll('td a[href^="../lessons/"]').forEach((a) => {
+  const i = Course.LESSONS.findIndex((l) => a.getAttribute('href').endsWith(l.file));
+  if (i >= 0) a.title = 'Lesson ' + (i + 1) + ': ' + Course.LESSONS[i].title;
+});
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

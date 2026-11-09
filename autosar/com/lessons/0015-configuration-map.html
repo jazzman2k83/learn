@@ -63,6 +63,7 @@
     </table>
   </div>
   <p class="small" id="lesson-link"></p>
+  <p class="small" id="old-note"></p>
 </div>
 
 <h2>How to read a parameter name</h2>
@@ -88,7 +89,7 @@
 </tbody>
 </table>
 </div>
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10 (configuration specification). Only the parameters needed for this course are shown; the specification lists them all.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10 (configuration specification). Only the parameters needed for this course are shown; the specification lists them all. The names are those of R25-11; for 4.4.0 and R20-11 the notes under the table, and the sheet <a href="../reference/release-differences.html">Differences between releases</a>, give the older ones; the AUTOSAR COM specifications of <a href="https://www.autosar.org/fileadmin/standards/R18-10_R4.4.0_R1.5.0/CP/AUTOSAR_SWS_COM.pdf">4.4.0</a> and <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COM.pdf">R20-11</a>, chapter 10.</p>
 
 <nav class="course" data-nav></nav>
 
@@ -106,7 +107,8 @@
       ['ComTxModeTimeOffset', 'ComTxMode', 'Delay before the first periodic transmission after a start.']] },
     { name: 'Signal processing', lesson: [2], rows: [
       ['ComIPduSignalProcessing', 'ComIPdu', 'IMMEDIATE or DEFERRED.'],
-      ['ComMainRxTimeBase, ComMainTxTimeBase', 'ComMainFunctionRx / Tx', 'The period of the main functions.']] },
+      ['ComMainRxTimeBase, ComMainTxTimeBase', 'ComMainFunctionRx / Tx', 'The period of the main functions.']],
+      old: 'In 4.4.0 there is one main function of each kind, and the periods are ComRxTimeBase and ComTxTimeBase in the container ComTimeBase.' },
     { name: 'Repetitions and MDT', lesson: [3], rows: [
       ['ComTxModeNumberOfRepetitions', 'ComTxMode', 'Number of repetitions after a triggered transmission.'],
       ['ComTxModeRepetitionPeriod', 'ComTxMode', 'Time between the repetitions.'],
@@ -124,7 +126,8 @@
       ['ComTimeout', 'ComSignal, ComSignalGroup', 'The timeout. 0 or left out: no deadline monitoring.'],
       ['ComFirstTimeout', 'ComSignal, ComSignalGroup', 'The timeout for the very first reception.'],
       ['ComRxDataTimeoutAction', 'ComSignal, ComSignalGroup', 'NONE, REPLACE or SUBSTITUTE.'],
-      ['ComTimeoutSubstitutionValue', 'ComSignal, ComGroupSignal', 'The substitution value.']] },
+      ['ComTimeoutSubstitutionValue', 'ComSignal, ComGroupSignal', 'The substitution value.']],
+      old: 'Reporting timeouts to the Dem (COM_E_TIMEOUT) exists only from R25-11 on.' },
     { name: 'Data invalid values', lesson: [7], rows: [
       ['ComSignalDataInvalidValue', 'ComSignal, ComGroupSignal', 'The data invalid value.'],
       ['ComDataInvalidAction', 'ComSignal, ComSignalGroup', 'NOTIFY or REPLACE.']] },
@@ -136,7 +139,8 @@
     { name: 'Notifications', lesson: [9], rows: [
       ['ComUserCallback', 'ComUserModuleCnf (of a COM user such as the RTE)', 'One container per notification, with the function COM calls.'],
       ['ComUserCallbackType', 'ComUserCallback', 'Which notification, for example COM_RX_ACK (received) or COM_RX_INV (invalid).'],
-      ['ComUserCallbackRef', 'ComUserIPdu, ComUserSignal, ComUserSignalGroup', 'Links an I-PDU, signal or signal group to its notifications.']] },
+      ['ComUserCallbackRef', 'ComUserIPdu, ComUserSignal, ComUserSignalGroup', 'Links an I-PDU, signal or signal group to its notifications.']],
+      old: 'Up to R20-11 (so in 4.4.0 too) the notifications are parameters of the ComSignal or ComSignalGroup itself: ComNotification, ComTimeoutNotification, ComInvalidNotification and ComErrorNotification, each with the name of the function COM calls.' },
     { name: 'Signal groups', lesson: [10], rows: [
       ['ComSignalGroup', 'ComConfig', 'The signal group itself.'],
       ['ComGroupSignal', 'ComSignalGroup', 'One group signal each.'],
@@ -148,12 +152,14 @@
     { name: 'Signal gateway', lesson: [12], rows: [
       ['ComGwMapping', 'ComConfig', 'One mapping of the signal gateway.'],
       ['ComGwSource', 'ComGwMapping', 'The received signal to copy from.'],
-      ['ComGwDestination', 'ComGwMapping', 'One or more signals to copy to.']] },
+      ['ComGwDestination', 'ComGwMapping', 'One or more signals to copy to.']],
+      old: 'In 4.4.0 the period of the signal gateway is ComGwTimeBase in the container ComTimeBase; from R19-11 on it is ComMainRouteSignalsTimeBase in ComMainFunctionRouteSignals.' },
     { name: 'Large I-PDUs', lesson: [13], rows: [
       ['ComIPduType', 'ComIPdu', 'NORMAL (one frame) or TP (through a transport protocol).'],
       ['ComSignalType', 'ComSignal', 'UINT8_N for a byte array of fixed length, UINT8_DYN for a dynamic length signal.'],
       ['ComSignalLength', 'ComSignal', 'Length, or maximum length, in bytes.'],
-      ['ComIPduLargeData', 'ComIPdu', 'Use the Large Data Path for this I-PDU.']] },
+      ['ComIPduLargeData', 'ComIPdu', 'Use the Large Data Path for this I-PDU.']],
+      old: 'ComIPduLargeData exists only from R25-11 on. Before, such I-PDUs are configured in the separate module LdCom (container LdComIPdu), not in COM.' },
     { name: 'Bits and types', lesson: [16, 17], rows: [
       ['ComBitPosition', 'ComSignal, ComGroupSignal', 'Where the signal starts in the I-PDU.'],
       ['ComBitSize', 'ComSignal, ComGroupSignal', 'How many bits it occupies.'],
@@ -178,6 +184,9 @@
       const l = Course.LESSONS[n - 1];
       return 'lesson ' + n + ', <a href="' + l.file + '">' + l.title + '</a>';
     }).join(', and ') + '.';
+    const old = document.getElementById('old-note');
+    old.innerHTML = F[i].old ? '<strong>Older releases:</strong> ' + F[i].old : '';
+    old.hidden = !F[i].old;
   }
   show(0);
 })();

@@ -78,7 +78,7 @@
 </tbody>
 </table>
 </div>
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.7, 7.12 and 8.6.3.1 (SWS_Com_00883, 00396, 00680, 00479, ECUC_Com_10034). Finer point: the specification writes the callbacks as &lt;ComUser_CbkRxAck&gt;, &lt;ComUser_CbkTxAck&gt;, &lt;ComUser_CbkRxTOut&gt;, &lt;ComUser_CbkTxTOut&gt;, &lt;ComUser_CbkInv&gt; and &lt;ComUser_CbkTxErr&gt;, because a COM user other than the RTE can receive them too. For the RTE they are the Rte_COMCbk… functions.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, sections 7.2.7, 7.12 and 8.6.3.1 (SWS_Com_00883, 00396, 00680, 00479, ECUC_Com_10034). Finer point: the specification writes the callbacks as &lt;ComUser_CbkRxAck&gt;, &lt;ComUser_CbkTxAck&gt;, &lt;ComUser_CbkRxTOut&gt;, &lt;ComUser_CbkTxTOut&gt;, &lt;ComUser_CbkInv&gt; and &lt;ComUser_CbkTxErr&gt;, because a COM user other than the RTE can receive them too. For the RTE they are the Rte_COMCbk… functions. The notifications behave the same in older releases, such as 4.4.0 and R20-11. Only where they are configured differs: there, each one is set on the signal or signal group itself (ComNotification, ComTimeoutNotification, ComInvalidNotification, ComErrorNotification); see <a href="../reference/release-differences.html">Differences between releases</a>.</p>
 
 <nav class="course" data-nav></nav>
 

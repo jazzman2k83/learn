@@ -68,7 +68,14 @@
 </details>
 
 <div class="note">
-<p><strong>What this tool does not know.</strong> It looks at one <span class="term">signal</span> in one <span class="term">I-PDU</span>. It cannot see the other signals in the I-PDU, the layers below COM, or the extra parameters your tool vendor adds. Handle numbers are left out because tools assign them. Names follow AUTOSAR release R25-11. In projects on older releases the notifications are configured on the signal itself, with names such as <code>ComNotification</code> and <code>ComTimeoutNotification</code>.</p>
+<p><strong>What this tool does not know.</strong> It looks at one <span class="term">signal</span> in one <span class="term">I-PDU</span>. It cannot see the other signals in the I-PDU, the layers below COM, or the extra parameters your tool vendor adds. Handle numbers are left out because tools assign them. Names follow AUTOSAR release R25-11.</p>
+<p><strong>Projects on 4.4.0 or R20-11.</strong> "What COM will do", the checks and the bit layout apply there too. The ARXML and the settings table do not match those releases in three places. Change them by hand:</p>
+<ul>
+<li><strong>Notifications:</strong> there is no <code>ComUserCallback</code>. Each notification is a parameter of the <code>ComSignal</code> or <code>ComSignalGroup</code> itself: <code>ComNotification</code> (for COM_RX_ACK / COM_TX_ACK), <code>ComTimeoutNotification</code> (COM_RX_TOUT / COM_TX_TOUT), <code>ComInvalidNotification</code> (COM_RX_INV) and <code>ComErrorNotification</code> (COM_TX_ERR).</li>
+<li><strong>Main functions, 4.4.0 only:</strong> there is no <code>ComMainFunctionTx</code> / <code>ComMainFunctionRx</code> container and no <code>ComIPduMainFunctionRef</code>. The periods are <code>ComTxTimeBase</code> and <code>ComRxTimeBase</code> in the one <code>ComTimeBase</code> container. R20-11 has the same containers as R25-11.</li>
+<li><strong><code>ComIPduLargeData</code>:</strong> leave it out; it exists only from R25-11 on.</li>
+</ul>
+<p>More in <a href="../reference/release-differences.html">Differences between releases</a>.</p>
 </div>
 
 <p class="small">Rules and names: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>, chapter 10. ARXML form: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_TPS_ECUConfiguration.pdf">Specification of ECU Configuration, R25-11</a>. More help: <a href="recipes.html">recipe book</a>, <a href="troubleshooting.html">troubleshooting</a>.</p>

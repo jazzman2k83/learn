@@ -29,7 +29,7 @@
 </div>
 
 <h2 id="users">RTE and the other COM users</h2>
-<p>The <span class="term">RTE</span> is COM's main user. In a system built from software clusters, SwCluC takes this role for the clusters (both are a <span class="term">COM user</span>). The application SWCs never call COM themselves.</p>
+<p>The <span class="term">RTE</span> is COM's main user. In a system built from software clusters (from R21-11 on), SwCluC takes this role for the clusters (both are a <span class="term">COM user</span>). The application SWCs never call COM themselves.</p>
 <div class="table-wrap">
 <table class="data">
 <thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
@@ -39,19 +39,19 @@
 <tr><td><code>Com_SendSignalGroupArray</code>, <code>Com_ReceiveSignalGroupArray</code></td><td>RTE → COM</td><td>The same for a whole signal group as one byte array, without a shadow buffer.</td><td>10</td></tr>
 <tr><td><code class="term">Com_SendDynSignal</code>, <code>Com_ReceiveDynSignal</code></td><td>RTE → COM</td><td>Write or read a dynamic length signal together with its length.</td><td>13</td></tr>
 <tr><td><code class="term">Com_InvalidateSignal</code>, <code>Com_InvalidateSignalGroup</code></td><td>RTE → COM</td><td>Write the data invalid value.</td><td>7</td></tr>
-<tr><td><code class="term">Com_Transmit</code></td><td>RTE → COM</td><td>Transmit an I-PDU on the Large Data Path.</td><td>13</td></tr>
-<tr><td><code>Com_Send…WithMetaData</code>, <code>Com_Receive…WithMetaData</code></td><td>RTE → COM</td><td>Variants of all the above that also pass the meta data of the I-PDU (for example a CAN identifier).</td><td>–</td></tr>
+<tr><td><code class="term">Com_Transmit</code></td><td>RTE → COM</td><td>Transmit an I-PDU on the Large Data Path. From R25-11 on; before, the RTE calls <code>LdCom_Transmit</code> of the separate LdCom module.</td><td>13</td></tr>
+<tr><td><code>Com_Send…WithMetaData</code>, <code>Com_Receive…WithMetaData</code></td><td>RTE → COM</td><td>Variants of all the above that also pass the meta data of the I-PDU (for example a CAN identifier). From R19-11 on; 4.4.0 has only <code>Com_TriggerIPDUSendWithMetaData</code>.</td><td>–</td></tr>
 <tr><td><code class="term">Com_TriggerIPDUSend</code> (and <code>…WithMetaData</code>)</td><td>COM user or BswM → COM</td><td>Send a whole I-PDU once, now.</td><td>–</td></tr>
 <tr><td><code>Rte_COMCbk_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComNotification</span> on reception: the signal (or signal group) arrived and passed all checks.</td><td>9</td></tr>
 <tr><td><code>Rte_COMCbkTAck_&lt;sn&gt;</code></td><td>COM → RTE</td><td>ComNotification on transmission: the I-PDU was confirmed.</td><td>9</td></tr>
 <tr><td><code>Rte_COMCbkTErr_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComErrorNotification</span>: the I-PDU was stopped before it was confirmed.</td><td>9, 11</td></tr>
 <tr><td><code>Rte_COMCbkInv_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComInvalidNotification</span>: the data invalid value arrived.</td><td>7, 9</td></tr>
 <tr><td><code>Rte_COMCbkRxTOut_&lt;sn&gt;</code>, <code>Rte_COMCbkTxTOut_&lt;sn&gt;</code></td><td>COM → RTE</td><td><span class="term">ComTimeoutNotification</span> of reception or transmission deadline monitoring.</td><td>6, 9</td></tr>
-<tr><td><code>Rte_COMCbkTxConfirmation</code>, <code>…RxIndication</code>, <code>…TriggerTransmit</code>, <code>…CopyTxData</code>, <code>…StartOfReception</code>, <code>…CopyRxData</code>, <code>…TpRxIndication</code>, <code>…TpTxConfirmation</code></td><td>COM → RTE</td><td>Large Data Path only: COM passes the PduR's calls for this I-PDU straight on to the RTE.</td><td>13</td></tr>
+<tr><td><code>Rte_COMCbkTxConfirmation</code>, <code>…RxIndication</code>, <code>…TriggerTransmit</code>, <code>…CopyTxData</code>, <code>…StartOfReception</code>, <code>…CopyRxData</code>, <code>…TpRxIndication</code>, <code>…TpTxConfirmation</code></td><td>COM → RTE</td><td>Large Data Path only: COM passes the PduR's calls for this I-PDU straight on to the RTE. From R25-11 on; before, LdCom calls the RTE (<code>Rte_LdComCbk…</code>).</td><td>13</td></tr>
 </tbody>
 </table>
 </div>
-<p class="small">&lt;sn&gt; is the name of the signal or signal group. The specification writes the callbacks neutrally, for any COM user: <code>&lt;ComUser_CbkRxAck&gt;</code>, <code>&lt;ComUser_CbkTxAck&gt;</code>, <code>&lt;ComUser_CbkTxErr&gt;</code>, <code>&lt;ComUser_CbkInv&gt;</code>, <code>&lt;ComUser_CbkRxTOut&gt;</code>, <code>&lt;ComUser_CbkTxTOut&gt;</code> and <code>&lt;ComUser_ComCbk…&gt;</code> for the Large Data Path. Their names are configured in ComUserCallback.</p>
+<p class="small">&lt;sn&gt; is the name of the signal or signal group. The specification writes the callbacks neutrally, for any COM user: <code>&lt;ComUser_CbkRxAck&gt;</code>, <code>&lt;ComUser_CbkTxAck&gt;</code>, <code>&lt;ComUser_CbkTxErr&gt;</code>, <code>&lt;ComUser_CbkInv&gt;</code>, <code>&lt;ComUser_CbkRxTOut&gt;</code>, <code>&lt;ComUser_CbkTxTOut&gt;</code> and <code>&lt;ComUser_ComCbk…&gt;</code> for the Large Data Path. Their names are configured in ComUserCallback. Up to R20-11 they are configured on the signal or signal group itself instead (ComNotification, ComTimeoutNotification, ComInvalidNotification, ComErrorNotification). More in <a href="release-differences.html">Differences between releases</a>.</p>
 
 <h2 id="pdur">PduR</h2>
 <p>The only module below COM. COM uses both kinds of PduR interface: the one for interface modules (CanIf, SoAd, …) and the one for <span class="term">transport protocols</span> (CanTp, …).</p>
@@ -85,10 +85,10 @@
 </tbody>
 </table>
 </div>
-<p class="small">Older 4.x releases controlled I-PDU groups with a group vector instead: <code>Com_IpduGroupControl</code> and <code>Com_ReceptionDMControl</code>. You may still see them in existing code.</p>
+<p class="small">Releases 4.0 to 4.3.0 controlled I-PDU groups with a group vector instead: <code>Com_IpduGroupControl</code> and <code>Com_ReceptionDMControl</code>. You may still see them in existing code.</p>
 
 <h2 id="schm">BSW Scheduler</h2>
-<p>The <span class="term">BSW Scheduler</span> (SchM, part of the RTE) calls COM's <span class="term">main functions</span> from OS tasks, at the period configured for each one. Several instances of each are possible; each gets the short name of its configuration container added, for example <code>Com_MainFunctionTx_Fast</code>.</p>
+<p>The <span class="term">BSW Scheduler</span> (SchM, part of the RTE) calls COM's <span class="term">main functions</span> from OS tasks, at the period configured for each one. From R19-11 on, several instances of each are possible; each gets the short name of its configuration container added, for example <code>Com_MainFunctionTx_Fast</code>. In 4.4.0 there is exactly one of each.</p>
 <div class="table-wrap">
 <table class="data">
 <thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
@@ -107,7 +107,7 @@
 <tbody>
 <tr><td><code>Det_ReportError</code></td><td>COM → <span class="term">Det</span></td><td>Development errors: wrong parameter, called before <code>Com_Init</code>, null pointer … (only with ComConfigurationUseDet).</td><td>–</td></tr>
 <tr><td><code>Det_ReportRuntimeError</code></td><td>COM → Det</td><td>Runtime errors, for example a transmission request that was skipped.</td><td>–</td></tr>
-<tr><td><code>Dem_SetEventStatus</code></td><td>COM → <span class="term">Dem</span></td><td>Deadline monitoring timeouts as diagnostic events: PREFAILED on a timeout, PREPASSED when data or a confirmation comes in again. Only if COM_E_TIMEOUT is configured for the signal.</td><td>6</td></tr>
+<tr><td><code>Dem_SetEventStatus</code></td><td>COM → <span class="term">Dem</span></td><td>Deadline monitoring timeouts as diagnostic events: PREFAILED on a timeout, PREPASSED when data or a confirmation comes in again. Only if COM_E_TIMEOUT is configured for the signal. From R25-11 on.</td><td>6</td></tr>
 <tr><td><code class="term">Com_GetStatus</code>, <code>Com_GetVersionInfo</code></td><td>any → COM</td><td>Is COM initialised; which version is it.</td><td>–</td></tr>
 </tbody>
 </table>
@@ -129,7 +129,7 @@
 <h2 id="below">Below the PduR</h2>
 <p>COM never calls CanIf, CanTp, SoAd, <span class="term">IpduM</span>, <span class="term">SecOC</span> or a driver, and none of them calls COM. Everything goes through the <span class="term">PduR</span>, which uses the same COM functions whatever sits below it. That is why COM works the same on every bus. Lesson 14 shows the layers; lesson 18 shows the full call chains for CAN, CanTp and Ethernet.</p>
 
-<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>: chapter 5 (dependencies, Figure 5.1 context view), sections 8.3 to 8.6 (provided, scheduled, expected and configurable interfaces, Tables 7.6 and 8.1), 7.11 (Det and Dem); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">BSW Mode Manager, R25-11</a>, SWS_BswM_00008; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_RTE.pdf">RTE, R25-11</a>, for the <code>Rte_COMCbk…</code> names. <code>Com_DeInit</code> has no fixed caller in the specifications; BswM or EcuM is the usual choice.</p>
+<p class="small">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COM.pdf">AUTOSAR COM specification, R25-11</a>: chapter 5 (dependencies, Figure 5.1 context view), sections 8.3 to 8.6 (provided, scheduled, expected and configurable interfaces, Tables 7.6 and 8.1), 7.11 (Det and Dem); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">BSW Mode Manager, R25-11</a>, SWS_BswM_00008; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_RTE.pdf">RTE, R25-11</a>, for the <code>Rte_COMCbk…</code> names; for the release notes, the AUTOSAR COM specifications <a href="https://www.autosar.org/fileadmin/standards/R18-10_R4.4.0_R1.5.0/CP/AUTOSAR_SWS_COM.pdf">4.4.0</a>, <a href="https://www.autosar.org/fileadmin/standards/R19-11/CP/AUTOSAR_SWS_COM.pdf">R19-11</a>, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COM.pdf">R20-11</a> and <a href="https://www.autosar.org/fileadmin/standards/R21-11/CP/AUTOSAR_SWS_COM.pdf">R21-11</a>, and the <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_LargeDataCOM.pdf">LdCom specification, R20-11</a>. <code>Com_DeInit</code> has no fixed caller in the specifications; BswM or EcuM is the usual choice.</p>
 
 <nav class="course" data-nav></nav>
 

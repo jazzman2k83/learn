@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-11-09
+- New: Reference sheet [Differences between releases](reference/release-differences.html): what is different in COM for projects on 4.4.0 or R20-11, and how to read a configuration from those releases.
+- Changed: [Lesson 6](lessons/0006-deadline-monitoring.html), [lesson 9](lessons/0009-notifications.html), [lesson 13](lessons/0013-large-i-pdus-and-dynamic-length-signals.html), [lesson 15](lessons/0015-configuration-map.html), [lesson 18](lessons/0018-the-whole-call-sequence.html), [COM's interfaces](reference/com-interfaces.html) and the glossary now say which parts are new in later releases (Dem reporting, the Large Data Path instead of LdCom, notifications configured with the COM user, several main functions).
+- Changed: The [configurator](config/configurator.html) lists what to change by hand in its output for projects on 4.4.0 or R20-11; the [troubleshooting guide](config/troubleshooting.html) explains the older parameter names you may find.
+
 ## 2026-11-08
 - New: [Lesson 18 – The whole call sequence](lessons/0018-the-whole-call-sequence.html): one signal on its way through all the calls, from the software component down to the bus and back.
 - New: Reference sheet [COM's interfaces](reference/com-interfaces.html).
