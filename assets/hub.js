@@ -111,5 +111,17 @@
     label();
   });
 
+  // Landing page: mark courses updated in the last 14 days (tools/build-index.py writes
+  // data-updated). Done here, not at build time, so the mark expires without a rebuild.
+  function markFresh() {
+    var limit = Date.now() - 14 * 864e5;
+    document.querySelectorAll('[data-updated]').forEach(function (el) {
+      var t = Date.parse(el.getAttribute('data-updated'));
+      if (t >= limit) el.classList.add('fresh');
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', markFresh);
+  else markFresh();
+
   window.Theme = { current: current, toggle: toggle };
 })();

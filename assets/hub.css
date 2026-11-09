@@ -68,9 +68,51 @@ h2 { margin: 2em 0 0.6em; font-size: 1.25rem; border-bottom: 1px solid var(--rul
   border: 1px solid var(--muted); color: var(--muted); vertical-align: 2px;
 }
 
-.about { margin-top: 2.5em; }
-.about p { font-size: 0.95rem; }
-.about a { color: var(--accent); }
+.card .updated { display: block; margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+.card .updated.fresh::after {
+  content: "New"; margin-left: 6px; padding: 0 5px;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
+  background: var(--accent); color: var(--paper);
+}
+
+/* "Recent updates" on the landing page and each course's changes.html (tools/changes.py) */
+.updates { list-style: none; margin: 0; padding: 0; }
+.updates > li { padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.updates time { color: var(--muted); font-size: 0.9rem; margin-right: 6px; }
+.updates .course { font-weight: 700; }
+.updates ul, .change-entry ul { margin: 4px 0 0; padding-left: 1.3em; }
+.updates a, .changes-page a { color: var(--accent); }
+.change-entry h2 { margin-top: 1.4em; }
+.change-kind {
+  display: inline-block; min-width: 5.5em; margin-right: 4px; padding: 0 5px;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-align: center;
+  border: 1px solid var(--muted); color: var(--muted); vertical-align: 1px;
+}
+.change-new { border-color: var(--accent); color: var(--accent); }
+.changes-page code { font-size: 0.92em; background: var(--panel); padding: 0 3px; }
+
+main a { color: var(--accent); }
+.cards a { color: inherit; }
+
+/* landing page: "Recent updates", one line per entry */
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+                margin: 2em 0 0.6em; border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+.section-head h2 { margin: 0; border: 0; padding: 0; }
+.section-head a { font-size: 0.9rem; white-space: nowrap; }
+.recent-list { list-style: none; margin: 0; padding: 0; }
+.recent-list li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+                  padding: 6px 0; font-size: 0.95rem; }
+.recent-list time { color: var(--muted); font-size: 0.9rem; min-width: 4.5em; }
+.recent-list .course { font-weight: 700; text-decoration: none; }
+.recent-list .course:hover { text-decoration: underline; }
+.recent-list .what { flex: 1 1 18em; }
+.recent-list .more { color: var(--muted); font-size: 0.85rem; }
+
+/* one-line footer on the hub's pages; the full text is on about.html */
+.site-footer { border-top: 1px solid var(--rule); margin-top: 32px; }
+.site-footer p { max-width: 860px; margin: 0 auto; padding: 14px 16px 24px;
+                 color: var(--muted); font-size: 0.85rem; }
+.site-footer a { color: var(--accent); }
 
 @media print {
   :root, :root[data-theme="dark"] {

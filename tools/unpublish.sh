@@ -8,7 +8,7 @@ path="${1:?usage: unpublish.sh <path> [--no-push]}"
 cd "$hub"
 git rm -rq -- "$path"
 python3 tools/build-index.py .
-git add index.html
+git add -A -- ":(glob)*.html"
 git commit -q -m "Unpublish $path"
 echo "Committed: Unpublish $path"
 if [ "${2:-}" != --no-push ] && git remote get-url origin >/dev/null 2>&1; then

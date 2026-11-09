@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # Publish one course into the hub repo "learn" (GitHub Pages).
 #
-#   publish.sh <course-dir> [--hub <hub-dir>] [--no-push]
+#   publish.sh <course-dir> [--hub <hub-dir>] [--no-push] [--no-changes-entry]
 #
-# Reads <course-dir>/course.json, copies the published paths from the course's committed
-# HEAD (never uncommitted or private files) to <hub>/<path>/, gives it the hub's common
-# bar and theme toggle (tools/harmonize.py), rebuilds the landing page,
-# commits in the hub and pushes. Used both locally and by the course's GitHub Action.
+# Reads <course-dir>/course.json, copies the published paths and CHANGES.md from the
+# course's committed HEAD (never uncommitted or private files) to <hub>/<path>/, renders
+# CHANGES.md as changes.html (tools/changes.py), gives it the hub's common bar and theme
+# toggle (tools/harmonize.py), rebuilds the landing page, commits in the hub and pushes.
+# Used both locally and by the course's GitHub Action.
+# Stops if the published files changed since the last publish but CHANGES.md did not.
+# For a change learners need not hear about, pass --no-changes-entry, or put
+# "[skip changes]" in the course's last commit message (that works from the Action too).
 # Default hub: $LEARN_HUB, else the folder this script lives in (tools/..).
 set -euo pipefail
 
-usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
-course= hub="${LEARN_HUB:-$(cd "$(dirname "$0")/.." && pwd)}" push=1
+course= hub="${LEARN_HUB:-$(cd "$(dirname "$0")/.." && pwd)}" push=1 skip_changes=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --hub) hub="$2"; shift 2;;
     --no-push) push=0; shift;;
+    --no-changes-entry) skip_changes=1; shift;;
     -h|--help) usage;;
     *) [ -z "$course" ] || usage; course="$1"; shift;;
   esac
@@ -71,23 +76,34 @@ if git -C "$course" rev-parse --verify -q HEAD >/dev/null; then
   git -C "$course" archive HEAD -- "${paths[@]}" | tar -x -C "$tmp"
   git -C "$course" show HEAD:course.json > "$tmp/course.json" 2>/dev/null \
     || { echo "Warning: course.json is not committed; using the working copy"; cp "$course/course.json" "$tmp/"; }
+  git -C "$course" show HEAD:CHANGES.md > "$tmp/CHANGES.md" 2>/dev/null || rm -f "$tmp/CHANGES.md"
+  if [ -n "$(git -C "$course" status --porcelain -- CHANGES.md)" ]; then
+    echo "Warning: uncommitted changes in CHANGES.md are NOT published."
+  fi
+  if git -C "$course" log -1 --format=%B | grep -qF '[skip changes]'; then skip_changes=1; fi
 else
   sha=local
   echo "Warning: $course has no commits; copying the working tree"
   for p in "${wanted[@]}"; do [ -e "$course/$p" ] && cp -r "$course/$p" "$tmp/"; done
   cp "$course/course.json" "$tmp/"
+  if [ -f "$course/CHANGES.md" ]; then cp "$course/CHANGES.md" "$tmp/"; fi
 fi
+
+# --- was CHANGES.md updated? (state of the last publish: <path>/publish-state.json) ---
+state=$(python3 "$hub/tools/changes.py" --check "$tmp" "$dest/publish-state.json" "$sha" "$skip_changes")
 
 # --- replace the course folder in the hub ---------------------------------
 rm -rf "$dest"
 mkdir -p "$dest"
 cp -r "$tmp/." "$dest/"
+printf '%s\n' "$state" > "$dest/publish-state.json"
+python3 "$hub/tools/changes.py" "$hub" "$path"
 python3 "$hub/tools/harmonize.py" "$hub" "$path"
 python3 "$hub/tools/build-index.py" "$hub"
 
 # --- commit and push ------------------------------------------------------
 cd "$hub"
-git add -A -- "$path" index.html
+git add -A -- "$path" ":(glob)*.html"   # the hub pages written by build-index.py
 if git diff --cached --quiet; then
   echo "Nothing changed for $path."
 else

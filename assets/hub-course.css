@@ -34,6 +34,8 @@ html { padding-top: var(--learn-bar-h); scroll-padding-top: 8px; }
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   color: var(--learn-ink); font-weight: 700;
 }
+.learn-bar .learn-changes { font-size: 13px; }
+@media (max-width: 520px) { .learn-bar .learn-changes { display: none; } }
 .learn-bar .learn-theme {
   margin: 0; padding: 3px 10px; cursor: pointer; white-space: nowrap;
   font: inherit; background: transparent; color: inherit;

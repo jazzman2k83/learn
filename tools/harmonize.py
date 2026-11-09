@@ -12,9 +12,12 @@ version gets the same treatment. Running it twice changes nothing.
    they chose "dark" (screen only, so printing keeps the course's own print colours).
 2. HTML: assets/hub.js goes first in <head> (one theme choice for the whole hub, see
    there), assets/hub-course.css after it, and a top bar with "All courses", the course
-   title and the theme toggle goes first in <body>. The course's own toggle is hidden.
+   title, "What's new" (if tools/changes.py wrote changes.html) and the theme toggle goes
+   first in <body>. The course's own toggle is hidden.
    A one-line notice (unofficial, written with AI, not fully reviewed) goes last in <body>,
-   in the course's language, linking to the landing page's "About these courses".
+   in the course's language, linking to the hub's about.html.
+   Courses with "audience": "personal" get <meta name="robots" content="noindex">, and their
+   "All courses" link goes to personal.html, where they are listed (see build-index.py).
 Only the standard library is used.
 """
 import html
@@ -30,8 +33,8 @@ FORCED = ':root[data-theme="dark"]'
 SYSTEM = ':root:not([data-theme="light"])'
 
 LABELS = {
-    "de": ("Alle Kurse", "Kursnavigation"),
-    "en": ("All courses", "Course navigation"),
+    "de": ("Alle Kurse", "Kursnavigation", "Neuigkeiten"),
+    "en": ("All courses", "Course navigation", "What's new"),
 }
 NOTICE = {
     "de": ("Inoffizieller Kurs, mit KI erstellt und noch nicht vollständig geprüft: "
@@ -133,23 +136,28 @@ HEAD = re.compile(r"<head\b[^>]*>", re.I)
 BODY = re.compile(r"<body\b[^>]*>", re.I)
 
 
-def harmonize_html(page, up, course_href, title, lang):
+def harmonize_html(page, up, course_href, title, lang, changes_href=None, personal=False):
     page = STYLE.sub(lambda m: m.group(1) + harmonize_css(m.group(2)) + m.group(3), page)
     if MARK in page:
         return page
     head, body = HEAD.search(page), BODY.search(page)
     if not head or not body:
         return page
-    all_courses, nav_label = LABELS.get(lang, LABELS["en"])
+    all_courses, nav_label, whats_new = LABELS.get(lang, LABELS["en"])
+    changes_link = (f'<a class="learn-changes" href="{changes_href}">{whats_new}</a>'
+                    if changes_href else "")
     head_tags = (f'\n{MARK}<script src="{up}assets/hub.js"></script>'
                  f'<link rel="stylesheet" href="{up}assets/hub-course.css">')
+    if personal:
+        head_tags += '<meta name="robots" content="noindex">'
+    home = "personal.html" if personal else "index.html"
     bar = (f'\n<nav class="learn-bar" aria-label="{nav_label}">'
-           f'<a class="learn-home" href="{up}index.html">&larr; {all_courses}</a>'
-           f'<a class="learn-course" href="{course_href}">{html.escape(title)}</a>'
+           f'<a class="learn-home" href="{up}{home}">&larr; {all_courses}</a>'
+           f'<a class="learn-course" href="{course_href}">{html.escape(title)}</a>{changes_link}'
            f'<button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>')
     notice, about = NOTICE.get(lang, NOTICE["en"])
     footer = (f'<footer class="learn-notice">{notice} '
-              f'<a href="{up}index.html#about">{about}</a></footer>\n')
+              f'<a href="{up}about.html">{about}</a></footer>\n')
     page = (page[:head.end()] + head_tags + page[head.end():body.end()]
             + bar + page[body.end():])
     end = None
@@ -167,6 +175,8 @@ def main():
     lang = str(meta.get("language", "en")).lower()[:2]
     title = meta.get("title", sys.argv[2])
 
+    has_changes = (course / "changes.html").is_file()
+    personal = str(meta.get("audience", "")).lower() == "personal"
     changed = 0
     for f in sorted(course.rglob("*")):
         if not f.is_file() or f.suffix.lower() not in (".css", ".html", ".htm"):
@@ -177,7 +187,9 @@ def main():
         else:
             up = os.path.relpath(hub, f.parent).replace(os.sep, "/") + "/"
             course_href = os.path.relpath(course / "index.html", f.parent).replace(os.sep, "/")
-            new = harmonize_html(text, up, course_href, title, lang)
+            changes_href = (os.path.relpath(course / "changes.html", f.parent).replace(os.sep, "/")
+                            if has_changes else None)
+            new = harmonize_html(text, up, course_href, title, lang, changes_href, personal)
         if new != text:
             f.write_text(new, encoding="utf-8")
             changed += 1

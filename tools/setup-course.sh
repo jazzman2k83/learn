@@ -5,7 +5,8 @@
 #                   [--language en|de] [--topic T] [--yes] [--no-publish]
 #
 # 1. Writes course.json (missing values are asked for, with defaults read from index.html)
-#    and commits it in the course repo.
+#    and commits it in the course repo. Also starts CHANGES.md (the learners' change history,
+#    shown as "What's new") if there is none.
 # 2. If the course repo has a GitHub remote: installs .github/workflows/publish-learn.yml,
 #    commits it, and sets the secret HUB_DEPLOY_KEY from ~/.config/learn-hub/hub_deploy_key.
 #    Pushing the course repo stays up to you.
@@ -15,7 +16,7 @@ set -euo pipefail
 
 tools=$(cd "$(dirname "$0")" && pwd)
 key="${LEARN_HUB_KEY:-$HOME/.config/learn-hub/hub_deploy_key}"
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 course= title= desc= path= lang= topic= yes=0 publish=1
 while [ $# -gt 0 ]; do
@@ -84,6 +85,22 @@ if [ -n "$(git -C "$course" status --porcelain -- course.json)" ]; then
   git -C "$course" add course.json
   git -C "$course" commit -q -m "Add course.json for publishing to the learn hub" -- course.json
   echo "Committed course.json."
+fi
+
+# CHANGES.md: one first entry, in the course's language
+if [ ! -f "$course/CHANGES.md" ]; then
+  python3 - "$course/course.json" "$course/CHANGES.md" <<'PY'
+import datetime, json, sys
+c = json.load(open(sys.argv[1], encoding="utf-8"))
+de = str(c.get("language", "en")).startswith("de")
+today = datetime.date.today().isoformat()
+text = (f"# Änderungen\n\n## {today}\n- Neu: Erste Version des Kurses.\n" if de
+        else f"# Changes\n\n## {today}\n- New: First version of the course.\n")
+open(sys.argv[2], "w", encoding="utf-8").write(text)
+PY
+  git -C "$course" add CHANGES.md
+  git -C "$course" commit -q -m "Start CHANGES.md, the course's change history for learners" -- CHANGES.md
+  echo "Wrote and committed CHANGES.md: edit its first entry if the course already has history."
 fi
 
 # --- 2. GitHub Action (only with a GitHub remote) -------------------------
