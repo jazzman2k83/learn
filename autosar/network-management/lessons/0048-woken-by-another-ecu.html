@@ -32,16 +32,18 @@
   <div class="card m-drv"><p class="tag">wakeup · lessons 30, 33</p><h3>The interrupt</h3><p>The transceiver raises a wakeup interrupt. In the ISR <code>EcuM_CheckWakeup</code> lets the integrator's hook ask CanIf and CanTrcv, and CanTrcv reports <code class="term">EcuM_SetWakeupEvent</code>. The <span class="term">wakeup event</span> is <span class="term">pending</span>.</p></div>
   <div class="card m-ecum"><p class="tag">validation · lessons 34, 35</p><h3>Is it real?</h3><p>After the WakeupRestart sequence, <code>EcuM_MainFunction</code> starts the wakeup source with <code class="term">CanSM_StartWakeupSource</code> and asks <code class="term">EcuM_CheckValidation</code> until a CAN message has arrived. <code class="term">CanIf_CheckValidation</code> then calls <code class="term">EcuM_ValidateWakeupEvent</code>.</p></div>
   <div class="card m-comm"><p class="tag">passive start · lesson 36</p><h3>ComM starts the channel</h3><p><code class="term">ComM_EcuM_WakeUpIndication</code> marks <code>BodyCan</code> as requested; once BswM allows communication, ComM starts CanSM and calls <code class="term">Nm_PassiveStartUp</code>. No local user needs the channel, so it goes on to <code class="term">COMM_FULL_COM_READY_SLEEP</code>.</p></div>
-  <div class="card m-nm"><p class="tag">NmIf · lessons 37, 42</p><h3>The coordinator and the PNC bits</h3><p>Because body CAN is a <span class="term">coordinated channel</span>, NmIf turns the passive startup into <code class="term">CanNm_NetworkRequest</code>. The Door ECU's NM PDUs fill <span class="term">ERA</span> and <span class="term">EIRA</span>.</p></div>
+  <div class="card m-nm"><p class="tag">NmIf · lessons 19, 42</p><h3>Passive start and the PNC bits</h3><p>NmIf passes the passive startup on to <code>CanNm_PassiveStartUp</code>; CanNm enters the <span class="term">Repeat Message State</span>. The Door ECU's NM PDUs fill <span class="term">ERA</span> and <span class="term">EIRA</span>.</p></div>
   <div class="card m-comm"><p class="tag">PNC gateway · lesson 44</p><h3>The request goes on</h3><p>The ERA bit puts PNC Comfort into <code class="term">COMM_PNC_REQUESTED</code>. ComM sets the bit in its own <span class="term">IRA</span>, requests full communication on <code>BodyCan</code> and <code>Eth</code>, and Ethernet wakes for the Head unit.</p></div>
 </div>
 
 <h2>Not just "ready sleep until someone asks"</h2>
-<p>A plain ECU woken by the bus joins the network passively: its channel waits in <code class="term">COMM_FULL_COM_READY_SLEEP</code>, its CanNm leaves the <span class="term">Repeat Message State</span> for the <span class="term">Ready Sleep State</span>, and the bus falls asleep again when the others stop, unless a local ComM user requests the channel first. Two features of the body gateway change that:</p>
+<p>A plain ECU woken by the bus joins the network passively: its channel waits in <code class="term">COMM_FULL_COM_READY_SLEEP</code>, its CanNm leaves the <span class="term">Repeat Message State</span> for the <span class="term">Ready Sleep State</span>, and the bus falls asleep again when the others stop, unless a local ComM user requests the channel first. The body gateway starts the same way: it has no <span class="term">NM coordinator</span>, because it uses the partial networking of NmIf, and in R25-11 an NmIf supports only one of the two (<a href="0003-the-example-ecu.html">lesson 3</a>). So NmIf passes <code class="term">Nm_PassiveStartUp</code> on unchanged, ComM releases the channel with <code class="term">Nm_NetworkRelease</code>, and on its own CanNm would go from the Repeat Message State to the Ready Sleep State. One feature of the gateway changes that:</p>
 <ul>
-<li>The <span class="term">NM coordinator</span>. For a channel of an <span class="term">NM coordination cluster</span>, NmIf treats <code class="term">Nm_PassiveStartUp</code> as if ComM had called <code class="term">Nm_NetworkRequest</code>, and calls <code class="term">CanNm_NetworkRequest</code>. CanNm therefore goes from the Repeat Message State to the <span class="term">Normal Operation State</span> and the gateway keeps sending NM PDUs until the <span class="term">coordinated shutdown</span> (<a href="0038-coordinated-shutdown-and-shutdown-timers.html">lesson 38</a>), even while ComM has released the channel.</li>
-<li>The <span class="term">PNC gateway</span>. With the gateway function on, a PNC bit in the ERA of a gateway channel is enough to put the PNC into <code class="term">COMM_PNC_REQUESTED</code>. Without it, the EIRA bit would only bring PNC Comfort to <code class="term">COMM_PNC_READY_SLEEP</code>, and the channel would stay in <code class="term">COMM_FULL_COM_READY_SLEEP</code> until <code>UserComfort</code> or <code>UserLighting</code> asked for it.</li>
+<li>The <span class="term">PNC gateway</span>. With the gateway function on, a PNC bit in the ERA of a gateway channel is enough to put the PNC into <code class="term">COMM_PNC_REQUESTED</code>. Without it, the EIRA bit would only bring PNC Comfort to <code class="term">COMM_PNC_READY_SLEEP</code>, and the channel would stay in <code class="term">COMM_FULL_COM_READY_SLEEP</code> until <code>UserComfort</code> or <code>UserLighting</code> asked for it. With the PNC request, ComM requests the network with <code class="term">Nm_NetworkRequest</code>, and CanNm goes on to the <span class="term">Normal Operation State</span> instead.</li>
 </ul>
+<div class="warn">
+<p><strong>Variant: gateway as NM coordinator (no partial networking in NmIf).</strong> A gateway configured as an NM coordinator, as in lessons 37 to 39, starts differently. For a channel of an <span class="term">NM coordination cluster</span> NmIf treats <code>Nm_PassiveStartUp</code> as if ComM had called <code>Nm_NetworkRequest</code> and calls <code class="term">CanNm_NetworkRequest</code>; the coordinator counts the bus as requested. CanNm then goes from the Repeat Message State to the Normal Operation State and the gateway keeps sending NM PDUs until the <span class="term">coordinated shutdown</span> (<a href="0038-coordinated-shutdown-and-shutdown-timers.html">lesson 38</a>), even after ComM has released the channel. In R25-11 such a gateway has no partial networking in NmIf, so the PNC part of this flow does not apply to it.</p>
+</div>
 <p>Within one main function ComM handles the inputs in a fixed order: requests of users mapped to PNCs, requests of users mapped to the channel, then ERA, then EIRA. So when both bits arrive together, the ERA bit decides, and the PNC goes straight to COMM_PNC_REQUESTED.</p>
 
 <h2>What the specification leaves to the integrator</h2>
@@ -52,11 +54,11 @@
 </ul>
 
 <div class="older">
-<p>The wakeup and validation chain is the same in 4.4.0 and R20-11, with one difference in the ISR: there <code>EcuM_CheckWakeup</code> was itself the integrator's callout; from R21-11 it is an EcuM function that calls the callout <code>EcuM_CheckWakeupHook</code>. Up to R20-11 the received PNC bits did not reach ComM through <code>Nm_PncBitVectorRxIndication</code> and <code class="term">ComM_Nm_UpdateERA</code>: CanNm computed EIRA and ERA itself and ComM read them from COM signals (<a href="0053-pnc-through-com-signals.html">lesson 53</a>). In 4.4.0 and R20-11 CanIf calls <code>CanNm_RxIndication</code> directly; the LSduR between them exists from R24-11.</p>
+<p>The wakeup and validation chain is the same in 4.4.0 and R20-11, with one difference in the ISR: there <code>EcuM_CheckWakeup</code> was itself the integrator's callout; from R21-11 it is an EcuM function that calls the callout <code>EcuM_CheckWakeupHook</code>. Up to R20-11 the received PNC bits did not reach ComM through <code>Nm_PncBitVectorRxIndication</code> and <code class="term">ComM_Nm_UpdateERA</code>: CanNm computed EIRA and ERA itself and ComM read them from COM signals (<a href="0053-pnc-through-com-signals.html">lesson 53</a>). Because NmIf then had no partial networking of its own, the gateway could also be an NM coordinator; the passive startup on body CAN then became a network request, as in the variant above. In 4.4.0 and R20-11 CanIf calls <code>CanNm_RxIndication</code> directly; the LSduR between them exists from R24-11.</p>
 </div>
 
 <div class="note">
-<p><strong>Things to notice.</strong> The frame that wakes the transceiver is never seen by CanNm; it takes a second message to validate the wakeup. EcuM only reports the validated wakeup; BswM's rules allow communication, and ComM starts the channel passively. On this gateway "passive" does not stay passive for long: the NM coordinator requests the network, and the PNC gateway turns the Door ECU's Comfort request into its own request on body CAN and Ethernet.</p>
+<p><strong>Things to notice.</strong> The frame that wakes the transceiver is never seen by CanNm; it takes a second message to validate the wakeup. EcuM only reports the validated wakeup; BswM's rules allow communication, and ComM starts the channel passively. The passive startup itself stays passive; what makes the gateway request body CAN and Ethernet is the PNC gateway, which turns the Door ECU's Comfort request into its own request on both.</p>
 </div>
 
 <h2>Check yourself <span class="opt">optional</span></h2>
@@ -131,14 +133,16 @@ Sequence.create(document.getElementById('seq'), {
       text: '... and ComM requests the mode from CanSM.' },
     { from: 'ComM', to: 'NmIf', call: 'Nm_PassiveStartUp(BodyCan)',
       text: 'The channel enters COMM_FULL_COM_NETWORK_REQUESTED, and because EcuM indicated a wakeup, ComM starts NM passively instead of requesting the network (<a href="0036-passive-and-active-startup.html">lesson 36</a>).' },
-    { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRequest(BodyCan)',
-      text: 'BodyCan belongs to the NM coordination cluster. For such a channel NmIf treats a passive startup as a network request: it calls <code>CanNm_NetworkRequest</code>, and the coordinator counts body CAN as requested.' },
+    { from: 'NmIf', to: 'CanNm', call: 'CanNm_PassiveStartUp(BodyCan)',
+      text: 'NmIf passes the passive startup on unchanged. The gateway uses partial networking in NmIf, so in R25-11 it has no NM coordinator (<a href="0003-the-example-ecu.html">lesson 3</a>) that could turn the call into a network request.' },
     { from: 'ComM', note: 'no user needs BodyCan → COMM_FULL_COM_READY_SLEEP',
       text: 'No ComM user and no Dcm request needs the channel, so ComM moves on to COMM_FULL_COM_READY_SLEEP ...' },
     { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRelease(BodyCan)',
-      text: '... and releases the network. NmIf does not pass this release on: the coordinator keeps body CAN requested until the coordinated shutdown.' },
+      text: '... and releases the network ...' },
+    { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRelease(BodyCan)',
+      text: '... which NmIf passes on to CanNm. For CanNm nothing changes: after a passive startup the network counts as released anyway.' },
     { ctx: 'CanNm request handling', from: 'CanNm', note: 'Bus-Sleep Mode → Repeat Message State',
-      text: 'CanNm enters Network Mode in its Repeat Message State and starts sending NM PDUs of node 0x10.' },
+      text: 'CanNm enters Network Mode in its Repeat Message State and starts sending NM PDUs of node 0x10. The network is released, so when the Repeat Message Time is over CanNm would enter the Ready Sleep State.' },
     { from: 'CanNm', to: 'NmIf', call: 'Nm_NetworkMode(BodyCan)',
       text: 'Network Mode is reported to NmIf ...' },
     { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkMode(BodyCan)',
@@ -170,7 +174,9 @@ Sequence.create(document.getElementById('seq'), {
     { from: 'ComM', note: 'BodyCan: COMM_FULL_COM_READY_SLEEP → COMM_FULL_COM_NETWORK_REQUESTED',
       text: 'Entering COMM_PNC_REQUESTED requests full communication on all channels of Comfort, which counts like a user request. BodyCan goes back to COMM_FULL_COM_NETWORK_REQUESTED ...' },
     { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(BodyCan)',
-      text: '... and ComM requests the network itself. CanNm\'s network state was already "requested" through the coordinator; after the Repeat Message Time it enters the Normal Operation State.' },
+      text: '... and ComM requests the network ...' },
+    { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRequest(BodyCan)',
+      text: '... which NmIf passes on to CanNm. If CanNm is still in its Repeat Message State, it enters the Normal Operation State when the Repeat Message Time is over; if it has already reached the Ready Sleep State, it enters the Normal Operation State at once. Either way the gateway keeps sending NM PDUs, now with PNC 16.' },
     { ctx: 'ComM_MainFunction_Eth', from: 'ComM', note: 'Eth: NO_COM_REQUEST_PENDING → COMM_FULL_COMMUNICATION, then Nm_NetworkRequest(Eth)',
       text: 'In the main function of <code>Eth</code> the same request wakes Ethernet actively: EthSM brings the link up and UdpNm sends NM PDUs with PNC 16 to the Head unit. The Comfort cluster is awake on both buses.' }
   ])
@@ -185,9 +191,9 @@ Quiz.mount(document.getElementById('quiz'), [
   },
   {
     prompt: 'ComM calls Nm_PassiveStartUp for BodyCan. What does NmIf call on the gateway?',
-    options: ['CanNm_NetworkRequest, for the coordinator', 'CanNm_PassiveStartUp, unchanged', 'Nothing until the bus wakes again'],
+    options: ['CanNm_PassiveStartUp, unchanged', 'CanNm_NetworkRequest, for a coordinator', 'Nothing until the bus wakes again'],
     answer: 0,
-    why: 'For a channel of an NM coordination cluster NmIf treats a passive startup as a network request.'
+    why: 'The gateway uses partial networking in NmIf and so has no NM coordinator in R25-11; NmIf passes the passive startup on. Only an NM coordinator would turn it into a network request.'
   },
   {
     prompt: 'Why does PNC Comfort go to COMM_PNC_REQUESTED, not to READY_SLEEP?',

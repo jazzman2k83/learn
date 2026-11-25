@@ -160,7 +160,7 @@ table.glance td:last-child { white-space: nowrap; }
 <tbody>
 <tr><td>Power on to full communication</td><td>Reset, EcuM startup, BswM allows communication, UserComfort's request down to the first NM PDU.</td><td><a href="../lessons/0047-power-on-to-full-communication.html">47</a></td></tr>
 <tr><td>Woken by another ECU</td><td>The Door ECU requests PNC Comfort; the gateway wakes, validates, starts body CAN passively.</td><td><a href="../lessons/0048-woken-by-another-ecu.html">48</a></td></tr>
-<tr><td>Going to sleep</td><td>The last user releases; the NM coordinator shuts the three buses down together; BswM sends the ECU to sleep.</td><td><a href="../lessons/0049-going-to-sleep.html">49</a></td></tr>
+<tr><td>Going to sleep</td><td>The last user releases; NmIf passes the release on and each bus goes down on its own (no NM coordinator next to partial networking); BswM sends the ECU to sleep.</td><td><a href="../lessons/0049-going-to-sleep.html">49</a></td></tr>
 <tr><td>A PNC request across the gateway</td><td>A request for Comfort ends up in the PNC bit vector on body CAN, on Ethernet, or both.</td><td><a href="../lessons/0050-a-pnc-request-across-the-gateway.html">50</a></td></tr>
 </tbody>
 </table>

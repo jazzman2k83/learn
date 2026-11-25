@@ -26,7 +26,7 @@
     { t: 'RTE', m: 'Runtime Environment: connects the SWCs to each other and to the basic software, for example to the ports of ComM.', l: [1] },
 
     // The modules and their layers
-    { t: 'NmIf', also: ['Nm Interface', 'Network Management Interface', 'Generic Network Management Interface'], m: 'Network Management Interface (module abbreviation Nm): the adaptation layer between ComM and the bus-specific NM modules; it also coordinates several networks (NM coordinator) and aggregates PNC requests.', l: [2, 19] },
+    { t: 'NmIf', also: ['Nm Interface', 'Network Management Interface', 'Generic Network Management Interface'], m: 'Network Management Interface (module abbreviation Nm): the adaptation layer between ComM and the bus-specific NM modules; besides that it offers either the NM coordinator (coordinating several networks) or partial networking (aggregating PNC requests), not both.', l: [2, 19] },
     { t: 'CanNm', also: ['CAN Network Management'], m: 'CAN Network Management: the bus-specific NM module for CAN; sends and receives NM PDUs and runs the NM state machine of one CAN network.', l: [2, 13] },
     { t: 'UdpNm', also: ['UDP Network Management'], m: 'UDP Network Management: the bus-specific NM module for Ethernet; the same algorithm as CanNm, with NM PDUs carried in UDP.', l: [2, 20] },
     { t: 'bus state manager', also: ['BusSM'], m: 'The module that turns a communication mode of ComM into the states of controllers and transceivers of one bus: CanSM, EthSM, FrSM, LinSM.', l: [2, 21] },
@@ -47,7 +47,7 @@
     { t: 'main function', m: 'A function of a module that the scheduler calls cyclically; timers and state machines of ComM, NM, CanSM and EcuM advance in it.', l: [4] },
 
     // The example ECU
-    { t: 'gateway', m: 'An ECU connected to several buses that passes data between them and, for network management, keeps them awake together (see NM coordinator).', l: [3, 37] },
+    { t: 'gateway', m: 'An ECU connected to several buses that passes data between them; for network management it can keep them awake together (NM coordinator) or forward PNC requests (PNC gateway), in R25-11 not both in NmIf.', l: [3, 37] },
     { t: 'partial networking', also: ['PN'], m: 'Letting only part of the ECUs on a bus wake up and communicate, grouped in partial network clusters, while the others keep sleeping.', l: [3, 40] },
     { t: 'PNC', also: ['partial network cluster'], m: 'Partial network cluster: a group of ECUs (and their users) that are switched on and off together, identified by one bit in the PNC bit vector of the NM PDU.', l: [3, 40] },
 

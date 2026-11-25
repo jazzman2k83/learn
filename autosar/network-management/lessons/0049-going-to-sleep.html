@@ -18,32 +18,34 @@
 
 <p class="kicker" data-kicker>Network Management</p>
 <h1>Going to sleep</h1>
-<p class="lede">The last <span class="term">ComM user</span> of the body gateway releases its request. <span class="term">ComM</span> releases the network, the <span class="term">NM coordinator</span> shuts the three buses down together, each bus NM runs to <span class="term">Bus-Sleep Mode</span>, and <span class="term">BswM</span> sends the ECU to sleep, unless a <span class="term">RUN request</span> still holds it.</p>
+<p class="lede">The last <span class="term">ComM user</span> of the body gateway releases its request. <span class="term">ComM</span> releases the network, <span class="term">NmIf</span> passes the release on, the bus NM runs to <span class="term">Bus-Sleep Mode</span>, and <span class="term">BswM</span> sends the ECU to sleep, unless a <span class="term">RUN request</span> still holds it.</p>
 
-<p>This is the way back from the first two flows. Every call, its caller and its order are taken from the R25-11 specifications; where they leave a choice to the integrator, the step says so. The diagram follows chassis CAN in detail; body CAN and Ethernet run the same way at their own moments.</p>
+<p>This is the way back from the first two flows. Every call, its caller and its order are taken from the R25-11 specifications; where they leave a choice to the integrator, the step says so. The diagram follows chassis CAN in detail; body CAN and Ethernet ran the same way earlier, each at its own moment.</p>
 
 <h2>The starting point</h2>
-<p>All three buses are awake. <code>UserComfort</code> and <code>UserLighting</code> released their requests earlier; the other ECUs no longer request PNCs, so both PNCs are back in <code class="term">COMM_PNC_NO_COMMUNICATION</code>, and <code>BodyCan</code> and <code>Eth</code> are in <code class="term">COMM_FULL_COM_READY_SLEEP</code>. ComM released those two networks long ago, but the NM coordinator still holds them: ComM still requests <code>ChassisCan</code> for <code>UserChassis</code>, and one need inside the gateway keeps every awake bus of the cluster requested (<a href="0037-coordinating-several-buses.html">lesson 37</a>). The Door ECU, the Light ECU, the Brake ECU and the Head unit have stopped sending NM PDUs, so each bus NM has reported a <span class="term">Remote Sleep Indication</span>.</p>
+<p><code>UserComfort</code> and <code>UserLighting</code> released their requests earlier, and the other ECUs no longer request PNCs, so both PNCs are back in <code class="term">COMM_PNC_NO_COMMUNICATION</code>. ComM then released <code>BodyCan</code> and <code>Eth</code>, and once the Door ECU, the Light ECU and the Head unit had stopped sending NM PDUs, body CAN and Ethernet went down to Bus-Sleep Mode on their own, by the same steps as drawn here for chassis CAN. The gateway has no <span class="term">NM coordinator</span> that would hold them: it uses the partial networking of NmIf, and in R25-11 an NmIf supports only one of the two (<a href="0003-the-example-ecu.html">lesson 3</a>). Only chassis CAN is still awake: ComM requests <code>ChassisCan</code> for <code>UserChassis</code>, and the Brake ECU has already stopped sending NM PDUs.</p>
 
 <h2>Try it</h2>
-<p>Choose the variant and step through. The bands show the context: the runnable of the SWC, the main functions of EcuM, ComM, NmIf, CanNm and CanSM, and BswM's rule evaluation. The lanes of ComM, NmIf and BswM are drawn highlighted.</p>
+<p>Choose the variant and step through. The third variant shows a gateway configured as an NM coordinator, which in R25-11 is possible only without partial networking in NmIf (lessons 37 and 38). The bands show the context: the runnable of the SWC, the main functions of EcuM, ComM, NmIf, CanNm and CanSM, and BswM's rule evaluation. The lanes of ComM, NmIf and BswM are drawn highlighted.</p>
 <div class="variants no-print" role="group" aria-label="Variant">
 <button type="button" aria-pressed="true" data-v="sleep">RUN released: the ECU sleeps</button>
 <button type="button" aria-pressed="false" data-v="run">RUN still requested</button>
+<button type="button" aria-pressed="false" data-v="coord">Variant: gateway as NM coordinator (no partial networking in NmIf)</button>
 </div>
 <div class="panel" id="seq"></div>
 
 <h2>The four phases</h2>
 <div class="cards">
   <div class="card m-comm"><p class="tag">ComM · lessons 6, 7</p><h3>Release</h3><p>With no request left, <code>ChassisCan</code> enters <code class="term">COMM_FULL_COM_READY_SLEEP</code> and ComM calls <code class="term">Nm_NetworkRelease</code>. The bus does not stop yet; ComM has only stopped asking for it.</p></div>
-  <div class="card m-nm"><p class="tag">NmIf · lesson 38</p><h3>Coordinated shutdown</h3><p>Now every bus of the cluster is released by ComM and has reported remote sleep. The coordinator starts the <span class="term">coordinated shutdown</span>: a <span class="term">shutdown timer</span> per bus, then <code>CanNm_RequestBusSynchronization</code> and <code>CanNm_NetworkRelease</code>.</p></div>
+  <div class="card m-nm"><p class="tag">NmIf · lesson 19</p><h3>Passed on</h3><p>The gateway has no NM coordinator, so NmIf passes the release straight on with <code>CanNm_NetworkRelease</code>. Only a coordinator would hold the bus for a <span class="term">coordinated shutdown</span> (third variant, <a href="0038-coordinated-shutdown-and-shutdown-timers.html">lesson 38</a>).</p></div>
   <div class="card m-nm"><p class="tag">CanNm · lessons 13, 14</p><h3>Down through the NM states</h3><p><span class="term">Ready Sleep State</span> until the <span class="term">NM-Timeout Time</span> runs out, <span class="term">Prepare Bus-Sleep Mode</span> for the <span class="term">Wait Bus-Sleep Time</span>, then Bus-Sleep Mode. Each mode change reaches ComM through NmIf.</p></div>
   <div class="card m-bswm"><p class="tag">ComM, CanSM, BswM, EcuM · lessons 21, 28–30</p><h3>Silent, off, asleep</h3><p>ComM goes through <code class="term">COMM_SILENT_COMMUNICATION</code> to <code class="term">COMM_NO_COMMUNICATION</code>, CanSM switches the hardware off, and a BswM rule calls <code class="term">EcuM_GoDownHaltPoll</code> once nothing needs the ECU any more.</p></div>
 </div>
 
-<h2>Three buses, one moment</h2>
-<p>With the shutdown times of <a href="0038-coordinated-shutdown-and-shutdown-timers.html">lesson 38</a> (global coordinator time 4 s), NmIf releases <code>Eth</code> at once, <code>BodyCan</code> after 0.5 s and <code>ChassisCan</code> after 1.5 s. Each bus then runs the steps drawn here for chassis CAN, and all three reach Bus-Sleep Mode at about the same time. Body CAN differs in one detail: it uses partial networking, so CanSM leaves the transceiver with <span class="term">selective wakeup</span> armed (<a href="0043-selective-wakeup-in-the-transceiver.html">lesson 43</a>), ready for the next flow of <a href="0048-woken-by-another-ecu.html">lesson 48</a>.</p>
-<p>A request in the middle stops all this. If a ComM user asks for a channel while the shutdown runs, ComM calls <code class="term">Nm_NetworkRequest</code>, the coordinator aborts the shutdown and requests the buses that are not yet asleep again (<a href="0039-nested-sub-buses-and-aborting-a-shutdown.html">lesson 39</a>). A bus that already sleeps is woken actively, as in <a href="0047-power-on-to-full-communication.html">lesson 47</a>.</p>
+<h2>Three buses, each on its own</h2>
+<p>Without an NM coordinator NmIf does not tie the buses together. Each bus goes down when ComM has released it and no other ECU on it sends NM PDUs any more, so the three reach Bus-Sleep Mode at different moments. The ECU sleeps only when the BswM rule sees all channels in <code class="term">COMM_NO_COMMUNICATION</code>. Body CAN differs in one detail: it uses partial networking, so CanSM leaves the transceiver with <span class="term">selective wakeup</span> armed (<a href="0043-selective-wakeup-in-the-transceiver.html">lesson 43</a>), ready for the next flow of <a href="0048-woken-by-another-ecu.html">lesson 48</a>.</p>
+<p>A gateway configured as an NM coordinator (third variant) holds the released buses instead until every bus of its cluster is ready to sleep, then releases each after its <span class="term">shutdown timer</span>: with the shutdown times of <a href="0038-coordinated-shutdown-and-shutdown-timers.html">lesson 38</a> (global coordinator time 4 s) <code>Eth</code> at once, <code>BodyCan</code> after 0.5 s and <code>ChassisCan</code> after 1.5 s, so that all three reach Bus-Sleep Mode at about the same time.</p>
+<p>A request in the middle stops all this. If a ComM user asks for a channel before its bus sleeps, ComM calls <code class="term">Nm_NetworkRequest</code>, NmIf passes it on, and CanNm keeps or takes up sending NM PDUs (<a href="0013-the-cannm-states.html">lesson 13</a>). A bus that already sleeps is woken actively, as in <a href="0047-power-on-to-full-communication.html">lesson 47</a>. A coordinator would also abort a coordinated shutdown that has started (<a href="0039-nested-sub-buses-and-aborting-a-shutdown.html">lesson 39</a>).</p>
 
 <h2>What the specification leaves to the integrator</h2>
 <ul>
@@ -53,11 +55,11 @@
 </ul>
 
 <div class="older">
-<p>The flow is the same in 4.4.0 and R20-11: the coordinator, the CanNm states, the ComM transitions and <code class="term">EcuM_GoDownHaltPoll</code> (new in 4.4.0). One detail of the coordinator changed in R25-11: up to R24-11 a shutdown timer is started for every awake channel of the cluster, since R25-11 for every awake, actively coordinated one; for the example gateway, whose channels are all actively coordinated, that makes no difference. Up to 4.3.1 BswM started the sleep with <code>EcuM_GoHalt</code> or <code>EcuM_GoPoll</code> instead; with EcuM Fixed, EcuM itself decided when to leave RUN (<a href="0051-ecum-fixed.html">lesson 51</a>).</p>
+<p>The flow is the same in 4.4.0 and R20-11: the CanNm states, the ComM transitions and <code class="term">EcuM_GoDownHaltPoll</code> (new in 4.4.0). There NmIf had no partial networking of its own (it ran in CanNm and UdpNm), so the example gateway could also be an NM coordinator and shut the three buses down together, as in the third variant. One detail of the coordinator changed in R25-11: up to R24-11 a shutdown timer is started for every awake channel of the cluster, since R25-11 for every awake, actively coordinated one; for the third variant, whose channels are all actively coordinated, that makes no difference. Up to 4.3.1 BswM started the sleep with <code>EcuM_GoHalt</code> or <code>EcuM_GoPoll</code> instead; with EcuM Fixed, EcuM itself decided when to leave RUN (<a href="0051-ecum-fixed.html">lesson 51</a>).</p>
 </div>
 
 <div class="note">
-<p><strong>Things to notice.</strong> Releasing the network is not switching it off: after Nm_NetworkRelease the gateway may stay awake for seconds, held by the coordinator and the NM timers. The way down is driven by indications from below (Prepare Bus-Sleep Mode, then Bus-Sleep Mode), each answered by ComM with a new request to CanSM. Buses asleep and ECU asleep are two decisions: the buses sleep by NM, the ECU sleeps only when a BswM rule says so.</p>
+<p><strong>Things to notice.</strong> Releasing the network is not switching it off: after Nm_NetworkRelease the gateway may stay awake for seconds, held by the other ECUs and the NM timers (and, in the third variant, by the coordinator). The way down is driven by indications from below (Prepare Bus-Sleep Mode, then Bus-Sleep Mode), each answered by ComM with a new request to CanSM. Buses asleep and ECU asleep are two decisions: the buses sleep by NM, the ECU sleeps only when a BswM rule says so.</p>
 </div>
 
 <h2>Check yourself <span class="opt">optional</span></h2>
@@ -85,7 +87,7 @@ const releaseRun = [
     text: 'EcuM arbitrates RUN requests in its main function and tells BswM that the last one is released. BswM\'s sleep rule is not true yet: the buses are still awake.' }
 ];
 
-const common = [
+const head = [
   { ctx: 'BodyControl runnable (task)', from: 'SWC', to: 'RTE', call: 'Rte_Call_<port>_RequestComMode(COMM_NO_COMMUNICATION)',
     text: 'The SWC releases its chassis function through the port connected to ComM\'s port <code>UR_UserChassis</code>.' },
   { from: 'RTE', to: 'ComM', call: 'ComM_RequestComMode(UserChassis, COMM_NO_COMMUNICATION)',
@@ -93,7 +95,15 @@ const common = [
   { ctx: 'ComM_MainFunction_ChassisCan', from: 'ComM', note: 'ChassisCan: COMM_FULL_COM_NETWORK_REQUESTED → COMM_FULL_COM_READY_SLEEP',
     text: 'No user and no Dcm request is left on the channel, and the NM variant is FULL, so ComM switches to COMM_FULL_COM_READY_SLEEP (<a href="0007-network-requested-and-ready-sleep.html">lesson 7</a>) ...' },
   { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRelease(ChassisCan)',
-    text: '... and releases the network. NmIf does not pass this on directly: ChassisCan is a coordinated channel.' },
+    text: '... and releases the network.' }
+];
+const releasePn = [
+  { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRelease(ChassisCan)',
+    text: 'The gateway has no NM coordinator (it uses partial networking in NmIf, <a href="0003-the-example-ecu.html">lesson 3</a>), so NmIf passes the release straight on. CanNm sets its network state to "released".' }
+];
+const releaseCoord = [
+  { from: 'NmIf', note: 'ChassisCan is coordinated: release held',
+    text: 'In this variant the gateway is an NM coordinator, configured without partial networking in NmIf (<a href="0037-coordinating-several-buses.html">lesson 37</a>). ChassisCan is a coordinated channel, so NmIf does not pass the release on. BodyCan and Eth were released by ComM earlier, but the coordinator still holds them, and every bus NM has reported a Remote Sleep Indication.' },
   { from: 'NmIf', note: 'all buses released by ComM and remote sleep → coordinated shutdown starts',
     text: 'Now every bus of the cluster is ready to sleep: released by ComM, and no other ECU requests it. The cluster has no synchronizing network, so the coordinator starts the coordinated shutdown at once.' },
   { ctx: 'Nm_MainFunction', from: 'NmIf', note: 'shutdown timers: Eth 0 s · BodyCan 0.5 s · ChassisCan 1.5 s',
@@ -101,7 +111,9 @@ const common = [
   { from: 'NmIf', to: 'CanNm', call: 'CanNm_RequestBusSynchronization(ChassisCan)',
     text: 'The timer of ChassisCan expires. NmIf first asks CanNm for a bus synchronization ...' },
   { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRelease(ChassisCan)',
-    text: '... and then releases the network. CanNm sets its network state to "released".' },
+    text: '... and then releases the network. CanNm sets its network state to "released".' }
+];
+const tail = (coord) => [
   { ctx: 'CanNm_MainFunction', from: 'CanNm', note: 'Normal Operation State → Ready Sleep State: no more NM PDUs',
     text: 'The network is released in the Normal Operation State, so CanNm enters the Ready Sleep State and stops sending NM PDUs (<a href="0013-the-cannm-states.html">lesson 13</a>).' },
   { from: 'CanNm', note: 'NM-Timeout Time over → Prepare Bus-Sleep Mode',
@@ -127,7 +139,7 @@ const common = [
   { ctx: 'CanNm_MainFunction', from: 'CanNm', note: 'Wait Bus-Sleep Time over → Bus-Sleep Mode',
     text: 'After the Wait Bus-Sleep Time, CanNm enters Bus-Sleep Mode.' },
   { from: 'CanNm', to: 'NmIf', call: 'Nm_BusSleepMode(ChassisCan)',
-    text: 'CanNm reports Bus-Sleep Mode. The coordinator marks chassis CAN as asleep; once all three report it, the coordinated shutdown is complete.' },
+    text: 'CanNm reports Bus-Sleep Mode.' + (coord ? ' The coordinator marks chassis CAN as asleep; once all three report it, the coordinated shutdown is complete.' : '') },
   { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_BusSleepMode(ChassisCan)',
     text: 'NmIf passes the indication to ComM.' },
   { ctx: 'ComM_MainFunction_ChassisCan', from: 'ComM', note: 'COMM_SILENT_COMMUNICATION → COMM_NO_COMMUNICATION',
@@ -145,10 +157,11 @@ const common = [
   { from: 'CanSM', to: 'ComM', call: 'ComM_CanSM_ModeIndication(ChassisCan, COMM_NO_COMMUNICATION)',
     text: 'CanSM has reached no communication and reports it to ComM.' },
   { ctx: 'ComM: mode indication', from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentMode(ChassisCan, COMM_NO_COMMUNICATION)',
-    text: 'ComM passes it on to BswM, the user port and Dcm. Body CAN and Ethernet have reached COMM_NO_COMMUNICATION in the same way.' }
+    text: 'ComM passes it on to BswM, the user port and Dcm. ' + (coord ? 'Body CAN and Ethernet have reached COMM_NO_COMMUNICATION in the same way, at about the same moment.' : 'Body CAN and Ethernet reached COMM_NO_COMMUNICATION in the same way earlier, each on its own.') }
 ];
+const common = head.concat(releasePn, tail(false));
 
-const sleep = releaseRun.concat(common, [
+const sleepEnd = [
   { ctx: 'BswM rule evaluation', from: 'BswM', note: 'rule: all channels COMM_NO_COMMUNICATION, RUN released → true',
     text: 'The integrator\'s sleep rule becomes true and BswM runs its action list.' },
   { from: 'BswM', to: 'ComM', call: 'ComM_CommunicationAllowed(ChassisCan, FALSE)',
@@ -161,7 +174,9 @@ const sleep = releaseRun.concat(common, [
     text: 'EcuM resets the wakeup states reported to BswM ...' },
   { from: 'EcuM', note: 'EcuM_EnableWakeupSources, then HALT',
     text: '... arms the wakeup sources with the integrator\'s callout, locks the scheduler and halts the microcontroller (<a href="0030-sleep-halt-and-poll.html">lesson 30</a>). The gateway sleeps until the next wakeup.' }
-]);
+];
+const sleep = releaseRun.concat(common, sleepEnd);
+const coord = releaseRun.concat(head, releaseCoord, tail(true), sleepEnd);
 
 const run = common.concat([
   { ctx: 'BswM rule evaluation', from: 'BswM', note: 'rule: all channels COMM_NO_COMMUNICATION, RUN still requested → false',
@@ -185,15 +200,15 @@ const seq = Sequence.create(document.getElementById('seq'), {
 });
 document.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  seq.set({ steps: pad(b.dataset.v === 'run' ? run : sleep) });
+  seq.set({ steps: pad(b.dataset.v === 'run' ? run : b.dataset.v === 'coord' ? coord : sleep) });
 }));
 
 Quiz.mount(document.getElementById('quiz'), [
   {
     prompt: 'ComM has called Nm_NetworkRelease for ChassisCan. When does CanNm get its release?',
-    options: ['When its shutdown timer expires', 'At once, in the same main function', 'When ComM enters no communication'],
+    options: ['At once: NmIf passes it on', 'When its shutdown timer expires', 'When ComM enters no communication'],
     answer: 0,
-    why: 'ChassisCan is coordinated. The coordinator waits until all buses are ready, then releases each bus when its shutdown timer expires.'
+    why: 'The example gateway uses partial networking in NmIf, so in R25-11 it has no NM coordinator, and NmIf calls CanNm_NetworkRelease directly. Only a coordinator would hold the release until the bus\'s shutdown timer expires.'
   },
   {
     prompt: 'What makes ComM switch ChassisCan to COMM_SILENT_COMMUNICATION?',

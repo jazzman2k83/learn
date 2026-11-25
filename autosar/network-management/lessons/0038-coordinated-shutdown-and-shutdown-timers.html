@@ -29,6 +29,10 @@ table.calc td.warn { color: var(--bad); white-space: normal; }
 <h1>Coordinated shutdown and the shutdown timers</h1>
 <p class="lede">When nobody needs any bus of the cluster any more, the <span class="term">NM coordinator</span> does not release all of them at once. It holds each bus a little longer, so that the slow buses and the fast buses all reach <span class="term">Bus-Sleep Mode</span> at the same moment.</p>
 
+<div class="warn">
+<p><strong>A different configuration of the gateway.</strong> As in lesson 37, the body gateway is shown configured <em>without</em> partial networking in NmIf (a project without PNCs, or an older release). In R25-11 an NmIf supports either the NM coordinator or partial networking, not both.</p>
+</div>
+
 <p>Lesson 37 showed how the coordinator keeps the buses of an <span class="term">NM coordination cluster</span> awake. This lesson shows the other half: how it lets them go, and how the delays per bus are calculated.</p>
 
 <h2>When the shutdown starts</h2>

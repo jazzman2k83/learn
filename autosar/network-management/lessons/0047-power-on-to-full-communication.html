@@ -45,7 +45,7 @@
 <p>The order of the SWC's request and BswM's permission does not matter: if the request comes first, the channel simply waits in <code class="term">COMM_NO_COM_REQUEST_PENDING</code> until communication is allowed.</p>
 
 <h2>The other two buses</h2>
-<p>PNC Comfort also uses <code>Eth</code>, so the same main function work runs in <code>ComM_MainFunction_Eth</code>: ComM calls <code>EthSM_RequestComMode</code> and <code class="term">Nm_NetworkRequest</code> for <code>Eth</code>, NmIf passes it on as <code class="term">UdpNm_NetworkRequest</code>, and <span class="term">EthSM</span> brings the link up (<a href="0023-ethsm-from-offline-to-online.html">lesson 23</a>). Chassis CAN stays asleep: no user needs it yet, and the <span class="term">NM coordinator</span> keeps only buses awake that are already awake (<a href="0037-coordinating-several-buses.html">lesson 37</a>).</p>
+<p>PNC Comfort also uses <code>Eth</code>, so the same main function work runs in <code>ComM_MainFunction_Eth</code>: ComM calls <code>EthSM_RequestComMode</code> and <code class="term">Nm_NetworkRequest</code> for <code>Eth</code>, NmIf passes it on as <code class="term">UdpNm_NetworkRequest</code>, and <span class="term">EthSM</span> brings the link up (<a href="0023-ethsm-from-offline-to-online.html">lesson 23</a>). Chassis CAN stays asleep: no user needs it yet, and nothing in NmIf ties it to the other buses. The gateway has no <span class="term">NM coordinator</span>, because it uses partial networking in NmIf (<a href="0003-the-example-ecu.html">lesson 3</a>); even a coordinator would keep only buses awake that are already awake (<a href="0037-coordinating-several-buses.html">lesson 37</a>).</p>
 
 <div class="older">
 <p>The start-up sequence of EcuM Flex is the same in 4.4.0 and R20-11. Two details of this flow differ. In 4.4.0 and R20-11 CanNm calls <code>CanIf_Transmit</code> directly; the LSduR between them exists from R24-11. And up to R20-11 ComM did not use <code class="term">Nm_UpdateIRA</code>: the Comfort bit reached the NM PDU through a COM signal (<a href="0053-pnc-through-com-signals.html">lesson 53</a>). With EcuM Fixed (4.3.1 and older), EcuM itself allowed communication on entering RUN (<a href="0051-ecum-fixed.html">lesson 51</a>).</p>
@@ -122,7 +122,7 @@ Sequence.create(document.getElementById('seq'), {
     { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(BodyCan)',
       text: 'On entering that sub-state, with the NM variant FULL, ComM requests the network (<a href="0007-network-requested-and-ready-sleep.html">lesson 7</a>).' },
     { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRequest(BodyCan)',
-      text: 'NmIf passes the request to CanNm. BodyCan belongs to the NM coordination cluster, which only adds requests; it does not hold this one back.' },
+      text: 'NmIf passes the request to CanNm.' },
     { ctx: 'CanNm request handling', from: 'CanNm', note: 'Bus-Sleep Mode → Network Mode, Repeat Message State',
       text: 'The network is requested in Bus-Sleep Mode, so CanNm enters Network Mode in its Repeat Message State and starts the NM-Timeout Timer (<a href="0013-the-cannm-states.html">lesson 13</a>).' },
     { from: 'CanNm', to: 'NmIf', call: 'Nm_NetworkMode(BodyCan)',

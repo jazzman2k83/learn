@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+ol.causes { padding-left: 1.3rem; }
+ol.causes > li { margin: 0 0 0.9rem; }
+ol.causes > li > strong:first-child { display: block; margin-bottom: 0.15rem; }
+ol.causes p { margin: 0.2rem 0; }
+.lbl { font-family: var(--sans); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-right: 0.3rem; }
+ol.causes > li:target { outline: 2px solid var(--warn); outline-offset: 4px; background: var(--warn-soft); }
+.seen { border-left: 4px solid var(--rule); padding: 0.3rem 0 0.3rem 0.8rem; margin: 0.8rem 0; }
+.seen ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+.params-head { font-family: var(--sans); font-size: 0.8rem; font-weight: 700; margin: 1rem 0 -0.4rem; }
+table.params td:first-child code { overflow-wrap: anywhere; }
+table.params td:nth-child(2) code { overflow-wrap: anywhere; }
+table.params { font-size: 0.82rem; }
+#chooser .q { font-size: 0.95rem; margin: 0.4rem 0 0.6rem; min-height: 1.4em; }
+#chooser .answers { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+#chooser .trail { font-family: var(--sans); font-size: 0.74rem; color: var(--muted); margin: 0.6rem 0 0; }
+#chooser .result { margin: 0.7rem 0 0; padding: 0.6rem 0.8rem; border-left: 4px solid var(--good); background: var(--good-soft); }
+#chooser .result[hidden] { display: none; }
+ol.steps { padding-left: 1.3rem; }
+ol.steps > li { margin: 0 0 0.9rem; }
+ol.steps > li > strong:first-child { display: block; }
+ol.steps p { margin: 0.2rem 0; }
+table.old td:first-child { overflow-wrap: anywhere; min-width: 10rem; }
+table.old td:last-child { white-space: nowrap; }
+@media print { #chooser { display: none; } }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Configuration help">Network Management</p>
+<h1>Troubleshooting</h1>
+<p class="lede">Something in <span class="term">network management</span> or <span class="term">mode management</span> does not behave as expected. Find what you see, go through the causes from the most likely one down, and check the parameters named for each. The second part shows how to read a configuration you did not write, including one from an older release.</p>
+
+<div class="note">
+<p><strong>Before you start.</strong> Record three things at the same time: a bus trace of the <span class="term">NM PDU</span>s, the states of <span class="term">ComM</span>, <span class="term">CanNm</span> and <span class="term">CanSM</span> for the <span class="term">channel</span>, and what <span class="term">BswM</span> receives (the wakeup states from <span class="term">EcuM</span>, the bus state manager states). In the NM PDU of the example gateway, byte 0 is the <span class="term">Source Node Identifier</span> (gateway 0x10, Door ECU 0x21, Light ECU 0x22), byte 1 the <span class="term">Control Bit Vector</span> (bit 0 <span class="term">Repeat Message Request</span>, bit 4 <span class="term">Active Wakeup Bit</span>, bit 6 <span class="term" data-term="Partial Network Information Bit">PNI</span>) and byte 2 the <span class="term">PNC bit vector</span> (bit 0 Comfort, bit 1 Lighting). All times in these configurations are in seconds.</p>
+</div>
+
+<p>The configuration pages of this course: the <a href="../lessons/0055-configuration-map-comm-and-nm.html">configuration map of ComM and NM</a>, the <a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">configuration map of CanSM, EthSM and EcuM</a>, the <a href="../config/index.html">configuration help</a> and the <a href="../config/recipes.html">recipes</a>.</p>
+
+<h2 id="chooser-h">Find the cause</h2>
+<p>Pick what you see, then answer up to three questions about what the trace and the module states show. The answer points to the cause to check first; the sections below list all of them.</p>
+
+<div class="panel no-print" id="chooser">
+  <div class="chips" id="symptoms" role="group" aria-label="Symptom"></div>
+  <p class="q" id="question" aria-live="polite">Choose a symptom.</p>
+  <div class="answers" id="answers"></div>
+  <div class="result" id="result" hidden aria-live="polite"></div>
+  <p class="trail" id="trail"></p>
+</div>
+
+<!-- ===================================================== 1 -->
+<h2 id="sleep">The bus never sleeps</h2>
+<p>All <span class="term">ComM user</span>s of the body gateway have released body CAN, but the bus stays awake.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li><span class="term">NM PDU</span>s keep coming on body CAN. Their <span class="term">Source Node Identifier</span> tells you which node sends.</li>
+<li>The ComM channel <code>BodyCan</code> is in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> (this ECU still requests it) or in <code class="term">COMM_FULL_COM_READY_SLEEP</code> (ComM has released it and waits for NM).</li>
+<li>CanNm of the gateway is in the <span class="term">Ready Sleep State</span>, and every received NM PDU restarts the <span class="term">NM-Timeout Time</span>r, so the <span class="term">Prepare Bus-Sleep Mode</span> never comes.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="sleep-1"><strong>Another node still keeps the bus awake.</strong>
+<p>A node that is in <span class="term">Network Mode</span> (Repeat Message or Normal Operation) sends NM PDUs; every other node in Ready Sleep State stays awake as long as it receives them. This is correct behaviour on the gateway.</p>
+<p><span class="lbl">Confirm</span>The NM PDUs come from 0x21 or 0x22, and the gateway's CanNm is in Ready Sleep State.</p>
+<p><span class="lbl">Fix</span>On that node: find its open request with these same checks. <a href="../lessons/0013-the-cannm-states.html">Lesson 13</a>, <a href="../lessons/0014-the-nm-timers.html">lesson 14</a>.</p></li>
+<li id="sleep-2"><strong>A ComM user of this ECU still requests the channel or one of its PNCs.</strong>
+<p><code>UserChassis</code> requests a channel, <code>UserComfort</code> and <code>UserLighting</code> request a <span class="term">PNC</span>; a PNC in <code class="term">COMM_PNC_REQUESTED</code> keeps all its channels requested.</p>
+<p><span class="lbl">Confirm</span>NM PDUs with 0x10 in byte 0; the channel is in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code>. With <code>ComMFullCommRequestNotificationEnabled</code> the port ComM_CurrentChannelRequest lists the users that request the channel.</p>
+<p><span class="lbl">Fix</span>The SWC must release with <code class="term">ComM_RequestComMode</code>(…, <code class="term">COMM_NO_COMMUNICATION</code>). For a PNC that stays requested see <a href="#pnc">a PNC stays requested</a>. <a href="../lessons/0005-comm-users-and-channels.html">Lesson 5</a>, <a href="../lessons/0041-the-comm-pnc-state-machine.html">lesson 41</a>.</p></li>
+<li id="sleep-3"><strong>Dcm still indicates active diagnostics.</strong>
+<p><span class="term">Dcm</span> calls <code class="term">ComM_DCM_ActiveDiagnostic</code> while a diagnostic request is processed or a session other than the <span class="term">default session</span> is active; ComM treats it like a request for <code class="term">COMM_FULL_COMMUNICATION</code>. A tester that keeps the session alive keeps the channel awake. Dcm goes back to the default session after the S3Server timeout and then calls <code class="term">ComM_DCM_InactiveDiagnostic</code> (SWS_Dcm_01373 to 01377).</p>
+<p><span class="lbl">Confirm</span>No user requests the channel, but it stays in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code>; the Dcm session is not the default session.</p>
+<p><span class="lbl">Fix</span>End the session, or check that <code>DcmDslProtocolComMChannelRef</code> names the channel the tester really uses. <a href="../lessons/0010-dcm-keeps-the-channel-awake.html">Lesson 10</a>.</p></li>
+<li id="sleep-4"><strong>Repeat Message Requests again and again.</strong>
+<p>With <code>CanNmNodeDetectionEnabled</code>, a received <span class="term">Repeat Message Request</span> sends every node from Normal Operation or Ready Sleep State back into the <span class="term">Repeat Message State</span> for <code>CanNmRepeatMessageTime</code>, and each node sends NM PDUs there (SWS_CanNm_00119, 00111). A node that calls <code class="term">Nm_RepeatMessageRequest</code> repeatedly keeps the whole cluster awake. With <code>CanNmPnHandleMultipleNetworkRequests</code>, every change of a requested PNC also re-enters the Repeat Message State.</p>
+<p><span class="lbl">Confirm</span>NM PDUs with bit 0 of the Control Bit Vector set appear again and again; their Source Node Identifier names the requester.</p>
+<p><span class="lbl">Fix</span>Find what calls the request on that node, or the PNC request that toggles. <a href="../lessons/0016-repeat-message-request-and-node-detection.html">Lesson 16</a>.</p></li>
+<li id="sleep-5"><strong>Partial networking lets every NM PDU keep the ECU awake.</strong>
+<p>With <code>CanNmPnEnabled</code>, an NM PDU counts only when it carries a PNC that passes the <span class="term">PNC filter mask</span> (SWS_CanNm_00503). Three things switch this off: <code>CanNmAllNmMessagesKeepAwake</code> = TRUE (every NM PDU counts; meant for gateways), a PN availability that was never confirmed (until <code class="term">CanNm_ConfirmPnAvailability</code> is called, all PNC requests count as relevant), and filter mask bytes that pass PNCs this ECU is not a member of.</p>
+<p><span class="lbl">Confirm</span>The NM PDUs that keep coming carry only PNC bits of other PNCs; the gateway still restarts its NM-Timeout Timer on them.</p>
+<p><span class="lbl">Fix</span>Filter mask bits only for the PNCs of this ECU; <code>CanNmAllNmMessagesKeepAwake</code> only on a gateway that must stay awake for all of them; check <code>CanSMPncSupport</code> and the transceiver if the confirmation is missing. <a href="../lessons/0042-eira-and-era.html">Lesson 42</a>, <a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">lesson 43</a>.</p></li>
+<li id="sleep-6"><strong>The NM variant is NONE.</strong>
+<p>A channel with <code class="term">ComMNmVariant</code> = <span class="term">NONE</span> has no NM; once requested it stays in full communication until the ECU is switched off.</p>
+<p><span class="lbl">Confirm</span>No NM PDU on the bus at all; the channel sits in <code class="term">COMM_FULL_COM_READY_SLEEP</code>.</p>
+<p><span class="lbl">Fix</span><span class="term">FULL</span> on a bus with NM, <span class="term">LIGHT</span> on a bus without NM that must shut down. <a href="../lessons/0008-nm-variants-per-channel.html">Lesson 8</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="sleep"></div>
+
+<!-- ===================================================== 2 -->
+<h2 id="wake">The ECU does not wake up</h2>
+<p>The Door ECU wakes body CAN, but the body gateway stays asleep, or it wakes up and its body CAN channel stays down.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>Frames on body CAN, but no <code class="term">EcuM_SetWakeupEvent</code> for <code>ECUM_WKSOURCE_BODYCAN</code>: BswM gets no <code class="term">BswM_EcuM_CurrentWakeup</code> for it.</li>
+<li>Or the <span class="term">wakeup event</span> is <span class="term">validated</span>, but the channel <code>BodyCan</code> stays in <code class="term">COMM_NO_COM_NO_PENDING_REQUEST</code> or <code class="term">COMM_NO_COM_REQUEST_PENDING</code>.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="wake-1"><strong>The wakeup source is not enabled in the sleep mode.</strong>
+<p>In the <span class="term">GoSleep sequence</span> EcuM enables only the sources in <code>EcuMWakeupSourceMask</code> of the <span class="term">sleep mode</span> it uses (<code class="term">EcuM_EnableWakeupSources</code>).</p>
+<p><span class="lbl">Confirm</span>The mask of the selected <code>EcuMSleepMode</code> lacks <code>ECUM_WKSOURCE_BODYCAN</code>; the ECU still wakes on <code>ECUM_WKSOURCE_DOOR_PIN</code>.</p>
+<p><span class="lbl">Fix</span>Add the source to the mask. <a href="../lessons/0030-sleep-halt-and-poll.html">Lesson 30</a>.</p></li>
+<li id="wake-2"><strong>The transceiver is not set up to report a bus wakeup.</strong>
+<p>The <span class="term">CanTrcv</span> needs <code>CanTrcvWakeupByBusUsed</code> = TRUE and <code>CanTrcvWakeUpSupport</code> other than <code>CANTRCV_WAKEUP_NOT_SUPPORTED</code>;<code>CanTrcvWakeupSourceRef</code> names the EcuM source it reports; CanIf needs <code>CanIfTrcvWakeupSupport</code>. With polling, the sleep mode must be <span class="term">POLL</span> and the source <code>EcuMWakeupSourcePolling</code>.</p>
+<p><span class="lbl">Confirm</span>The transceiver's wake flag is set but no wakeup event follows, or <code class="term">CanTrcv_CheckWakeup</code> is never called.</p>
+<p><span class="lbl">Fix</span>Complete the chain transceiver → CanIf → EcuM. <a href="../lessons/0035-can-wakeup-end-to-end.html">Lesson 35</a>.</p></li>
+<li id="wake-3"><strong>Selective wakeup filters the frame out.</strong>
+<p>With <code>CanTrcvPnEnabled</code> = TRUE the transceiver wakes only on a <span class="term">wakeup frame</span> that matches <code>CanTrcvPnFrameCanId</code> under <code>CanTrcvPnFrameCanIdMask</code> and whose payload has a 1 in a bit of the data mask. The gateway is a member of Comfort and Lighting: with the NM PDU as wakeup frame its data mask on byte 2 is 0x03.</p>
+<p><span class="lbl">Confirm</span>Compare the identifier and byte 2 of the waking NM PDU with the pattern. An NM PDU for a PNC outside the mask must not wake the ECU; that is correct.</p>
+<p><span class="lbl">Fix</span>Set the data mask bits for exactly the PNCs of this ECU. <a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">Lesson 43</a>.</p></li>
+<li id="wake-4"><strong>The wakeup is detected but not validated.</strong>
+<p>See <a href="#expired">the wakeup expires</a>.</p></li>
+<li id="wake-5"><strong>The wakeup source names no ComM channel.</strong>
+<p><code class="term">EcuM_ValidateWakeupEvent</code> calls <code class="term">ComM_EcuM_WakeUpIndication</code> only for the channels in <code>EcuMComMChannelRef</code> of the source (SWS_EcuM_02645). Without it the ECU runs, but body CAN is never started, and BswM sends the ECU back to sleep.</p>
+<p><span class="lbl">Confirm</span><code class="term">ECUM_WKSTATUS_VALIDATED</code> for <code>ECUM_WKSOURCE_BODYCAN</code>, but the channel stays in <code class="term">COMM_NO_COM_NO_PENDING_REQUEST</code>.</p>
+<p><span class="lbl">Fix</span>Reference <code>BodyCan</code> (and <code>EcuMComMPNCRef</code> for PNCs that the source should wake). <a href="../lessons/0034-wakeup-validation.html">Lesson 34</a>, <a href="../lessons/0048-woken-by-another-ecu.html">lesson 48</a>.</p></li>
+<li id="wake-6"><strong>The channel waits for communication allowed.</strong>
+<p>See <a href="#pending">a request stays pending</a>.</p></li>
+<li id="wake-7"><strong>This ECU should wake the bus itself, but a request is refused.</strong>
+<p>With <span class="term">wake up inhibition</span> (<code>ComMNoWakeup</code>) a user request for a channel in no or silent communication is inhibited (SWS_ComM_00218); with <span class="term">limit to COMM_NO_COMMUNICATION</span> (<code>ComMNoCom</code>) it is refused too. A wakeup from the bus is still handled. The request returns <code class="term">COMM_E_MODE_LIMITATION</code>.</p>
+<p><span class="lbl">Fix</span>Check the inhibition state, the values stored in NvM and <code>ComMEcuGroupClassification</code>. <a href="../lessons/0011-communication-inhibition.html">Lesson 11</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="wake"></div>
+
+<!-- ===================================================== 3 -->
+<h2 id="expired">The wakeup expires</h2>
+<p>EcuM detects the wakeup of body CAN, but the <span class="term">wakeup validation</span> fails and the ECU goes back to sleep.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>BswM gets <code class="term">BswM_EcuM_CurrentWakeup</code>(<code>ECUM_WKSOURCE_BODYCAN</code>, <code class="term">ECUM_WKSTATUS_PENDING</code>) and, after <code>EcuMValidationTimeout</code>, the same with <code class="term">ECUM_WKSTATUS_EXPIRED</code> (SWS_EcuM_04082).</li>
+<li>During the validation, CanSM of <code>BodyCan</code> should be in <code class="term">CANSM_BSM_WUVALIDATION</code>.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="expired-1"><strong>Only NM PDUs validate, but the waking node sends application frames first.</strong>
+<p>With <code>CanIfPublicWakeupCheckValidByNM</code> = TRUE, CanIf records only the first received NM PDU for validation; with FALSE, any configured received PDU counts (SWS_CANIF_00286).</p>
+<p><span class="lbl">Confirm</span>The trace in the validation window shows application frames, but no NM PDU before the timeout.</p>
+<p><span class="lbl">Fix</span>Set FALSE, or make the waking node send its NM PDUs early. <a href="../lessons/0035-can-wakeup-end-to-end.html">Lesson 35</a>.</p></li>
+<li id="expired-2"><strong>The validation timeout is shorter than the time to the first frame.</strong>
+<p>The waking ECU needs its own startup time, and in the Repeat Message State the first NM PDU waits for <code>CanNmMsgCycleOffset</code> unless <span class="term">immediate transmission</span>s are used. The CanNm specification notes that the transmission offset can delay the first NM PDU significantly.</p>
+<p><span class="lbl">Confirm</span>Measure from the wakeup (transceiver wake flag, ECUM_WKSTATUS_PENDING) to the first NM PDU and compare with <code>EcuMValidationTimeout</code>.</p>
+<p><span class="lbl">Fix</span>A longer timeout on this ECU, or an earlier first NM PDU on the waking one. <a href="../lessons/0034-wakeup-validation.html">Lesson 34</a>, <a href="../lessons/0014-the-nm-timers.html">lesson 14</a>.</p></li>
+<li id="expired-3"><strong>The CAN controller is not started for the validation.</strong>
+<p>The callout <code class="term">EcuM_StartWakeupSources</code> must call <code class="term">CanSM_StartWakeupSource</code>; only then are transceiver and controller running and <code class="term">CanIf_RxIndication</code> can be called at all.</p>
+<p><span class="lbl">Confirm</span>CanSM never enters <code class="term">CANSM_BSM_WUVALIDATION</code>.</p>
+<p><span class="lbl">Fix</span>Complete the callout (integrator code). <a href="../lessons/0035-can-wakeup-end-to-end.html">Lesson 35</a>.</p></li>
+<li id="expired-4"><strong>Nobody asks CanIf.</strong>
+<p><code class="term">CanIfPublicWakeupCheckValidSupport</code> must be TRUE, otherwise CanIf records nothing for validation, and the callout <code class="term">EcuM_CheckValidation</code> must call <code class="term">CanIf_CheckValidation</code> for the source.</p>
+<p><span class="lbl">Confirm</span>NM PDUs arrive in time, CanSM is in CANSM_BSM_WUVALIDATION, but the source never becomes validated.</p>
+<p><span class="lbl">Fix</span>Switch the support on and complete the callout. <a href="../lessons/0034-wakeup-validation.html">Lesson 34</a>.</p></li>
+<li id="expired-5"><strong>The wakeup was not a real one.</strong>
+<p>A disturbance on the bus or the wake line wakes the transceiver, but no ECU talks. Then EXPIRED is the intended result: validation exists to filter such wakeups.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="expired"></div>
+
+<!-- ===================================================== 4 -->
+<h2 id="pending">A request stays pending</h2>
+<p>A user requests body CAN, or the bus wakes the gateway, but the channel never reaches full communication.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>The ComM channel stays in <code class="term">COMM_NO_COM_REQUEST_PENDING</code>; ComM does not call <code class="term">CanSM_RequestComMode</code>; the bus stays silent.</li>
+<li>Or ComM has requested <code class="term">COMM_FULL_COMMUNICATION</code>, but CanSM does not reach <code class="term">CANSM_BSM_S_FULLCOM</code>.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="pending-1"><strong>Communication allowed is never set.</strong>
+<p>ComM leaves <code class="term">COMM_NO_COM_REQUEST_PENDING</code> only when its flag <span class="term">communication allowed</span> is TRUE (SWS_ComM_00895). In EcuM Flex, BswM sets it through an action <code>BswMComMAllowCom</code> that calls <code class="term">ComM_CommunicationAllowed</code>. If the rule's condition never becomes true (an EcuM state that is not reached, a mode request port that never reports), the request waits forever.</p>
+<p><span class="lbl">Confirm</span>Trace the BswM rule: does its expression become true, and does its action list run?</p>
+<p><span class="lbl">Fix</span>A rule whose condition is reached after startup and after a wakeup. <a href="../lessons/0009-communication-allowed-and-bswm.html">Lesson 9</a>, <a href="../lessons/0027-bswm-as-the-glue.html">lesson 27</a>.</p></li>
+<li id="pending-2"><strong>The action names another channel.</strong>
+<p><code>BswMComMAllowChannelRef</code> points to <code>ChassisCan</code> instead of <code>BodyCan</code>, or one action exists for two channels where two are needed.</p>
+<p><span class="lbl">Fix</span>One allow action per channel. <a href="../lessons/0009-communication-allowed-and-bswm.html">Lesson 9</a>.</p></li>
+<li id="pending-3"><strong>The bus state manager does not reach full communication.</strong>
+<p>CanSM repeats an unconfirmed request to CanIf <code>CanSMModeRequestRepetitionMax</code> times, <code>CanSMModeRequestRepetitionTime</code> apart, and then reports <code>CANSM_E_MODE_REQUEST_TIMEOUT</code> (SWS_CanSM_00385). The cause is then in the controller or transceiver configuration below CanSM.</p>
+<p><span class="lbl">Confirm</span>The error is reported; CanSM stays in <code class="term">CANSM_BSM_S_PRE_FULLCOM</code>.</p>
+<p><span class="lbl">Fix</span>Check <code>CanSMControllerId</code> and <code>CanSMTransceiverId</code> against CanIf. <a href="../lessons/0021-cansm-the-state-machine.html">Lesson 21</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="pending"></div>
+
+<!-- ===================================================== 5 -->
+<h2 id="pnc">A PNC stays requested</h2>
+<p>No user needs Comfort any more, but the PNC does not reach <code class="term">COMM_PNC_NO_COMMUNICATION</code>, and with it body CAN stays awake.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>The <span class="term">PNC state machine</span> of Comfort is in <code class="term">COMM_PNC_REQUESTED</code> (a local user or, on the gateway, an <span class="term">ERA</span> bit) or in <code class="term">COMM_PNC_READY_SLEEP</code> (an <span class="term">EIRA</span> bit: someone on the bus requests it).</li>
+<li>NM PDUs on body CAN with byte 2 bit 0 set; their Source Node Identifier tells you who sends the bit.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="pnc-1"><strong>Another ECU still requests the PNC.</strong>
+<p>The Door ECU (0x21) or, through Ethernet, the Head unit still sends the Comfort bit. While an ERA bit of Comfort is 1, the gateway keeps the PNC in <code class="term">COMM_PNC_REQUESTED</code> (SWS_ComM_01084).</p>
+<p><span class="lbl">Confirm</span>NM PDUs with the bit from a node other than 0x10; on the gateway <code class="term">ComM_Nm_UpdateERA</code> reports the bit for that channel.</p>
+<p><span class="lbl">Fix</span>On that ECU. <a href="../lessons/0042-eira-and-era.html">Lesson 42</a>.</p></li>
+<li id="pnc-2"><strong>A local user still requests it.</strong>
+<p><code>UserComfort</code> is mapped to Comfort through <code>ComMUserPerPnc</code>; its request holds the PNC in COMM_PNC_REQUESTED.</p>
+<p><span class="lbl">Fix</span>Release the user. <a href="../lessons/0041-the-comm-pnc-state-machine.html">Lesson 41</a>.</p></li>
+<li id="pnc-3"><strong>Two gateways mirror the bit to each other.</strong>
+<p>On a channel with <code>COMM_GATEWAY_TYPE_ACTIVE</code> the gateway sends every requested PNC back, including what it received on that channel (SWS_ComM_01072). If two gateways on one channel both have the type ACTIVE, each sees the other's bit in its ERA, and neither can release it.</p>
+<p><span class="lbl">Confirm</span>After every leaf node has released, the bit still comes from both gateways' Source Node Identifiers.</p>
+<p><span class="lbl">Fix</span>On a channel between two gateways, one coordinates it actively and the other has <code>COMM_GATEWAY_TYPE_PASSIVE</code>. <a href="../lessons/0044-the-pnc-gateway.html">Lesson 44</a>.</p></li>
+<li id="pnc-4"><strong>The timers are still running.</strong>
+<p>A PNC bit stays in EIRA and ERA for <code>NmPnResetTime</code> after the last NM PDU that carried it (SWS_Nm_00319, 00325); its value must be greater than the <span class="term">Message Cycle Time</span>. After that the PNC spends <code class="term">ComMPncPrepareSleepTimer</code> in <code class="term">COMM_PNC_PREPARE_SLEEP</code>. A large value of either looks like a PNC that does not go.</p>
+<p><span class="lbl">Confirm</span>Time from the last NM PDU with the bit to COMM_PNC_NO_COMMUNICATION; it equals the sum of the two times plus main function delays.</p>
+<p><span class="lbl">Fix</span>Values from the network design, the same for every ECU of the PNC. <a href="../lessons/0042-eira-and-era.html">Lesson 42</a>, <a href="../lessons/0041-the-comm-pnc-state-machine.html">lesson 41</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="pnc"></div>
+
+<!-- ===================================================== 6 -->
+<h2 id="busoff">Bus-off loops</h2>
+<p>Body CAN goes <span class="term">bus-off</span>, recovers and goes bus-off again, without end.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>On each bus-off CanSM reports <code>CANSM_BSWM_BUS_OFF</code> to BswM, <code class="term">COMM_SILENT_COMMUNICATION</code> to ComM and the DEM event <code>CANSM_E_BUS_OFF</code> as pre-failed; after each recovery BswM and ComM get full communication back (SWS_CanSM_00508, 00521, 00522, 00517, 00518).</li>
+<li>CanNm reports <code>CANNM_E_NETWORK_TIMEOUT</code>: its NM-Timeout Timer ran out in the Repeat Message or Normal Operation State, for example because of the bus-off.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="busoff-1"><strong>A fault on the bus.</strong>
+<p>A wrong bit rate, missing termination, a short or a faulty node. No configuration of these modules repairs it; <span class="term">bus-off recovery</span> only limits the damage.</p>
+<p><span class="lbl">Confirm</span>A bus analyser shows error frames, also from other nodes.</p></li>
+<li id="busoff-2"><strong>The recovery never reaches the long time.</strong>
+<p>CanSM waits <code>CanSMBorTimeL1</code> before switching transmission on again, and <code>CanSMBorTimeL2</code> once <code>CanSMBorCounterL1ToL2</code> bus-offs have come without a passed recovery check. The check passes <code>CanSMBorTimeTxEnsured</code> after transmission is on again (or, with <code>CanSMBorTxConfirmationPolling</code>, when CanIf reports a transmit confirmation on all controllers), and that resets the count (SWS_CanSM_00514, 00515, 00496, 00497). If the check passes before the next bus-off comes, CanSM retries at the short time forever.</p>
+<p><span class="lbl">Confirm</span>Every retry uses the level 1 time, even after many bus-offs; DEM gets passed between them.</p>
+<p><span class="lbl">Fix</span><code>CanSMBorTimeTxEnsured</code> longer than the time a bus-off needs to come back; a moderate counter; a long level 2 time. <a href="../lessons/0022-cansm-bus-off-recovery.html">Lesson 22</a>.</p></li>
+<li id="busoff-3"><strong>A bus-off delay callout shortens the waits.</strong>
+<p>With <code>CanSMEnableBusOffDelay</code>, the callout named in <code>CanSMGetBusOffDelayFunction</code> supplies the delay instead of the configured times (SWS_CanSM_00636).</p>
+<p><span class="lbl">Fix</span>Check what the callout returns. <a href="../lessons/0022-cansm-bus-off-recovery.html">Lesson 22</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="busoff"></div>
+
+<!-- ===================================================== 7 -->
+<h2 id="early">The channel goes down too early</h2>
+<p>Body CAN or chassis CAN leaves full communication while other ECUs still communicate, or while this ECU still expects to.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>ComM reports <code class="term">COMM_SILENT_COMMUNICATION</code> or <code class="term">COMM_NO_COMMUNICATION</code> for the channel; NmIf calls <code class="term">Nm_PrepareBusSleepMode</code>.</li>
+<li>Sometimes it comes straight back: an NM PDU received in Prepare Bus-Sleep Mode returns CanNm to the Network Mode (SWS_CanNm_00124).</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="early-1"><strong>The NM variant is LIGHT.</strong>
+<p>A <span class="term">LIGHT</span> channel stays <code>ComMTMinFullComModeDuration</code> in network requested and then <code>ComMNmLightTimeout</code> in ready sleep, and goes to no communication without asking any other ECU.</p>
+<p><span class="lbl">Fix</span><span class="term">FULL</span> on a bus with NM, or timeouts that fit the other ECUs. <a href="../lessons/0008-nm-variants-per-channel.html">Lesson 8</a>.</p></li>
+<li id="early-2"><strong>The ECU is passive.</strong>
+<p>With <span class="term">PASSIVE</span>, or <code>NmPassiveModeEnabled</code> on the NM channel, the ECU sends no NM PDUs and cannot keep the bus awake; it goes down as soon as the others release.</p>
+<p><span class="lbl">Confirm</span>No NM PDU with this ECU's Source Node Identifier.</p>
+<p><span class="lbl">Fix</span>FULL with a transmitted NM PDU (<code>CanNmTxPdu</code>) if the ECU must keep the bus awake. <a href="../lessons/0017-passive-mode-communication-control-bus-load-reduction.html">Lesson 17</a>.</p></li>
+<li id="early-3"><strong>The NM-Timeout Time is too short for the cluster.</strong>
+<p>In Ready Sleep State only the NM PDUs of the others restart the NM-Timeout Timer. If <code>CanNmTimeoutTime</code> is not longer than the <code>CanNmMsgCycleTime</code> of the other nodes, the timer runs out between two of their NM PDUs.</p>
+<p><span class="lbl">Confirm</span>ComM toggles between silent and full communication while the others keep sending.</p>
+<p><span class="lbl">Fix</span>The cluster's values for the NM-Timeout Time and Message Cycle Time. <a href="../lessons/0014-the-nm-timers.html">Lesson 14</a>.</p></li>
+<li id="early-4"><strong>A mode limitation is active.</strong>
+<p>A BswM action <code>BswMComMModeLimitation</code> or a call of ComM_LimitChannelToNoComMode limits the channel: ComM leaves network requested at once (SWS_ComM_00890), and user requests return <code class="term">COMM_E_MODE_LIMITATION</code>. With <code>ComMNoCom</code> = TRUE the limitation is active from initialization.</p>
+<p><span class="lbl">Fix</span>Check the inhibition state and the BswM rule. <a href="../lessons/0011-communication-inhibition.html">Lesson 11</a>.</p></li>
+<li id="early-5"><strong>The request ended earlier than expected.</strong>
+<p>A user released, or Dcm returned to the default session after the S3Server timeout and called <code class="term">ComM_DCM_InactiveDiagnostic</code>. A bus-off also takes the channel to silent communication for a while: see <a href="#busoff">bus-off loops</a>.</p>
+<p><span class="lbl">Fix</span>Follow the requests over time. <a href="../lessons/0007-network-requested-and-ready-sleep.html">Lesson 7</a>, <a href="../lessons/0010-dcm-keeps-the-channel-awake.html">lesson 10</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="early"></div>
+
+<!-- ===================================================== 8 -->
+<h2 id="forward">The gateway does not forward a PNC</h2>
+<p>The Door ECU requests Comfort on body CAN, but the Head unit on Ethernet never sees the bit.</p>
+<div class="seen">
+<p><strong>What you see</strong></p>
+<ul>
+<li>The Comfort bit arrives on body CAN, but the gateway's NM packets on Ethernet do not carry it.</li>
+</ul>
+</div>
+<ol class="causes">
+<li id="forward-1"><strong>The PNC has no gateway type on its channels.</strong>
+<p>ComM uses the ERA only when <code>ComMPncGatewayEnabled</code> is TRUE and the channels of the PNC have a <code>ComMPncGatewayType</code> (SWS_ComM_01066). A PNC without one is handled like on an ECU without gateway.</p>
+<p><span class="lbl">Fix</span>Both channels <code>COMM_GATEWAY_TYPE_ACTIVE</code> on the example gateway. <a href="../lessons/0044-the-pnc-gateway.html">Lesson 44</a>.</p></li>
+<li id="forward-2"><strong>The filter mask blocks the bit on the receiving channel.</strong>
+<p>NmIf stores a received PNC request only if its bit is 1 in the filter mask (SWS_Nm_00323).</p>
+<p><span class="lbl">Confirm</span><code class="term">ComM_Nm_UpdateERA</code> for <code>BodyCan</code> never shows the bit.</p>
+<p><span class="lbl">Fix</span><code>NmPnFilterMaskByte</code> with index 0 (the first byte of the PNC bit vector, byte 2 of the NM PDU) and value 0x03. <a href="../lessons/0042-eira-and-era.html">Lesson 42</a>.</p></li>
+<li id="forward-3"><strong>No ERA is computed for the channel.</strong>
+<p><code>NmPnEraCalcEnabled</code> must be TRUE on the receiving NM channel, with <code>NmPnEnabled</code> and partial networking in the bus NM (<code>CanNmPnEnabled</code>).</p>
+<p><span class="lbl">Fix</span>Switch them on. <a href="../lessons/0042-eira-and-era.html">Lesson 42</a>.</p></li>
+<li id="forward-4"><strong>The PNC is not mapped to the other channel.</strong>
+<p>ComM puts the bit into the IRA of channels in <code>ComMChannelPerPnc</code> or <code>ComMChannelPerTxOnlyPnc</code> only, and passes it with <code class="term">Nm_UpdateIRA</code>.</p>
+<p><span class="lbl">Fix</span>Map Comfort to <code>Eth</code>. <a href="../lessons/0044-the-pnc-gateway.html">Lesson 44</a>.</p></li>
+</ol>
+<p class="params-head">Parameters to look at</p>
+<div data-params="forward"></div>
+
+<!-- ===================================================== Part 2 -->
+<h2 id="read">Reading a configuration you did not write</h2>
+<p>A configuration made by a tool from the network description is easiest to read from the network down. Go through it in this order; each step answers one question, and the later steps depend on the earlier ones.</p>
+
+<div class="flow" aria-label="Reading order">
+<div class="box"><strong>1</strong>Channels and NM variants</div><span class="arrow" aria-hidden="true">→</span>
+<div class="box"><strong>2</strong>Users and PNCs</div><span class="arrow" aria-hidden="true">→</span>
+<div class="box"><strong>3</strong>NmIf and CanNm</div><span class="arrow" aria-hidden="true">→</span>
+<div class="box"><strong>4</strong>Bus state managers</div><span class="arrow" aria-hidden="true">→</span>
+<div class="box"><strong>5</strong>EcuM wakeup sources</div><span class="arrow" aria-hidden="true">→</span>
+<div class="box"><strong>6</strong>BswM rules</div>
+</div>
+
+<ol class="steps">
+<li><strong>Channels and NM variants: which buses, and who decides when each sleeps.</strong>
+<p>One <code class="term">ComMChannel</code> per network: <code>ComMChannelId</code> (the network handle), <code>ComMBusType</code>, and in <code>ComMNetworkManagement</code> the <code class="term">ComMNmVariant</code>. Only <span class="term">FULL</span> channels can keep the bus awake; <span class="term">PASSIVE</span> ones follow the others; <span class="term">LIGHT</span> ones go down by timer; <span class="term">NONE</span> ones never. Then check the other side: every FULL and PASSIVE channel needs an <code class="term">NmChannelConfig</code> and a <code class="term">CanNmChannelConfig</code> or <code>UdpNmChannelConfig</code> that reference the same ComM channel (<code>NmComMChannelRef</code>, <code>CanNmComMNetworkHandleRef</code>). Note <code>ComMNoCom</code> and <code>ComMNoWakeup</code>: a TRUE here is an inhibition from the start.</p></li>
+<li><strong>Users and PNCs: who can request what.</strong>
+<p>The <code class="term">ComMUser</code>s, the channels they request (<code>ComMUserPerChannel</code>) and the <code class="term">ComMPnc</code>s with their <code class="term">ComMPncId</code>, channels (<code>ComMChannelPerPnc</code>) and users (<code>ComMUserPerPnc</code>). A PNC ID must fit the PNC bit vector of its channels: PNC ID = byte × 8 + bit, counted from the start of the NM PDU. For diagnostics, <code>DcmDslProtocolComMChannelRef</code> tells you which channel Dcm keeps awake.</p></li>
+<li><strong>NmIf and CanNm: the timing of the cluster and the partial networking settings.</strong>
+<p>In <code>NmGlobalProperties</code>: <code>NmPncBitVectorOffset</code>, <code>NmPnResetTime</code>, <code>NmPnEiraCalcEnabled</code>. Per <code class="term">NmChannelConfig</code>: <code>NmPnEnabled</code>, <code>NmPncBitVectorLength</code>, <code>NmPnEraCalcEnabled</code>, the <code>NmPnFilterMaskByte</code>s, and the coordination settings. Per <code class="term">CanNmChannelConfig</code>: the four timers, <code>CanNmMsgCycleOffset</code>, the immediate transmissions, <code>CanNmNodeId</code> with <code>CanNmPduNidPosition</code> and <code>CanNmPduCbvPosition</code>, node detection and <code>CanNmAllNmMessagesKeepAwake</code>. Compare the timers with the other ECUs of the cluster: they come from the same network description.</p></li>
+<li><strong>Bus state managers: which hardware belongs to a channel, and how it recovers.</strong>
+<p>Per <code class="term">CanSMManagerNetwork</code>: <code>CanSMComMNetworkHandleRef</code>, the controllers, <code>CanSMTransceiverId</code> and the bus-off times; <code>CanSMPncSupport</code> for partial networking. Per <code class="term">EthSMNetwork</code>: the EthIf controller. For selective wakeup, the <code>CanTrcvPartialNetwork</code> container of the transceiver.</p></li>
+<li><strong>EcuM wakeup sources: what wakes the ECU, and what it starts.</strong>
+<p>Each <code>EcuMWakeupSource</code> in <code class="term">EcuMCommonConfiguration</code>: its bit (<code>EcuMWakeupSourceId</code>), <code>EcuMValidationTimeout</code> (absent: no validation), <code>EcuMComMChannelRef</code> and <code>EcuMComMPNCRef</code>. Then which sleep modes enable it (<code>EcuMWakeupSourceMask</code>) and how CanIf validates (<code class="term">CanIfPublicWakeupCheckValidSupport</code>, <code>CanIfPublicWakeupCheckValidByNM</code>).</p></li>
+<li><strong>BswM rules: when communication is allowed and when the ECU goes down.</strong>
+<p>Read each <code>BswMRule</code> with the mode request ports its expression uses (<code>BswMComMIndication</code>, <code>BswMEcuMWakeupSource</code>, <code>BswMCanSMIndication</code> …) and the actions of its action lists: <code>BswMComMAllowCom</code>, <code>BswMComMModeLimitation</code>, <code>BswMEcuMGoDownHaltPoll</code>, and <code>BswMUserCallout</code> for integrator code. Most problems of a waking or sleeping ECU that are not in steps 1 to 5 are here.</p></li>
+</ol>
+
+<h2 id="older">A configuration from an older release</h2>
+<p>A configuration written for 4.4.0 or R20-11 handles <span class="term">partial networking</span> differently: the bus NMs compute <span class="term">EIRA</span> and <span class="term">ERA</span> and pass them as PDUs through PduR to COM, and ComM reads them as COM signals (<code class="term">ComM_COMCbk_&lt;sn&gt;</code>, <code class="term">Com_ReceiveSignal</code>) and writes its own requests with <code class="term">Com_SendSignal</code>. You recognise it by the containers below. A configuration with <code>EcuMFixedGeneral</code> or <code>EcuMFixedConfiguration</code> is older still: <span class="term">EcuM Fixed</span>, 4.3.1 and older.</p>
+
+<div class="table-wrap">
+<table class="data old">
+<thead><tr><th>You find</th><th>Release</th><th>Read it as (R25-11)</th><th>Lessons</th></tr></thead>
+<tbody>
+<tr><td><code class="term">ComMPncComSignal</code> with <code>ComMPncComSignalDirection</code> (RX, TX), <code>ComMPncComSignalKind</code> (EIRA, ERA), <code>ComMPncComSignalChannelRef</code>, <code>ComMPncComSignalRef</code></td><td>4.4.0, R20-11</td><td>Nothing. NmIf calls <code class="term">ComM_Nm_UpdateEIRA</code> and <code class="term">ComM_Nm_UpdateERA</code>; ComM passes its requests with <code class="term">Nm_UpdateIRA</code>. The COM signals, COM I-PDUs and PduR routes of EIRA and ERA go too.</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnInfo</code> with <code>CanNmPnInfoOffset</code>, <code>CanNmPnInfoLength</code> (UdpNm: <code>UdpNmPnInfo</code>)</td><td>4.4.0 (range 1 to 7), R20-11 (1 to 63)</td><td><code>NmPncBitVectorOffset</code> in <code>NmGlobalProperties</code> (0 to 63) and <code>NmPncBitVectorLength</code> per <code class="term">NmChannelConfig</code>.</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a>, <a href="../lessons/0057-the-nm-pdu-bit-by-bit.html">57</a></td></tr>
+<tr><td><code>CanNmPnFilterMaskByte</code> inside <code>CanNmPnInfo</code></td><td>4.4.0, R20-11</td><td><code>NmPnFilterMaskByte</code> per NmChannelConfig.</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnEiraCalcEnabled</code>, <code>CanNmPnResetTime</code> (in <code>CanNmGlobalConfig</code>), <code>CanNmPnEraCalcEnabled</code> (per channel)</td><td>4.4.0, R20-11</td><td><code>NmPnEiraCalcEnabled</code> and <code>NmPnResetTime</code> in NmGlobalProperties, <code>NmPnEraCalcEnabled</code> per NmChannelConfig.</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnEiraRxNSduRef</code>, <code>CanNmPnEraRxNSduRef</code> (UdpNm: <code>UdpNmPnEiraRxNSduRef</code>, <code>UdpNmPnEraRxNSduRef</code>)</td><td>4.4.0, R20-11</td><td>Nothing: EIRA and ERA are no longer PDUs.</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>ComMPncEnabled</code> in <code>ComMConfigSet</code></td><td>up to R24-11</td><td><code>ComMPncEnabled</code> per ComMChannel.</td><td><a href="../lessons/0055-configuration-map-comm-and-nm.html">55</a></td></tr>
+<tr><td><code class="term">ComMPncId</code> with values up to 63</td><td>up to R20-11</td><td>The same parameter; the range is 8 to 511 since R21-11.</td><td><a href="../lessons/0040-why-partial-networking.html">40</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code class="term">ComMNmVariant</code> = <code>LINSLAVE</code></td><td>4.4.0</td><td><span class="term">SLAVE_ACTIVE</span> (R20-11 also adds <span class="term">SLAVE_PASSIVE</span>).</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a></td></tr>
+<tr><td><code>EcuMFixedGeneral</code>, <code>EcuMConfiguration/EcuMFixedConfiguration</code> with <code class="term">EcuMRunMinimumDuration</code></td><td>4.3.1 and older</td><td><span class="term">EcuM Flex</span>: a BswM rule decides the shutdown and calls <code class="term">EcuM_GoDownHaltPoll</code>; <span class="term">RUN request</span>s through <code>EcuMFlexUserConfig</code>. EcuM Fixed polled every channel with <code class="term">ComM_GetState</code>, which 4.4.0 removed.</td><td><a href="../lessons/0051-ecum-fixed.html">51</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code class="term">EcuMComMCommunicationAllowedList</code></td><td>4.3.1 and older</td><td>A BswM action <code>BswMComMAllowCom</code> per channel.</td><td><a href="../lessons/0009-communication-allowed-and-bswm.html">9</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr><td><code>EcuMDriverInitListTwo</code>, <code>EcuMDriverInitListThree</code></td><td>4.3.1 and older</td><td><code>EcuMDriverInitListBswM</code> and BswM action lists.</td><td><a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code>EcuMFixedUserConfig</code>, <code>EcuMTTII</code>, <code>EcuMNvramReadallTimeout</code>, <code>EcuMNvramWriteallTimeout</code></td><td>4.3.1 and older</td><td><code>EcuMFlexUserConfig</code> for the users; <span class="term">TTII</span> has no counterpart (the <span class="term">alarm clock</span> covers timed wakeups); EcuM Flex has no NvM timeouts.</td><td><a href="../lessons/0031-the-alarm-clock.html">31</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>What survives a move from the COM signal path: the PNC IDs, the offset and length of the PNC bit vector, the filter mask bytes and the reset time keep their values and only change their container. <code>ComMPncGatewayEnabled</code>, <code>ComMPncGatewayType</code>, <code>ComMChannelPerPnc</code> and <code>ComMUserPerPnc</code> keep their names. All other differences between the releases, parameter by parameter, are in <a href="../reference/release-differences.html">release differences</a> and <a href="../reference/older-and-newer-way.html">the older and the newer way</a>.</p>
+
+<p class="source">Source: AUTOSAR CP R25-11 specifications of ComM, NmIf, CanNm, CanSM, CanIf, CanTrcv, EcuM, BswM and Dcm (chapters 7 and 10) and the NM protocol specification; for older names the 4.4.0 and R20-11 specifications of ComM, CanNm and UdpNm and the 4.3.1 specification of EcuM Fixed.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/nm-params.js"></script>
+<script>
+(function () {
+
+  const P = {
+    sleep: [
+      ['CanNmNodeDetectionEnabled', 'Cause 4: TRUE makes a received Repeat Message Request restart the Repeat Message State'],
+      ['CanNmRepeatMessageTime', 'Cause 4: how long each such request keeps the nodes sending'],
+      ['CanNmPnHandleMultipleNetworkRequests', 'Cause 4: TRUE re-enters the Repeat Message State on every changed request'],
+      ['CanNmAllNmMessagesKeepAwake', 'Cause 5: TRUE lets every NM PDU keep the ECU awake'],
+      ['NmPnFilterMaskByteValue', 'Cause 5: 1 bits only for the PNCs of this ECU (gateway: 0x03 on byte index 0)'],
+      ['CanSMPncSupport', 'Cause 5: without PN availability confirmed, all PNC requests count'],
+      ['ComMFullCommRequestNotificationEnabled', 'Cause 2: shows which users request the channel'],
+      ['DcmDslProtocolComMChannelRef', 'Cause 3: the channel Dcm keeps awake'],
+      ['DcmS3ServerTimeoutOverwrite', 'Cause 3: how long a session survives without requests'],
+      ['ComMNmVariant', 'Cause 6: NONE never shuts the channel down']
+    ],
+    wake: [
+      ['EcuMWakeupSourceMask', 'Cause 1: must contain ECUM_WKSOURCE_BODYCAN in the sleep mode used'],
+      ['CanTrcvWakeupByBusUsed', 'Cause 2: TRUE'],
+      ['CanTrcvWakeUpSupport', 'Cause 2: not CANTRCV_WAKEUP_NOT_SUPPORTED'],
+      ['CanTrcvWakeupSourceRef', 'Cause 2: ECUM_WKSOURCE_BODYCAN'],
+      ['CanIfTrcvWakeupSupport', 'Cause 2: TRUE for the body CAN transceiver'],
+      ['EcuMWakeupSourcePolling', 'Cause 2: TRUE if the source must be polled in sleep'],
+      ['CanTrcvPnEnabled', 'Cause 3: TRUE switches selective wakeup on'],
+      ['CanTrcvPnFrameCanIdMask', 'Cause 3: which identifiers count as wakeup frames'],
+      ['CanTrcvPnFrameDataMask', 'Cause 3: the PNC bits of this ECU'],
+      ['EcuMComMChannelRef', 'Cause 5: BodyCan'],
+      ['EcuMComMPNCRef', 'Cause 5: PNCs this source wakes'],
+      ['ComMNoWakeup', 'Cause 7: initial wake up inhibition'],
+      ['ComMNoCom', 'Cause 7: initial limit to COMM_NO_COMMUNICATION']
+    ],
+    expired: [
+      ['CanIfPublicWakeupCheckValidByNM', 'Cause 1: TRUE accepts only NM PDUs'],
+      ['EcuMValidationTimeout', 'Cause 2: longer than the time to the first frame'],
+      ['CanNmMsgCycleOffset', 'Cause 2 (on the waking ECU): delays the first NM PDU'],
+      ['CanNmImmediateNmTransmissions', 'Cause 2 (on the waking ECU): NM PDUs sent at once'],
+      ['CanIfPublicWakeupCheckValidSupport', 'Cause 4: TRUE, or CanIf records nothing for validation']
+    ],
+    pending: [
+      ['BswMComMAllowCom', 'Cause 1: an action of this kind must exist and run'],
+      ['BswMRuleExpressionRef', 'Cause 1: the condition of the rule that runs it'],
+      ['BswMRuleTrueActionList', 'Cause 1: the action list with the allow action'],
+      ['BswMComMAllowChannelRef', 'Cause 2: BodyCan'],
+      ['CanSMModeRequestRepetitionMax', 'Cause 3: repetitions before CANSM_E_MODE_REQUEST_TIMEOUT'],
+      ['CanSMModeRequestRepetitionTime', 'Cause 3: time between them'],
+      ['CanSMControllerId', 'Cause 3: the right CAN controller'],
+      ['CanSMTransceiverId', 'Cause 3: the right CAN transceiver']
+    ],
+    pnc: [
+      ['ComMUserPerPnc', 'Cause 2: which users hold the PNC'],
+      ['ComMPncGatewayType', 'Cause 3: COMM_GATEWAY_TYPE_PASSIVE on one side of a channel between two gateways'],
+      ['NmPnResetTime', 'Cause 4: greater than the Message Cycle Time, not much more'],
+      ['ComMPncPrepareSleepTimer', 'Cause 4: time in COMM_PNC_PREPARE_SLEEP']
+    ],
+    busoff: [
+      ['CanSMBorTimeL1', 'Cause 2: wait before a retry, level 1'],
+      ['CanSMBorTimeL2', 'Cause 2: wait before a retry, level 2'],
+      ['CanSMBorCounterL1ToL2', 'Cause 2: bus-offs until level 2 applies'],
+      ['CanSMBorTimeTxEnsured', 'Cause 2: longer than the time a bus-off needs to come back'],
+      ['CanSMBorTxConfirmationPolling', 'Cause 2: TRUE decides by transmit confirmation instead'],
+      ['CanSMEnableBusOffDelay', 'Cause 3: TRUE uses the callout'],
+      ['CanSMGetBusOffDelayFunction', 'Cause 3: the callout'],
+      ['CANSM_E_BUS_OFF', 'DEM event to read']
+    ],
+    early: [
+      ['ComMNmVariant', 'Causes 1 and 2: FULL to keep the bus awake with NM'],
+      ['ComMTMinFullComModeDuration', 'Cause 1: minimum time in network requested'],
+      ['ComMNmLightTimeout', 'Cause 1: time in ready sleep before no communication'],
+      ['NmPassiveModeEnabled', 'Cause 2: TRUE makes the channel passive'],
+      ['CanNmTxPdu', 'Cause 2: absent on a passive node'],
+      ['CanNmTimeoutTime', 'Cause 3: longer than the Message Cycle Time of every other node'],
+      ['CanNmMsgCycleTime', 'Cause 3: compare across the cluster'],
+      ['BswMComMModeLimitation', 'Cause 4: a BswM action that limits the channel'],
+      ['ComMNoCom', 'Cause 4: limitation from initialization'],
+      ['ComMModeLimitationEnabled', 'Cause 4: limitation available at all']
+    ],
+    forward: [
+      ['ComMPncGatewayEnabled', 'Cause 1: TRUE'],
+      ['ComMPncGatewayType', 'Cause 1: set on every channel of the PNC'],
+      ['NmPnFilterMaskByteIndex', 'Cause 2: 0 for the first byte of the PNC bit vector'],
+      ['NmPnFilterMaskByteValue', 'Cause 2: 0x03 for Comfort and Lighting'],
+      ['NmPnEraCalcEnabled', 'Cause 3: TRUE on the receiving NM channel'],
+      ['NmPnEnabled', 'Cause 3: TRUE'],
+      ['CanNmPnEnabled', 'Cause 3: TRUE'],
+      ['ComMChannelPerPnc', 'Cause 4: both channels of the PNC'],
+      ['ComMChannelPerTxOnlyPnc', 'Cause 4: or the channel where it is only sent']
+    ]
+  };
+  document.querySelectorAll('[data-params]').forEach((el) => NmParams.table(el, P[el.dataset.params], '../'));
+
+  // ---------- symptom chooser ----------
+  // A node is a question {q, yes, no}; a leaf is {to: '#anchor', text}.
+  const T = {
+    sleep: { label: 'The bus never sleeps', node: {
+      q: 'Is the ComM channel of this ECU still in COMM_FULL_COM_NETWORK_REQUESTED?',
+      yes: { q: 'Is a diagnostic session other than the default session active, or a diagnostic request running?',
+        yes: { to: '#sleep-3', text: 'Dcm keeps the channel requested.' },
+        no: { q: 'Is a PNC of the channel in COMM_PNC_REQUESTED?',
+          yes: { to: '#pnc', text: 'A PNC holds the channel: follow "a PNC stays requested".' },
+          no: { to: '#sleep-2', text: 'A ComM user of this ECU still requests the channel.' } } },
+      no: { q: 'Are there still NM PDUs on the bus?',
+        yes: { q: 'Is bit 0 (Repeat Message Request) of the Control Bit Vector set again and again?',
+          yes: { to: '#sleep-4', text: 'Repeat Message Requests keep restarting the Repeat Message State.' },
+          no: { to: '#sleep-1', text: 'Another node keeps the bus awake. If its NM PDUs carry only PNCs of other ECUs, check cause 5 as well.' } },
+        no: { to: '#sleep-6', text: 'A channel without NM: check whether the NM variant is NONE.' } } } },
+    wake: { label: 'The ECU does not wake up', node: {
+      q: 'Does BswM get a wakeup state for ECUM_WKSOURCE_BODYCAN (pending or validated)?',
+      yes: { q: 'Does the wakeup become validated?',
+        yes: { q: 'Does the channel stay in COMM_NO_COM_NO_PENDING_REQUEST?',
+          yes: { to: '#wake-5', text: 'The wakeup source names no ComM channel.' },
+          no: { to: '#pending', text: 'The request is there but waits: follow "a request stays pending".' } },
+        no: { to: '#expired', text: 'The validation fails: follow "the wakeup expires".' } },
+      no: { q: 'Is selective wakeup switched on for this transceiver (CanTrcvPnEnabled)?',
+        yes: { to: '#wake-3', text: 'The wakeup frame pattern does not match the frame. Correct if the PNC is not one of this ECU.' },
+        no: { q: 'Is ECUM_WKSOURCE_BODYCAN in the wakeup source mask of the sleep mode used?',
+          yes: { to: '#wake-2', text: 'The transceiver chain does not report the wakeup.' },
+          no: { to: '#wake-1', text: 'The source is not enabled in the sleep mode.' } } } } },
+    expired: { label: 'The wakeup expires', node: {
+      q: 'During the validation, does CanSM of the channel enter CANSM_BSM_WUVALIDATION?',
+      yes: { q: 'Do frames arrive on the bus before the validation timeout?',
+        yes: { q: 'Are they all application frames, with no NM PDU among them?',
+          yes: { to: '#expired-1', text: 'Only NM PDUs validate, and none came in time.' },
+          no: { to: '#expired-4', text: 'NM PDUs came, but nobody asks CanIf, or CanIf records nothing.' } },
+        no: { to: '#expired-2', text: 'The validation timeout is shorter than the time to the first frame, or the wakeup was not a real one.' } },
+      no: { to: '#expired-3', text: 'The controller is not started for the validation.' } } },
+    pending: { label: 'A request stays pending', node: {
+      q: 'Is the channel in COMM_NO_COM_REQUEST_PENDING?',
+      yes: { q: 'Does a BswM rule with an allow action for this channel ever run?',
+        yes: { to: '#pending-2', text: 'The action names another channel.' },
+        no: { to: '#pending-1', text: 'Communication allowed is never set.' } },
+      no: { to: '#pending-3', text: 'The bus state manager does not reach full communication.' } } },
+    pnc: { label: 'A PNC stays requested', node: {
+      q: 'Is the PNC in COMM_PNC_REQUESTED (not COMM_PNC_READY_SLEEP)?',
+      yes: { q: 'Does a local ComM user mapped to the PNC still request it?',
+        yes: { to: '#pnc-2', text: 'A local user holds the PNC.' },
+        no: { q: 'Do two gateways send the PNC bit on the same channel, both with the gateway type ACTIVE there?',
+          yes: { to: '#pnc-3', text: 'The two gateways mirror the bit to each other.' },
+          no: { to: '#pnc-1', text: 'Another ECU still requests the PNC (an ERA bit is 1).' } } },
+      no: { q: 'Do NM PDUs with the PNC bit still arrive?',
+        yes: { to: '#pnc-1', text: 'Another ECU still requests the PNC.' },
+        no: { to: '#pnc-4', text: 'The reset timer or the prepare sleep timer is still running.' } } } },
+    busoff: { label: 'Bus-off loops', node: {
+      q: 'Does a bus analyser show error frames from other nodes too, or a bit rate that does not fit?',
+      yes: { to: '#busoff-1', text: 'A fault on the bus; recovery only limits the damage.' },
+      no: { q: 'Does every retry use the level 1 time, even after many bus-offs?',
+        yes: { to: '#busoff-2', text: 'The recovery check passes too early, so the count starts again.' },
+        no: { q: 'Is CanSMEnableBusOffDelay TRUE?',
+          yes: { to: '#busoff-3', text: 'The bus-off delay callout decides the waits.' },
+          no: { to: '#busoff-1', text: 'The recovery works as configured; look for the fault on the bus.' } } } } },
+    early: { label: 'The channel goes down too early', node: {
+      q: 'Is the NM variant of the channel FULL?',
+      yes: { q: 'Does the channel go to silent communication and come back to full communication shortly after?',
+        yes: { to: '#early-3', text: 'The NM-Timeout Time is too short for the cluster.' },
+        no: { q: 'Did requests return COMM_E_MODE_LIMITATION, or did BswM limit the channel?',
+          yes: { to: '#early-4', text: 'A mode limitation is active.' },
+          no: { to: '#early-5', text: 'The request ended earlier than expected (a user, Dcm, or a bus-off).' } } },
+      no: { q: 'Is it LIGHT?',
+        yes: { to: '#early-1', text: 'LIGHT goes down by timer, without the other ECUs.' },
+        no: { to: '#early-2', text: 'The ECU is passive and cannot keep the bus awake.' } } } },
+    forward: { label: 'The gateway does not forward a PNC', node: {
+      q: 'Does ComM_Nm_UpdateERA show the PNC bit for the receiving channel?',
+      yes: { q: 'Do all channels of the PNC have a ComMPncGatewayType?',
+        yes: { to: '#forward-4', text: 'The PNC is not mapped to the other channel.' },
+        no: { to: '#forward-1', text: 'Without a gateway type ComM does not use the ERA.' } },
+      no: { q: 'Is the bit 1 in the filter mask of the receiving channel?',
+        yes: { to: '#forward-3', text: 'No ERA is computed for the channel.' },
+        no: { to: '#forward-2', text: 'The filter mask blocks the bit.' } } } }
+  };
+
+  const symptoms = document.getElementById('symptoms');
+  const question = document.getElementById('question');
+  const answers = document.getElementById('answers');
+  const result = document.getElementById('result');
+  const trail = document.getElementById('trail');
+  let current = null, path = [];
+
+  const buttons = Object.keys(T).map((k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = T[k].label;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => start(k));
+    symptoms.appendChild(b);
+    return [k, b];
+  });
+
+  function button(text, fn) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = text;
+    b.addEventListener('click', fn);
+    answers.appendChild(b);
+    return b;
+  }
+
+  function start(k) {
+    current = k; path = [];
+    buttons.forEach(([key, b]) => b.setAttribute('aria-pressed', String(key === k)));
+    show(T[k].node);
+  }
+
+  function show(node) {
+    answers.innerHTML = '';
+    trail.textContent = path.length ? 'So far: ' + path.join(' · ') : '';
+    if (node.q) {
+      result.hidden = true;
+      question.textContent = node.q;
+      const y = button('Yes', () => { path.push('yes'); show(node.yes); });
+      button('No', () => { path.push('no'); show(node.no); });
+      y.focus({ preventScroll: true });
+    } else {
+      question.textContent = 'Check this first:';
+      result.hidden = false;
+      const title = (document.querySelector(node.to + ' > strong') || document.querySelector(node.to) || { textContent: '' }).textContent;
+      result.innerHTML = '';
+      const p = document.createElement('p');
+      p.style.margin = '0';
+      p.textContent = node.text + ' ';
+      const a = document.createElement('a');
+      a.href = node.to;
+      a.textContent = 'Go to: ' + title.replace(/\.$/, '');
+      p.appendChild(a);
+      result.appendChild(p);
+      button('Start again', () => start(current)).focus({ preventScroll: true });
+    }
+  }
+})();
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

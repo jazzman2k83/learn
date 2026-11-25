@@ -27,6 +27,10 @@
 <h1>Coordinating several buses</h1>
 <p class="lede">The body <span class="term">gateway</span> sits on three buses. Its <span class="term">NM coordinator</span> keeps all of them awake as long as anyone needs any one of them, and only then lets them go to sleep together.</p>
 
+<div class="warn">
+<p><strong>A different configuration of the gateway.</strong> Lessons 37 to 39 show the body gateway configured <em>without</em> partial networking in NmIf, for example in a project that does not use PNCs, or in an older release. In R25-11 an NmIf supports either the NM coordinator or partial networking, not both, so the gateway of lesson 3, which uses partial networking in NmIf, has no NM coordinator.</p>
+</div>
+
 <p>Up to now every <span class="term">bus</span> decided on its own when it may sleep. This lesson shows what changes when an ECU on several buses ties them together, and where in <span class="term">NmIf</span> that happens.</p>
 
 <h2>One gateway, three buses</h2>
@@ -114,6 +118,10 @@
 <h2>What the coordinator does not do</h2>
 <p>The coordinator only keeps <em>awake</em> buses awake. A bus of the cluster that is already in <span class="term">Bus-Sleep Mode</span> is watched, but the coordinator does not wake it up. Waking buses is the job of <span class="term">ComM</span>: when a bus wakes up, ComM decides whether the other buses of the cluster are started as well. Lesson 39 comes back to this.</p>
 <p>The other half of the job, letting the buses go to sleep together once nobody needs any of them, is the <span class="term">coordinated shutdown</span> (the coordinator releases the buses one by one with calculated delays so that they reach Bus-Sleep Mode at the same moment). It is the topic of the next lesson.</p>
+
+<div class="older">
+<p>In 4.4.0 and R20-11 NmIf had no partial networking functions; the bus NMs handled the PNC requests. There the gateway of lesson 3 could be an NM coordinator and use partial networking at the same time. Since R21-11 an NmIf supports the NM coordinator or partial networking, not both.</p>
+</div>
 
 <div class="note">
 <p><strong>Things to notice.</strong> The coordinator is not a new kind of NM message; it is NmIf calling the network request of each bus NM, exactly as ComM does for a single bus. One need anywhere in the cluster, inside the gateway or on any bus, keeps every awake bus of the cluster requested. A bus outside the cluster lives its own life.</p>

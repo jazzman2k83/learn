@@ -85,7 +85,7 @@
 
   const here = location.pathname.split('/').pop();
   const inLessons = /\/lessons\/[^/]*$/.test(location.pathname);
-  const inSubfolder = /\/(lessons|reference)\/[^/]*$/.test(location.pathname);
+  const inSubfolder = /\/(lessons|reference|config)\/[^/]*$/.test(location.pathname);
   const root = inSubfolder ? '../' : '';
   const idx = inLessons ? LESSONS.findIndex((l) => l.file === here) : -1;
   const href = (l) => root + 'lessons/' + l.file;

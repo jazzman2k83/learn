@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration help · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Configuration help">Network Management</p>
+<h1>Configuration help</h1>
+<p class="lede">Reference material for the engineer doing the configuration work: typical jobs step by step, and the way from a symptom on the bus to the setting that causes it.</p>
+
+<div class="cards">
+  <div class="card m-comm"><p class="tag">when you change a configuration</p><h3><a href="recipes.html">Recipe book</a></h3><p>Typical jobs in order: add a CAN channel with NM, add a <span class="term">PNC</span>, wake on CAN with validation, keep a channel awake for diagnostics, coordinate two buses on a <span class="term">gateway</span>, migrate PNC handling from COM signals to <span class="term">NmIf</span>. Each with the parameters to set, the rules to check and the lessons behind it.</p></div>
+  <div class="card m-nm"><p class="tag">when something does not work</p><h3><a href="troubleshooting.html">Troubleshooting guide</a></h3><p>From symptom to cause: the bus never sleeps, the ECU does not wake up, the wakeup expires, a PNC stays requested, bus-off loops, the channel goes down too early. Plus how to read a configuration you did not write, in the R25-11 form and in the older 4.4.0 and R20-11 form.</p></div>
+</div>
+
+<p>Both pages use the same parameter list as the configuration maps of <a href="../lessons/0055-configuration-map-comm-and-nm.html">lesson 55</a> and <a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">lesson 56</a>: every container and parameter name, its place, its multiplicity and the lesson that explains the feature come from one source. Projects on older releases find renamed and moved parameters on the sheet <a href="../reference/release-differences.html">Release differences</a>.</p>
+
+<p class="source">Source: chapter 10 (configuration specification) of the R25-11 specifications of ComM, Network Management Interface, CAN Network Management, UDP Network Management, CAN State Manager, Ethernet State Manager, ECU State Manager, CAN Interface and Dcm; for the older form the same documents of 4.4.0 and R20-11. Configuration tool screens are left out: they differ from tool to tool.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

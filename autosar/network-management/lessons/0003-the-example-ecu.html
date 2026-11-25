@@ -147,10 +147,15 @@
 <tbody>
 <tr><td><span class="term">NM variant</span> (how <span class="term">ComM</span> handles network management on a channel)</td><td><code class="term">FULL</code> (AUTOSAR NM runs and ComM requests and releases the network through it) on <code>BodyCan</code>, <code>ChassisCan</code> and <code>Eth</code></td><td>8</td></tr>
 <tr><td><span class="term">PNC gateway</span> (an ECU that forwards PNC requests between channels) type per channel</td><td><span class="term" data-term="active PNC gateway">ACTIVE</span> (the gateway coordinates the PNC there and sends the combined requests back) on <code>BodyCan</code> and <code>Eth</code>: the gateway is the <span class="term">top-level PNC coordinator</span> (the ECU that coordinates a PNC actively on all its channels) of Comfort and Lighting</td><td>44</td></tr>
+<tr><td><span class="term">NM coordinator</span> (a function of <span class="term">NmIf</span> that keeps several buses awake together and lets them sleep at the same time)</td><td>not used: the gateway uses the partial networking of NmIf, and in R25-11 an NmIf supports either the NM coordinator or partial networking, not both; each bus therefore goes to sleep on its own. Lessons 37 to 39 show the coordinator in a gateway configured without partial networking in NmIf</td><td>37</td></tr>
 <tr><td><span class="term">PNC bit vector</span> on body CAN</td><td>1 byte at an offset of 2 bytes: byte 2 of the <span class="term">NM PDU</span></td><td>15, 40</td></tr>
 <tr><td><span class="term">Wakeup validation</span></td><td>on in CanIf; <code>ECUM_WKSOURCE_BODYCAN</code> is validated by a received CAN message</td><td>34, 35</td></tr>
 </tbody>
 </table>
+</div>
+
+<div class="older">
+<p>In 4.4.0 and R20-11 NmIf had no partial networking functions: the bus NMs (CanNm, UdpNm) handled the PNC requests themselves. A gateway could then use partial networking and be an NM coordinator at the same time. Since R21-11, when partial networking moved into NmIf, it is one or the other.</p>
 </div>
 
 <div class="note">

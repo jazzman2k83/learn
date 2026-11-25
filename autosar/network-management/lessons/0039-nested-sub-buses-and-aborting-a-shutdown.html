@@ -23,6 +23,10 @@
 <h1>Nested sub-buses and aborting a shutdown</h1>
 <p class="lede">Gateways can be chained: a gateway below another one must wait for the signal from above before it starts its <span class="term">coordinated shutdown</span>. And a shutdown that has started can still be called off when somebody needs a bus again.</p>
 
+<div class="warn">
+<p><strong>A different configuration of the gateway.</strong> As in lessons 37 and 38, the gateways here use the NM coordinator <em>without</em> partial networking in NmIf (a project without PNCs, or an older release). In R25-11 an NmIf supports either the NM coordinator or partial networking, not both.</p>
+</div>
+
 <p>Lessons 37 and 38 showed one <span class="term">NM coordinator</span> on its own. This lesson adds coordinators in a chain, the three levels of synchronization the specification describes, and what happens when a shutdown is aborted or a bus wakes up.</p>
 
 <h2>A chain of coordinators</h2>
