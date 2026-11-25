@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interfaces · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.ctxmap .node { border-left-width: 4px; }
+.ctxmap .node.m-app { border-left-color: var(--m-app); } .ctxmap .node.m-rte { border-left-color: var(--m-rte); }
+.ctxmap .node.m-comm { border-left-color: var(--m-comm); } .ctxmap .node.m-bswm { border-left-color: var(--m-bswm); }
+.ctxmap .node.m-ecum { border-left-color: var(--m-ecum); } .ctxmap .node.m-nm { border-left-color: var(--m-nm); }
+.ctxmap .node.m-sm { border-left-color: var(--m-sm); } .ctxmap .node.m-if { border-left-color: var(--m-if); }
+.ctxmap .node.m-drv { border-left-color: var(--m-drv); } .ctxmap .node.m-dcm { border-left-color: var(--m-dcm); }
+.ctxmap .node.m-com { border-left-color: var(--m-com); }
+.ctxmap .node span { overflow-wrap: anywhere; }
+table.api td:first-child { width: 34%; overflow-wrap: anywhere; }
+table.api td:nth-child(2) { white-space: nowrap; }
+table.api td:last-child { white-space: nowrap; }
+@media (max-width: 34rem) { table.api td:nth-child(2) { white-space: normal; } }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">Network Management</p>
+<h1>Interfaces</h1>
+<p class="lede">Who calls whom: every module of the course, the functions it provides and the ones it calls, as far as they matter for network and mode management. Click a module in the map to jump to its table. The flows of lessons <a href="../lessons/0047-power-on-to-full-communication.html">47</a> to <a href="../lessons/0050-a-pnc-request-across-the-gateway.html">50</a> show the calls in action.</p>
+
+<div class="ctxmap">
+  <a class="node m-rte" href="#rte"><strong>RTE (SWC)</strong><span>calls ComM, EcuM for the SWC</span><span>ComM switches its modes</span></a>
+  <a class="node m-bswm" href="#bswm"><strong>BswM</strong><span>is told the states of all modules</span><span>calls ComM, NmIf, COM, EcuM</span></a>
+  <a class="node m-ecum" href="#ecum"><strong>EcuM</strong><span>calls ComM, BswM, CanSM, CanIf</span><span>called by CanTrcv, CanIf, BswM</span></a>
+  <a class="node m-dcm" href="#dcm"><strong>Dcm</strong><span>ComM_DCM_ActiveDiagnostic</span><span>Dcm_ComM_…ModeEntered</span></a>
+  <a class="node focus m-comm" href="#comm"><strong>ComM</strong><span>users, channels, PNCs</span></a>
+  <a class="node m-com" href="#com"><strong>COM, PduR, LSduR</strong><span>I-PDU groups; NM user data</span></a>
+  <a class="node m-sm" href="#cansm"><strong>CanSM</strong><span>CanSM_RequestComMode</span><span>calls CanIf, ComM, BswM</span></a>
+  <a class="node m-nm" href="#nmif"><strong>NmIf</strong><span>Nm_NetworkRequest …</span><span>calls ComM, BswM, CanNm, UdpNm</span></a>
+  <a class="node m-sm" href="#ethsm"><strong>EthSM</strong><span>EthSM_RequestComMode</span><span>calls EthIf, TcpIp, ComM, BswM</span></a>
+  <a class="node m-nm" href="#cannm"><strong>CanNm</strong><span>NM PDUs on CAN</span><span>via LSduR and CanIf</span></a>
+  <a class="node m-nm" href="#udpnm"><strong>UdpNm</strong><span>NM PDUs in UDP packets</span><span>via SoAd</span></a>
+  <a class="node m-if" href="#soad"><strong>SoAd, TcpIp</strong><span>SoAd_IfTransmit</span><span>TcpIp_RequestComMode</span></a>
+  <a class="node m-if" href="#canif"><strong>CanIf</strong><span>controller, PDU and transceiver modes</span><span>wakeup check and validation</span></a>
+  <a class="node m-drv" href="#cantrcv"><strong>CanTrcv</strong><span>CanTrcv_SetOpMode</span><span>reports wakeups to EcuM</span></a>
+  <a class="node m-if" href="#ethif"><strong>EthIf</strong><span>controller mode, link state</span><span>calls EthSM, BswM</span></a>
+</div>
+<p class="small">The arrows "A → B" in the tables mean: A calls B. Callbacks and indications are provided by the module that is told, so they appear in its table.</p>
+
+<h2 id="comm">ComM</h2>
+<p><span class="term">ComM</span> is the only module that the <span class="term">ComM user</span>s talk to, and the only one that requests <span class="term">communication mode</span>s from the <span class="term">bus state manager</span>s.</p>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">ComM_RequestComMode</code></td><td>SWC (RTE) → ComM</td><td>A user asks for full or no communication; port UR_{user_name}.</td><td><a href="../lessons/0005-comm-users-and-channels.html">5</a></td></tr>
+<tr><td><code>ComM_GetCurrentComMode</code>, <code>ComM_GetRequestedComMode</code>, <code>ComM_GetMaxComMode</code></td><td>SWC (RTE) → ComM</td><td>Read the current, the requested and the highest allowed mode of a user.</td><td><a href="../lessons/0005-comm-users-and-channels.html">5</a></td></tr>
+<tr><td><code class="term">ComM_CommunicationAllowed</code></td><td>BswM → ComM</td><td><span class="term">Communication allowed</span> on a channel (with EcuM Flex, BswM calls it).</td><td><a href="../lessons/0009-communication-allowed-and-bswm.html">9</a></td></tr>
+<tr><td><code class="term">ComM_DCM_ActiveDiagnostic</code>, <code class="term">ComM_DCM_InactiveDiagnostic</code></td><td>Dcm → ComM</td><td>A diagnostic session keeps the channel awake, or no longer.</td><td><a href="../lessons/0010-dcm-keeps-the-channel-awake.html">10</a></td></tr>
+<tr><td><code>ComM_PreventWakeUp</code>, <code>ComM_LimitChannelToNoComMode</code>, <code>ComM_LimitECUToNoComMode</code>, <code>ComM_SetECUGroupClassification</code></td><td>BswM or SWC → ComM</td><td><span class="term">Communication inhibition</span>: <span class="term">wake up inhibition</span> and <span class="term">limit to COMM_NO_COMMUNICATION</span>.</td><td><a href="../lessons/0011-communication-inhibition.html">11</a></td></tr>
+<tr><td><code class="term">ComM_CanSM_ModeIndication</code>, <code>ComM_EthSM_ModeIndication</code> (<code>ComM_&lt;Bus&gt;SM_ModeIndication</code>)</td><td>CanSM, EthSM → ComM</td><td>The bus state manager has reached a communication mode; ComM passes it on to its users and to BswM.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a>, <a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code>ComM_&lt;Bus&gt;SM_BusSleepMode</code></td><td>EthSM, LinSM → ComM</td><td>The bus is asleep; only for channels with NM variant <code class="term">SLAVE_ACTIVE</code> or <code class="term">SLAVE_PASSIVE</code>.</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a></td></tr>
+<tr><td><code class="term">ComM_Nm_NetworkStartIndication</code></td><td>NmIf → ComM</td><td>An NM PDU arrived in Bus-Sleep Mode: another ECU has woken the bus.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a>, <a href="../lessons/0036-passive-and-active-startup.html">36</a></td></tr>
+<tr><td><code>ComM_Nm_NetworkMode</code>, <code>ComM_Nm_PrepareBusSleepMode</code>, <code class="term">ComM_Nm_BusSleepMode</code></td><td>NmIf → ComM</td><td>The bus NM has entered Network Mode, Prepare Bus-Sleep Mode or Bus-Sleep Mode.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a></td></tr>
+<tr><td><code>ComM_Nm_RestartIndication</code></td><td>NmIf → ComM</td><td>A coordinated shutdown was aborted because NM restarted on one of the buses.</td><td><a href="../lessons/0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a></td></tr>
+<tr><td><code class="term">ComM_Nm_UpdateEIRA</code>, <code class="term">ComM_Nm_UpdateERA</code></td><td>NmIf → ComM</td><td>The aggregated PNC requests (<span class="term">EIRA</span>) and the external ones per channel (<span class="term">ERA</span>) have changed.</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>, <a href="../lessons/0042-eira-and-era.html">42</a></td></tr>
+<tr><td><code>ComM_Nm_ForwardSynchronizedPncShutdown</code></td><td>NmIf → ComM</td><td>A PN shutdown message arrived; forward the <span class="term">synchronized PNC shutdown</span>.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr><td><code>ComM_Nm_PncLearningBitIndication</code>, <code>ComM_Nm_RepeatMessageLeftIndication</code></td><td>NmIf → ComM</td><td><span class="term">PN learning</span>: a learning bit arrived; the learning phase is over.</td><td><a href="../lessons/0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+<tr><td><code>ComM_PnLearningRequest</code>, <code>ComM_GetPncToChannelMapping</code>, <code>ComM_UpdatePncToChannelMapping</code>, <code>ComM_ResetPncToChannelMapping</code>, <code>ComM_UpdatePncMembership</code></td><td>SWC or BSW → ComM</td><td>Start PN learning and read or change the <span class="term">dynamic PNC-to-channel mapping</span>.</td><td><a href="../lessons/0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+<tr><td><code class="term">ComM_EcuM_WakeUpIndication</code>, <code class="term">ComM_EcuM_PNCWakeUpIndication</code></td><td>EcuM → ComM</td><td>A validated wakeup on a channel, or for a PNC.</td><td><a href="../lessons/0034-wakeup-validation.html">34</a>, <a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a></td></tr>
+<tr><td><code>ComM_GetCurrentPNCComMode</code></td><td>SWC (RTE) → ComM</td><td>Current mode of the PNC a user is mapped to.</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a></td></tr>
+<tr><td><code>ComM_MainFunction_&lt;channel&gt;</code></td><td>SchM → ComM</td><td>One main function per channel; runs the state machines and timers.</td><td><a href="../lessons/0006-the-comm-channel-state-machine.html">6</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>ComM calls <code class="term">Nm_NetworkRequest</code>, <code class="term">Nm_NetworkRelease</code> and <code class="term">Nm_PassiveStartUp</code> (NmIf), <code class="term">CanSM_RequestComMode</code> and <code>EthSM_RequestComMode</code>, <code class="term">Nm_UpdateIRA</code>, the Dcm and BswM functions below, and switches the mode of each user through the <span class="term">mode switch port</span> UM_{user_name}.</p>
+<div class="older"><p>The mode indication is written <code>ComM_CanSM_ModeIndication</code> here, as in the R25-11 ComM specification (<code>ComM_&lt;Bus&gt;SM_ModeIndication</code>). The R25-11 CanSM specification and all releases up to R24-11 write <code>ComM_BusSM_ModeIndication</code>; it is the same function. <code>Nm_UpdateIRA</code>, <code>ComM_Nm_UpdateEIRA</code> and <code>ComM_Nm_UpdateERA</code> are new in R21-11 (draft) and valid from R22-11; before, ComM read EIRA and ERA as COM signals (<a href="../lessons/0053-pnc-through-com-signals.html">53</a>).</p></div>
+
+<h2 id="nmif">NmIf</h2>
+<p><span class="term">NmIf</span> passes each request from ComM to the bus NM of the channel (the function name with <code>&lt;Bus&gt;Nm_</code>, for example <code class="term">CanNm_NetworkRequest</code>), and each indication of a bus NM up to ComM and BswM. It also holds the <span class="term">NM coordinator</span> and the PNC aggregation.</p>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Nm_NetworkRequest</code>, <code class="term">Nm_NetworkRelease</code></td><td>ComM → NmIf</td><td>This ECU needs the bus, or no longer.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a></td></tr>
+<tr><td><code class="term">Nm_PassiveStartUp</code></td><td>ComM → NmIf</td><td>Start NM without requesting the bus (after a wakeup by another ECU).</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a>, <a href="../lessons/0036-passive-and-active-startup.html">36</a></td></tr>
+<tr><td><code class="term">Nm_DisableCommunication</code>, <code>Nm_EnableCommunication</code></td><td>BswM → NmIf</td><td><span class="term">Communication control</span>: stop or restart sending NM PDUs.</td><td><a href="../lessons/0017-passive-mode-communication-control-bus-load-reduction.html">17</a></td></tr>
+<tr><td><code class="term">Nm_RepeatMessageRequest</code></td><td>BSW → NmIf</td><td>Send a <span class="term">Repeat Message Request</span> to all nodes.</td><td><a href="../lessons/0016-repeat-message-request-and-node-detection.html">16</a></td></tr>
+<tr><td><code>Nm_SetUserData</code>, <code>Nm_GetUserData</code>, <code>Nm_GetPduData</code>, <code>Nm_GetNodeIdentifier</code>, <code>Nm_GetLocalNodeIdentifier</code>, <code>Nm_GetState</code>, <code>Nm_CheckRemoteSleepIndication</code></td><td>SWC or BSW → NmIf</td><td>Read and write the <span class="term">user data</span> and the other contents of the NM PDU, read the NM state.</td><td><a href="../lessons/0016-repeat-message-request-and-node-detection.html">16</a>, <a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td><code class="term">Nm_UpdateIRA</code></td><td>ComM → NmIf</td><td>The internal PNC requests of this ECU.</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a></td></tr>
+<tr><td><code>Nm_RequestSynchronizedPncShutdown</code></td><td>ComM → NmIf</td><td>The top-level PNC coordinator starts a synchronized PNC shutdown.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr><td><code>Nm_PnLearningRequest</code></td><td>ComM → NmIf</td><td>Send the learning and repeat message bits.</td><td><a href="../lessons/0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+<tr><td><code class="term">Nm_NetworkStartIndication</code>, <code class="term">Nm_NetworkMode</code>, <code class="term">Nm_PrepareBusSleepMode</code>, <code class="term">Nm_BusSleepMode</code></td><td>CanNm, UdpNm → NmIf</td><td>The bus NM was woken, or entered a mode. NmIf passes them to ComM.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a></td></tr>
+<tr><td><code class="term">Nm_RemoteSleepIndication</code>, <code>Nm_RemoteSleepCancellation</code></td><td>CanNm, UdpNm → NmIf</td><td>All other nodes are ready to sleep, or no longer.</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td><code class="term">Nm_StateChangeNotification</code>, <code class="term">Nm_CarWakeUpIndication</code></td><td>CanNm, UdpNm → NmIf</td><td>The NM state changed; a <span class="term">car wakeup</span> request arrived. NmIf tells BswM.</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td><code>Nm_RepeatMessageIndication</code></td><td>CanNm, UdpNm → NmIf</td><td>An NM PDU with the Repeat Message Request bit arrived.</td><td><a href="../lessons/0016-repeat-message-request-and-node-detection.html">16</a></td></tr>
+<tr><td><code>Nm_PncBitVectorRxIndication</code>, <code>Nm_PncBitVectorTxIndication</code></td><td>CanNm, UdpNm → NmIf</td><td>A received <span class="term">PNC bit vector</span>; ask for the PNC bits to send.</td><td><a href="../lessons/0042-eira-and-era.html">42</a></td></tr>
+<tr><td><code>Nm_SynchronizationPoint</code>, <code>Nm_CoordReadyToSleepIndication</code>, <code>Nm_CoordReadyToSleepCancellation</code></td><td>Bus NM → NmIf</td><td>A good moment to start the coordinated shutdown; the <span class="term">NM Coordinator Sleep Ready Bit</span> was set or cleared by the gateway above.</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a>, <a href="../lessons/0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a></td></tr>
+<tr><td><code>Nm_ForwardSynchronizedPncShutdown</code></td><td>CanNm, UdpNm → NmIf</td><td>A PN shutdown message arrived.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr><td><code>Nm_MainFunction</code></td><td>SchM → NmIf</td><td>Shutdown timers, PNC reset timers, synchronized PNC shutdown.</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a>, <a href="../lessons/0042-eira-and-era.html">42</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>NmIf calls the <code>ComM_Nm_…</code> functions, <code>BswM_Nm_StateChangeNotification</code> and <code>BswM_Nm_CarWakeUpIndication</code>, and on the bus NMs also <code>&lt;Bus&gt;Nm_RequestBusSynchronization</code> and <code>&lt;Bus&gt;Nm_SetSleepReadyBit</code> for the coordinated shutdown (<a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a>, <a href="../lessons/0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a>).</p>
+
+<h2 id="cannm">CanNm</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CanNm_NetworkRequest</code>, <code>CanNm_NetworkRelease</code>, <code>CanNm_PassiveStartUp</code>, and the other <code>CanNm_</code> twins of the NmIf functions</td><td>NmIf → CanNm</td><td>The same services as above, for one CAN channel.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a></td></tr>
+<tr><td><code>CanNm_RequestBusSynchronization</code>, <code>CanNm_SetSleepReadyBit</code></td><td>NmIf → CanNm</td><td>Coordinated shutdown: send an NM PDU now; set the NM Coordinator Sleep Ready Bit.</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a>, <a href="../lessons/0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a></td></tr>
+<tr><td><code>CanNm_ActivateTxPnShutdownMsg</code>, <code>CanNm_DeactivateTxPnShutdownMsg</code></td><td>NmIf → CanNm</td><td>Send PN shutdown messages, or usual NM PDUs again.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr><td><code>CanNm_RxIndication</code>, <code>CanNm_TxConfirmation</code>, <code>CanNm_TriggerTransmit</code></td><td>LSduR → CanNm</td><td>An NM PDU was received; one was sent; fill an NM PDU now.</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a></td></tr>
+<tr><td><code>CanNm_ConfirmPnAvailability</code></td><td>CanSM → CanNm</td><td>The transceiver runs with selective wakeup: switch on the PN filter.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+<tr><td><code>CanNm_MainFunction</code></td><td>SchM → CanNm</td><td>States and timers.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>CanNm calls <code>LSduR_CanNmTransmit</code> to send an NM PDU, the PduR for <span class="term">user data</span> from COM (<code class="term">PduR_CanNmTriggerTransmit</code>, <code>PduR_CanNmRxIndication</code>, <code>PduR_CanNmTxConfirmation</code>), <code>CanSM_TxTimeoutException</code>, and the <code>Nm_</code> callbacks of NmIf.</p>
+<div class="older"><p>Up to R23-11 there is no <span class="term">LSduR</span>: CanNm calls <code>CanIf_Transmit</code>, and CanIf calls <code>CanNm_RxIndication</code> and <code>CanNm_TxConfirmation</code> directly (4.4.0, R20-11).</p></div>
+
+<h2 id="udpnm">UdpNm</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">UdpNm_NetworkRequest</code> and the other <code>UdpNm_</code> twins of the NmIf functions</td><td>NmIf → UdpNm</td><td>The same services, for one Ethernet channel.</td><td><a href="../lessons/0020-udpnm-nm-on-ethernet.html">20</a></td></tr>
+<tr><td><code class="term">UdpNm_SoAdIfRxIndication</code>, <code>UdpNm_SoAdIfTxConfirmation</code>, <code>UdpNm_SoAdIfTriggerTransmit</code></td><td>SoAd → UdpNm</td><td>An <span class="term">NM packet</span> was received, was sent, or is to be filled now.</td><td><a href="../lessons/0020-udpnm-nm-on-ethernet.html">20</a></td></tr>
+<tr><td><code>UdpNm_MainFunction&lt;Instance_Id&gt;</code></td><td>SchM → UdpNm</td><td>States and timers.</td><td><a href="../lessons/0020-udpnm-nm-on-ethernet.html">20</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>UdpNm calls <code class="term">SoAd_IfTransmit</code>, the PduR for user data (<code>PduR_UdpNm…</code>) and the <code>Nm_</code> callbacks of NmIf.</p>
+
+<h2 id="cansm">CanSM</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CanSM_RequestComMode</code>, <code>CanSM_GetCurrentComMode</code></td><td>ComM → CanSM</td><td>Request a communication mode for a CAN network; read the current one.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a></td></tr>
+<tr><td><code class="term">CanSM_StartWakeupSource</code>, <code class="term">CanSM_StopWakeupSource</code></td><td>EcuM → CanSM</td><td>Switch the network on for <span class="term">wakeup validation</span>, and off again if it fails.</td><td><a href="../lessons/0034-wakeup-validation.html">34</a>, <a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code>CanSM_ControllerModeIndication</code>, <code>CanSM_TransceiverModeIndication</code></td><td>CanIf → CanSM</td><td>A <span class="term">CAN controller</span> or transceiver has reached its new mode.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a></td></tr>
+<tr><td><code>CanSM_ControllerBusOff</code></td><td>CanIf → CanSM</td><td>A controller went <span class="term">bus-off</span>: start the <span class="term">bus-off recovery</span>.</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a></td></tr>
+<tr><td><code>CanSM_ConfirmPnAvailability</code>, <code>CanSM_ClearTrcvWufFlagIndication</code>, <code>CanSM_CheckTransceiverWakeFlagIndication</code></td><td>CanIf → CanSM</td><td>The transceiver runs with selective wakeup; its wakeup flag was cleared or checked.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+<tr><td><code>CanSM_TxTimeoutException</code></td><td>CanNm → CanSM</td><td>An NM PDU was not sent in time on a partial network: recover the network.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+<tr><td><code>CanSM_MainFunction</code></td><td>SchM → CanSM</td><td>The state machines and the bus-off timers.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>CanSM calls <code>CanIf_SetControllerMode</code>, <code>CanIf_SetTrcvMode</code>, <code>CanIf_SetPduMode</code>, <code>CanIf_ClearTrcvWufFlag</code>, <code>CanIf_CheckTrcvWakeFlag</code> and <code>CanIf_GetTxConfirmationState</code>, then <code class="term">ComM_CanSM_ModeIndication</code>, <code>BswM_CanSM_CurrentState</code>, <code>CanNm_ConfirmPnAvailability</code> and, for bus-off, <code>Dem_SetEventStatus</code>.</p>
+
+<h2 id="ethsm">EthSM</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>EthSM_RequestComMode</code>, <code>EthSM_GetCurrentComMode</code></td><td>ComM → EthSM</td><td>Request a communication mode for an Ethernet network; read the current one.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code>EthSM_CtrlModeIndication</code></td><td>EthIf → EthSM</td><td>The Ethernet controller has reached its mode.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code>EthSM_TrcvLinkStateChg</code></td><td>EthIf → EthSM</td><td>The <span class="term">link state</span> changed (cable connection up or down).</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code>EthSM_TcpIpModeIndication</code></td><td>TcpIp → EthSM</td><td>IP communication is online or offline.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a>, <a href="../lessons/0024-above-ethsm-when-the-link-comes-up.html">24</a></td></tr>
+<tr><td><code>EthSM_MainFunction</code></td><td>SchM → EthSM</td><td>The state machine.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>EthSM calls <code>EthIf_SetControllerMode</code>, <code>EthIf_GetControllerMode</code>, <code>TcpIp_RequestComMode</code>, <code>ComM_EthSM_ModeIndication</code>, <code>BswM_EthSM_CurrentState</code> and, on SLAVE_PASSIVE channels, <code>ComM_EthSM_BusSleepMode</code>. <code>EthSM_SleepIndication</code> (from EthIf) is still a draft in R25-11.</p>
+
+<h2 id="ecum">EcuM</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>EcuM_RequestRUN</code>, <code class="term">EcuM_ReleaseRUN</code>, <code>EcuM_RequestPOST_RUN</code>, <code class="term">EcuM_ReleasePOST_RUN</code></td><td>SWC (RTE) → EcuM</td><td>An <span class="term">EcuM user</span> places or releases a <span class="term">RUN request</span> or <span class="term">POST_RUN request</span>.</td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a></td></tr>
+<tr><td><code class="term">EcuM_SelectShutdownTarget</code>, <code class="term">EcuM_GoDownHaltPoll</code></td><td>BswM → EcuM</td><td>Choose the <span class="term">shutdown target</span>, then go there.</td><td><a href="../lessons/0029-shutdown-targets.html">29</a>, <a href="../lessons/0030-sleep-halt-and-poll.html">30</a></td></tr>
+<tr><td><code class="term">EcuM_SetRelWakeupAlarm</code>, <code class="term">EcuM_SetAbsWakeupAlarm</code>, <code class="term">EcuM_AbortWakeupAlarm</code></td><td>SWC (RTE) → EcuM</td><td>The <span class="term">alarm clock</span>.</td><td><a href="../lessons/0031-the-alarm-clock.html">31</a></td></tr>
+<tr><td><code class="term">EcuM_SetWakeupEvent</code></td><td>CanTrcv, drivers → EcuM</td><td>A <span class="term">wakeup source</span> has woken the ECU: the event is <span class="term">pending</span>.</td><td><a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a>, <a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code class="term">EcuM_CheckWakeup</code></td><td>wakeup ISR → EcuM</td><td>Check which source woke the ECU (through the integration code).</td><td><a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code class="term">EcuM_ValidateWakeupEvent</code></td><td>CanIf (or another module) → EcuM</td><td>The wakeup is real: the event is <span class="term">validated</span>.</td><td><a href="../lessons/0034-wakeup-validation.html">34</a></td></tr>
+<tr><td><code class="term">EcuM_ClearWakeupEvent</code>, <code>EcuM_GetPendingWakeupEvents</code>, <code>EcuM_GetValidatedWakeupEvents</code>, <code>EcuM_GetExpiredWakeupEvents</code></td><td>BSW or integration code → EcuM (C functions, no SWC port)</td><td>Clear or read the wakeup events.</td><td><a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>EcuM calls the integration code for each wakeup source (<code class="term">EcuM_StartWakeupSources</code> → <code>CanSM_StartWakeupSource</code>, <code class="term">EcuM_CheckValidation</code> → <code class="term">CanIf_CheckValidation</code>, <code class="term">EcuM_StopWakeupSources</code> → <code>CanSM_StopWakeupSource</code>), then <code>ComM_EcuM_WakeUpIndication</code> or <code>ComM_EcuM_PNCWakeUpIndication</code>, and reports to BswM with <code class="term">BswM_EcuM_CurrentWakeup</code>, <code class="term">BswM_EcuM_RequestedState</code> and <code class="term">BswM_EcuM_CurrentState</code>.</p>
+
+<h2 id="bswm">BswM</h2>
+<p><span class="term">BswM</span> is told the state of every module and acts by its configured rules (<a href="../lessons/0027-bswm-as-the-glue.html">27</a>).</p>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>BswM_ComM_CurrentMode</code>, <code>BswM_ComM_CurrentPNCMode</code></td><td>ComM → BswM</td><td>The mode of a channel or a PNC has changed.</td><td><a href="../lessons/0009-communication-allowed-and-bswm.html">9</a>, <a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a></td></tr>
+<tr><td><code>BswM_CanSM_CurrentState</code>, <code>BswM_EthSM_CurrentState</code></td><td>CanSM, EthSM → BswM</td><td>The state of the bus state manager.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a>, <a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code>BswM_Nm_StateChangeNotification</code>, <code>BswM_Nm_CarWakeUpIndication</code></td><td>NmIf → BswM</td><td>The NM state changed; a car wakeup request arrived.</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td><code>BswM_EcuM_CurrentState</code>, <code>BswM_EcuM_RequestedState</code>, <code>BswM_EcuM_CurrentWakeup</code></td><td>EcuM → BswM</td><td>The EcuM state, the RUN and POST_RUN requests, the state of a wakeup source.</td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a></td></tr>
+<tr><td><code>BswM_Dcm_CommunicationMode_CurrentState</code></td><td>Dcm → BswM</td><td>The tester asked for communication control.</td><td><a href="../lessons/0017-passive-mode-communication-control-bus-load-reduction.html">17</a></td></tr>
+<tr><td><code>BswM_EthIf_PortGroupLinkStateChg</code>, <code>BswM_SoAd_SoConModeChg</code></td><td>EthIf, SoAd → BswM</td><td>A switch port group's link changed; a socket connection changed its mode.</td><td><a href="../lessons/0024-above-ethsm-when-the-link-comes-up.html">24</a></td></tr>
+<tr><td><code>BswM_RequestMode</code></td><td>BSW → BswM</td><td>A <span class="term">mode request</span> from a module without its own BswM function.</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>BswM's actions call <code>ComM_CommunicationAllowed</code>, <code>ComM_RequestComMode</code>, the ComM inhibition functions, <code>Nm_EnableCommunication</code> and <code>Nm_DisableCommunication</code>, <code>Com_IpduGroupStart</code>, <code>Com_IpduGroupStop</code> and <code>Com_EnableReceptionDM</code>, <code>EthIf_SwitchPortGroupRequestMode</code>, <code>EcuM_SelectShutdownTarget</code> and <code>EcuM_GoDownHaltPoll</code>.</p>
+
+<h2 id="dcm">Dcm</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Dcm_ComM_FullComModeEntered</code>, <code class="term">Dcm_ComM_SilentComModeEntered</code>, <code class="term">Dcm_ComM_NoComModeEntered</code></td><td>ComM → Dcm</td><td>The channel has entered full, silent or no communication: Dcm may answer, or not.</td><td><a href="../lessons/0010-dcm-keeps-the-channel-awake.html">10</a></td></tr>
+</tbody>
+</table>
+</div>
+<p><span class="term">Dcm</span> calls <code>ComM_DCM_ActiveDiagnostic</code> and <code>ComM_DCM_InactiveDiagnostic</code> (it is not a ComM user), and <code>BswM_Dcm_CommunicationMode_CurrentState</code> for communication control.</p>
+
+<h2 id="canif">CanIf</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>CanIf_SetControllerMode</code>, <code>CanIf_SetTrcvMode</code>, <code>CanIf_SetPduMode</code></td><td>CanSM → CanIf</td><td>Switch controller and transceiver, and the <span class="term">PDU mode</span> (whether PDUs are sent).</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a></td></tr>
+<tr><td><code>CanIf_GetTxConfirmationState</code></td><td>CanSM → CanIf</td><td>Has a PDU been sent since the recovery?</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a></td></tr>
+<tr><td><code>CanIf_ClearTrcvWufFlag</code>, <code>CanIf_CheckTrcvWakeFlag</code></td><td>CanSM → CanIf</td><td>Clear or check the wakeup flag of the transceiver.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+<tr><td><code class="term">CanIf_CheckWakeup</code></td><td>EcuM (integration code) → CanIf</td><td>Did this transceiver or controller wake the ECU?</td><td><a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code class="term">CanIf_CheckValidation</code></td><td>EcuM (integration code) → CanIf</td><td>Has a frame been received since the wakeup?</td><td><a href="../lessons/0034-wakeup-validation.html">34</a>, <a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code>CanIf_Transmit</code></td><td>LSduR → CanIf</td><td>Send an NM PDU (and every other PDU).</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a></td></tr>
+<tr><td><code>CanIf_ControllerBusOff</code>, <code>CanIf_ControllerModeIndication</code>, <code class="term">CanIf_RxIndication</code></td><td>Can driver → CanIf</td><td>Bus-off; mode reached; a frame was received.</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a>, <a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code>CanIf_TrcvModeIndication</code>, <code>CanIf_ConfirmPnAvailability</code>, <code>CanIf_CheckTrcvWakeFlagIndication</code></td><td>CanTrcv → CanIf</td><td>Transceiver mode reached; selective wakeup is running; wakeup flag checked.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a>, <a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>CanIf passes these on to CanSM (<code>CanSM_…</code>), passes NM PDUs on to the LSduR, calls <code>CanTrcv_SetOpMode</code>, <code class="term">CanTrcv_CheckWakeup</code> and <code>CanTrcv_CheckWakeFlag</code>, and reports a validated wakeup with <code>EcuM_ValidateWakeupEvent</code>.</p>
+
+<h2 id="cantrcv">CanTrcv</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>CanTrcv_SetOpMode</code></td><td>CanIf → CanTrcv</td><td>Normal, standby or sleep.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a></td></tr>
+<tr><td><code class="term">CanTrcv_CheckWakeup</code></td><td>CanIf → CanTrcv</td><td>Did this transceiver detect a wakeup?</td><td><a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><code>CanTrcv_CheckWakeFlag</code></td><td>CanIf → CanTrcv</td><td>Read the wakeup flag of a transceiver with selective wakeup.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+</tbody>
+</table>
+</div>
+<p><span class="term">CanTrcv</span> calls <code>EcuM_SetWakeupEvent</code> with its wakeup source (in the example <code>ECUM_WKSOURCE_BODYCAN</code>), and <code>CanIf_TrcvModeIndication</code>, <code>CanIf_ConfirmPnAvailability</code> and <code>CanIf_CheckTrcvWakeFlagIndication</code>.</p>
+
+<h2 id="ethif">EthIf</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>EthIf_SetControllerMode</code>, <code>EthIf_GetControllerMode</code></td><td>EthSM → EthIf</td><td>Switch the Ethernet controller on or off; read its mode.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code class="term">EthIf_CheckWakeup</code></td><td>EcuM (integration code) → EthIf</td><td>Did the Ethernet hardware wake the ECU?</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td><code>EthIf_SwitchPortGroupRequestMode</code></td><td>BswM → EthIf</td><td>Switch a group of switch ports on or off.</td><td><a href="../lessons/0024-above-ethsm-when-the-link-comes-up.html">24</a></td></tr>
+</tbody>
+</table>
+</div>
+<p><span class="term">EthIf</span> calls <code>EthSM_CtrlModeIndication</code>, <code>EthSM_TrcvLinkStateChg</code> and <code>BswM_EthIf_PortGroupLinkStateChg</code>.</p>
+
+<h2 id="soad">SoAd and TcpIp</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code class="term">SoAd_IfTransmit</code></td><td>UdpNm → SoAd</td><td>Send an NM packet as a UDP message.</td><td><a href="../lessons/0020-udpnm-nm-on-ethernet.html">20</a></td></tr>
+<tr><td><code>TcpIp_RequestComMode</code></td><td>EthSM → TcpIp</td><td>Switch IP communication on or off.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a>, <a href="../lessons/0024-above-ethsm-when-the-link-comes-up.html">24</a></td></tr>
+</tbody>
+</table>
+</div>
+<p><span class="term">SoAd</span> calls <code>UdpNm_SoAdIfRxIndication</code>, <code>UdpNm_SoAdIfTxConfirmation</code>, <code>UdpNm_SoAdIfTriggerTransmit</code> and <code>BswM_SoAd_SoConModeChg</code>. <span class="term">TcpIp</span> calls <code>EthSM_TcpIpModeIndication</code>.</p>
+
+<h2 id="com">COM, PduR and LSduR</h2>
+<div class="table-wrap">
+<table class="data api">
+<thead><tr><th>Function</th><th>Direction</th><th>What for</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><code>Com_IpduGroupStart</code>, <code>Com_IpduGroupStop</code></td><td>BswM → COM</td><td>Start or stop the <span class="term">I-PDU group</span>s of a channel.</td><td><a href="../lessons/0009-communication-allowed-and-bswm.html">9</a></td></tr>
+<tr><td><code class="term">PduR_CanNmTriggerTransmit</code>, <code>PduR_CanNmRxIndication</code>, <code>PduR_CanNmTxConfirmation</code> (and <code>PduR_UdpNm…</code>)</td><td>CanNm, UdpNm → PduR</td><td>NM user data from COM: fill it in, pass the received one on, confirm.</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td><code>LSduR_CanNmTransmit</code></td><td>CanNm → LSduR</td><td>Send an NM PDU towards CanIf (from R24-11 on).</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="rte">RTE</h2>
+<p>The SWC <code>BodyControl</code> never calls a BSW module directly. Its ports go through the <span class="term">RTE</span>: to ComM through UR_{user_name} (requests) and UM_{user_name} (the mode switch port of each user), to EcuM for RUN and POST_RUN requests and the alarm clock, to NmIf for user data. Lessons <a href="../lessons/0005-comm-users-and-channels.html">5</a>, <a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0031-the-alarm-clock.html">31</a>.</p>
+
+<p class="source">Source: chapter 8 (API specification, sections 8.3 to 8.6) of the R25-11 specifications: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Communication Manager</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Network Management Interface</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">CAN Network Management</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">UDP Network Management</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">CAN State Manager</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_EthernetStateManager.pdf">Ethernet State Manager</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">ECU State Manager</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">BSW Mode Manager</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_DiagnosticCommunicationManager.pdf">Diagnostic Communication Manager</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">CAN Interface</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANTransceiverDriver.pdf">CAN Transceiver Driver</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_EthernetInterface.pdf">Ethernet Interface</a>, <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_SocketAdaptor.pdf">Socket Adaptor</a> and <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_TcpIp.pdf">TcpIp</a>; for the release notes the CAN Network Management and Communication Manager specifications of 4.4.0, R20-11 and R24-11.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

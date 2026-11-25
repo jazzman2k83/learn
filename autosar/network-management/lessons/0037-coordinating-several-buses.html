@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coordinating several buses · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.needs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .needs { grid-template-columns: 1fr; } }
+.needs button { width: 100%; text-align: left; padding: 0.5rem 0.7rem; line-height: 1.35; }
+.needs button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.needs button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+.needs button[aria-pressed="true"] small { color: var(--ink); }
+.member { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin: 0 0 0.8rem; font-family: var(--sans); font-size: 0.8rem; }
+.member label { display: flex; align-items: center; gap: 0.35rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Coordinating several buses</h1>
+<p class="lede">The body <span class="term">gateway</span> sits on three buses. Its <span class="term">NM coordinator</span> keeps all of them awake as long as anyone needs any one of them, and only then lets them go to sleep together.</p>
+
+<p>Up to now every <span class="term">bus</span> decided on its own when it may sleep. This lesson shows what changes when an ECU on several buses ties them together, and where in <span class="term">NmIf</span> that happens.</p>
+
+<h2>One gateway, three buses</h2>
+<p>The example <span class="term">gateway</span> is on body CAN (<code>BodyCan</code>), chassis CAN (<code>ChassisCan</code>) and Ethernet (<code>Eth</code>). Each bus has its own <span class="term">network management</span>: <span class="term">CanNm</span> on the two CAN buses, <span class="term">UdpNm</span> on Ethernet. Each of them only knows its own bus. Body CAN would fall asleep as soon as the Door ECU, the Light ECU and the gateway are all ready, no matter whether the Brake ECU is still talking on chassis CAN.</p>
+<p>For a gateway that passes data from one bus to another this is often not what the vehicle wants. The usual wish is: while any ECU on any of these buses still needs its bus, all of them stay awake; when nobody needs any of them any more, all of them go to sleep. NmIf offers exactly this as its <span class="term">NM coordinator</span> functionality.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 280" role="img" aria-labelledby="f1t">
+<title id="f1t">The body gateway. ComM sits above NmIf. NmIf with the NM coordinator controls three bus NMs: CanNm for BodyCan, CanNm for ChassisCan and UdpNm for Eth. A dashed frame marks the three as one NM coordination cluster. Below them the buses with the other ECUs: Door ECU and Light ECU on body CAN, Brake ECU on chassis CAN, head unit on Ethernet.</title>
+<rect x="16" y="8" width="608" height="166" class="d-ecu"/>
+<text x="28" y="27" class="d-tb">Body gateway</text>
+<rect x="250" y="16" width="140" height="30" class="m-comm"/><text x="320" y="35" class="d-t d-c">ComM</text>
+<line x1="320" y1="46" x2="320" y2="66" class="d-ln"/>
+<rect x="30" y="58" width="580" height="108" class="d-frame"/>
+<text x="600" y="76" class="d-s d-r">NM coordination cluster</text>
+<rect x="190" y="66" width="260" height="34" class="m-nm"/><text x="320" y="87" class="d-t d-c">NmIf · NM coordinator</text>
+<line x1="320" y1="100" x2="125" y2="124" class="d-ln"/>
+<line x1="320" y1="100" x2="320" y2="124" class="d-ln"/>
+<line x1="320" y1="100" x2="515" y2="124" class="d-ln"/>
+<rect x="40" y="124" width="170" height="32" class="m-nm"/><text x="125" y="144" class="d-t d-c">CanNm · BodyCan</text>
+<rect x="235" y="124" width="170" height="32" class="m-nm"/><text x="320" y="144" class="d-t d-c">CanNm · ChassisCan</text>
+<rect x="430" y="124" width="170" height="32" class="m-nm"/><text x="515" y="144" class="d-t d-c">UdpNm · Eth</text>
+<line x1="125" y1="174" x2="125" y2="204" class="d-ln"/>
+<line x1="320" y1="174" x2="320" y2="204" class="d-ln"/>
+<line x1="515" y1="174" x2="515" y2="204" class="d-ln"/>
+<rect x="40" y="204" width="170" height="6" class="m-drv"/><text x="125" y="198" class="d-s d-c" dx="40">body CAN</text>
+<rect x="235" y="204" width="170" height="6" class="m-drv"/><text x="320" y="198" class="d-s d-c" dx="45">chassis CAN</text>
+<rect x="430" y="204" width="170" height="6" class="m-drv"/><text x="515" y="198" class="d-s d-c" dx="40">Ethernet</text>
+<line x1="80" y1="210" x2="80" y2="232" class="d-ln"/><line x1="170" y1="210" x2="170" y2="232" class="d-ln"/>
+<line x1="320" y1="210" x2="320" y2="232" class="d-ln"/><line x1="515" y1="210" x2="515" y2="232" class="d-ln"/>
+<rect x="44" y="232" width="74" height="30" class="m-app"/><text x="81" y="251" class="d-t d-c">Door ECU</text>
+<rect x="133" y="232" width="74" height="30" class="m-app"/><text x="170" y="251" class="d-t d-c">Light ECU</text>
+<rect x="282" y="232" width="76" height="30" class="m-app"/><text x="320" y="251" class="d-t d-c">Brake ECU</text>
+<rect x="477" y="232" width="76" height="30" class="m-app"/><text x="515" y="251" class="d-t d-c">Head unit</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The coordinator is part of NmIf, between ComM and the bus NMs. It does not send anything itself; it requests and releases the network on each bus NM, just as ComM would.</figcaption>
+</figure>
+
+<h2>Where the coordinator works</h2>
+<p>The <span class="term">NM coordinator</span> is an optional part of <span class="term">NmIf</span>; when it is not configured, NmIf only passes calls through between <span class="term">ComM</span> and the bus NMs. When it is configured, the buses it ties together form an <span class="term">NM coordination cluster</span> (a set of buses that the coordinator keeps awake together and shuts down together). The rules:</p>
+<ul>
+<li>An ECU may have several coordination clusters; each one is coordinated independently.</li>
+<li>Each bus belongs to at most one cluster. A bus in no cluster is not coordinated: NmIf forwards ComM's requests for it unchanged.</li>
+<li>A bus in a cluster is a <span class="term">coordinated channel</span> (a channel that the NM coordinator keeps awake and shuts down together with the other channels of its cluster). Its bus NM must be able to send <span class="term">NM PDU</span>s, so a bus NM in <span class="term">passive mode</span> cannot be coordinated.</li>
+<li>Several coordinators may sit on the same bus, for example two gateways in a chain. Lesson 39 shows how they agree.</li>
+<li>A bus whose sleep this ECU alone decides, such as a LIN bus where the ECU is the master, can be configured as a sleep master: the coordinator treats it as ready to sleep at all times.</li>
+</ul>
+<p>In the example all three channels, <code>BodyCan</code>, <code>ChassisCan</code> and <code>Eth</code>, form one cluster.</p>
+
+<h2>Keeping coordinated buses alive</h2>
+<p>All AUTOSAR bus NMs share one principle: an ECU keeps its bus awake as long as it keeps the network requested. The coordinator uses that principle. It keeps the network requested on every awake bus of the cluster (through <code class="term">CanNm_NetworkRequest</code> and <code class="term">UdpNm_NetworkRequest</code>) as long as one of two things is true:</p>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">need inside the gateway</p><h3>This ECU needs one of the buses</h3><p>ComM has requested the network on at least one bus of the cluster with <code class="term">Nm_NetworkRequest</code>. Example: <code>UserChassis</code> needs <code>ChassisCan</code>, so body CAN and Ethernet stay awake too.</p></div>
+  <div class="card m-nm"><p class="tag">need on a bus</p><h3>Another ECU needs one of the buses</h3><p>At least one bus of the cluster is not ready to sleep because another ECU still requests it. Example: the Door ECU keeps body CAN awake, so the gateway keeps chassis CAN and Ethernet awake, even if it needs none of them itself.</p></div>
+</div>
+<p>The specification sums it up in one sentence: as long as at least one node, the gateway included, keeps any bus of the cluster awake, the coordinator keeps all buses of the cluster awake.</p>
+<p>How does the coordinator know that the other ECUs on a bus are ready? From the bus NM. While the gateway keeps sending NM PDUs, CanNm and UdpNm watch whether any other node still sends. When no other node has sent for a while, the bus NM reports a <span class="term">Remote Sleep Indication</span> to NmIf; when one starts sending again, it reports a remote sleep cancellation. The coordinator only needs these two notifications per bus, plus ComM's requests and releases.</p>
+
+<h2>Try it</h2>
+<p>Switch the needs on and off, and take buses in and out of the cluster. The table shows what NmIf does with each bus. All three buses are awake at the start.</p>
+<div class="panel no-print" id="sim">
+<div class="needs">
+<button type="button" aria-pressed="false" data-need="door">Door ECU<small>does not need body CAN</small></button>
+<button type="button" aria-pressed="false" data-need="brake">Brake ECU<small>does not need chassis CAN</small></button>
+<button type="button" aria-pressed="false" data-need="head">Head unit<small>does not need Ethernet</small></button>
+<button type="button" aria-pressed="false" data-need="own">UserChassis in the gateway<small>does not need ChassisCan</small></button>
+</div>
+<div class="member" role="group" aria-label="Members of the coordination cluster">
+<span>In the cluster:</span>
+<label><input type="checkbox" data-member="0" checked> BodyCan</label>
+<label><input type="checkbox" data-member="1" checked> ChassisCan</label>
+<label><input type="checkbox" data-member="2" checked> Eth</label>
+</div>
+<div class="table-wrap">
+<table class="data chans">
+<thead><tr><th>Channel</th><th>Other ECUs on the bus</th><th>NmIf to the bus NM</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+</div>
+<p class="readout" id="why"></p>
+</div>
+
+<h2>What the coordinator does not do</h2>
+<p>The coordinator only keeps <em>awake</em> buses awake. A bus of the cluster that is already in <span class="term">Bus-Sleep Mode</span> is watched, but the coordinator does not wake it up. Waking buses is the job of <span class="term">ComM</span>: when a bus wakes up, ComM decides whether the other buses of the cluster are started as well. Lesson 39 comes back to this.</p>
+<p>The other half of the job, letting the buses go to sleep together once nobody needs any of them, is the <span class="term">coordinated shutdown</span> (the coordinator releases the buses one by one with calculated delays so that they reach Bus-Sleep Mode at the same moment). It is the topic of the next lesson.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The coordinator is not a new kind of NM message; it is NmIf calling the network request of each bus NM, exactly as ComM does for a single bus. One need anywhere in the cluster, inside the gateway or on any bus, keeps every awake bus of the cluster requested. A bus outside the cluster lives its own life.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">NM coordination cluster</span></td><td>A set of buses that the NM coordinator keeps awake together and shuts down together; each bus belongs to at most one cluster</td></tr>
+<tr><td><span class="term">coordinated channel</span></td><td>A channel that belongs to a coordination cluster: kept awake and shut down together with the other channels of the cluster</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.2, 7.2.1, 7.2.2, 7.3.2 and 7.5.2.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const chans = [
+    { name: 'BodyCan', bus: 'body CAN', nm: 'CanNm', others: 'door', who: 'Door ECU' },
+    { name: 'ChassisCan', bus: 'chassis CAN', nm: 'CanNm', others: 'brake', who: 'Brake ECU' },
+    { name: 'Eth', bus: 'Ethernet', nm: 'UdpNm', others: 'head', who: 'Head unit' }
+  ];
+  const need = { door: false, brake: false, head: false, own: false };
+  const label = {
+    door: ['needs body CAN', 'does not need body CAN'],
+    brake: ['needs chassis CAN', 'does not need chassis CAN'],
+    head: ['needs Ethernet', 'does not need Ethernet'],
+    own: ['needs ChassisCan', 'does not need ChassisCan']
+  };
+  const member = [true, true, true];
+  const rows = document.getElementById('rows');
+  const why = document.getElementById('why');
+  const btns = Array.from(document.querySelectorAll('#sim [data-need]'));
+  const boxes = Array.from(document.querySelectorAll('#sim [data-member]'));
+
+  function render() {
+    btns.forEach((b) => {
+      const k = b.dataset.need;
+      b.setAttribute('aria-pressed', String(need[k]));
+      b.querySelector('small').textContent = need[k] ? label[k][0] : label[k][1];
+    });
+    // ComM's own request exists only for ChassisCan (UserChassis).
+    const own = [false, need.own, false];
+    const busy = chans.map((c) => need[c.others]);
+    const inCl = chans.map((c, i) => member[i]);
+    const clusterNeed = chans.some((c, i) => inCl[i] && (own[i] || busy[i]));
+    const reasons = [];
+    chans.forEach((c, i) => { if (inCl[i] && busy[i]) reasons.push(c.who + ' keeps ' + c.bus + ' awake'); });
+    if (inCl[1] && own[1]) reasons.push('ComM requests ChassisCan for UserChassis');
+    let html = '';
+    chans.forEach((c, i) => {
+      let act;
+      if (inCl[i]) {
+        act = clusterNeed ? '<code>' + c.nm + '_NetworkRequest</code>' : 'ready for the coordinated shutdown';
+      } else {
+        act = (own[i] ? '<code>' + c.nm + '_NetworkRequest</code>' : '<code>' + c.nm + '_NetworkRelease</code>') + ' passed on from ComM';
+      }
+      html += '<tr><td><code>' + c.name + '</code>' + (inCl[i] ? '' : ' <small>not coordinated</small>') + '</td><td>' +
+        (busy[i] ? c.who + ' still sends NM PDUs' : 'ready to sleep (Remote Sleep Indication)') + '</td><td>' + act + '</td></tr>';
+    });
+    rows.innerHTML = html;
+    if (!inCl.some(Boolean)) {
+      why.textContent = 'No bus is in the cluster: NmIf only passes on what ComM asks for. Each bus sleeps on its own.';
+    } else if (clusterNeed) {
+      why.textContent = 'Kept awake: ' + reasons.join('; ') + '. So the coordinator keeps the network requested on every bus of the cluster.';
+    } else {
+      why.textContent = 'Nobody needs any bus of the cluster: the coordinator can start the coordinated shutdown (next lesson).';
+    }
+  }
+  btns.forEach((b) => b.addEventListener('click', () => { need[b.dataset.need] = !need[b.dataset.need]; render(); }));
+  boxes.forEach((x) => x.addEventListener('change', () => { member[Number(x.dataset.member)] = x.checked; render(); }));
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'All three buses are in one cluster. Only the Brake ECU still needs chassis CAN. What happens on body CAN?',
+    options: ['The gateway keeps requesting it', 'It falls asleep on its own', 'The gateway wakes the Door ECU'],
+    answer: 0,
+    why: 'One need on any bus of the cluster keeps every awake bus of the cluster requested, so the gateway keeps sending NM PDUs on body CAN.'
+  },
+  {
+    prompt: 'Ethernet is in no coordination cluster. Nobody needs it, but the Door ECU needs body CAN. What happens on Ethernet?',
+    options: ['It sleeps when its own NM decides', 'It stays awake because of body CAN', 'NmIf requests it for the Door ECU'],
+    answer: 0,
+    why: 'A bus outside any cluster is not coordinated. NmIf only passes on ComM\'s requests for it.'
+  },
+  {
+    prompt: 'Chassis CAN is part of the cluster but already sleeps. The Door ECU wakes body CAN. Who wakes chassis CAN?',
+    options: ['ComM, if it is configured to do so', 'The NM coordinator, automatically', 'CanNm on body CAN, through the bus'],
+    answer: 0,
+    why: 'The coordinator watches sleeping buses but does not wake them. Waking buses is ComM\'s decision.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleep: HALT and POLL · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Sleep: HALT and POLL</h1>
+<p class="lede">With the <span class="term">shutdown target</span> SLEEP, <code class="term">EcuM_GoDownHaltPoll</code> keeps the OS running. <span class="term">EcuM</span> prepares the wakeup, puts the microcontroller into a low-power mode, and the call returns only when the ECU is awake again.</p>
+
+<p>This lesson follows the <span class="term">SLEEP phase</span> from going to sleep, through the two ways of sleeping, to the restart after a wakeup.</p>
+
+<h2>Sleep modes</h2>
+<p>A <span class="term">sleep mode</span> (a configured low-power mode of the ECU) is selected together with the SLEEP target. Each sleep mode names an MCU mode (a low-power setting of the microcontroller driver), the <span class="term">wakeup source</span>s (configured sources of wakeups such as a CAN transceiver or a pin, lesson 33) that may end it, and whether the CPU stops:</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">CPU stopped</p><h3><span class="term">HALT</span></h3><p>The CPU is suspended, halted or powered off. EcuM runs no code until a wakeup interrupt brings the CPU back. This is the Halt sequence.</p></div>
+  <div class="card m-ecum"><p class="tag">CPU keeps running</p><h3><span class="term">POLL</span></h3><p>The CPU keeps running, typically at a much lower clock. EcuM loops and asks the wakeup sources that need polling whether they saw a wakeup. This is the Poll sequence.</p></div>
+</div>
+<p>In the example ECU a sleep mode could allow <code>ECUM_WKSOURCE_BODYCAN</code> and <code>ECUM_WKSOURCE_DOOR_PIN</code>: a frame on body CAN or the door handle wakes the gateway. On a multi-core ECU the SLEEP target puts all cores to sleep.</p>
+
+<h2>Going to sleep: GoSleep</h2>
+<p>The <span class="term">GoSleep sequence</span> (EcuM prepares the hardware for the coming sleep) sets the wakeup states reported to BswM back to none, then calls the callout <code class="term">EcuM_EnableWakeupSources</code> (integrator code that arms the wakeup sources of the sleep mode). Last, EcuM takes an OS resource of its own (<code>RES_AUTOSAR_ECUM</code>, one per core). That locks the scheduler: no other task of the core runs from now on. Unlike the <span class="term">SHUTDOWN phase</span>, the OS is not shut down; the sleep is invisible to it.</p>
+<p>No wakeup may be missed. If a wakeup event arrives during GoSleep, EcuM does not enter Halt or Poll at all.</p>
+
+<h2>Halt and Poll</h2>
+<p>In <strong>Halt</strong>, EcuM calls the callout <code>EcuM_GenerateRamHash</code> (the integrator can compute a checksum of the RAM there) and sets the MCU mode. The CPU stops. A wakeup interrupt starts the check: integrator code calls <code>EcuM_CheckWakeup</code>, EcuM calls the callout <code>EcuM_CheckWakeupHook</code>, and that calls the check function of the driver concerned. The driver reports a real wakeup with <code class="term">EcuM_SetWakeupEvent</code> (a driver tells EcuM that a wakeup source has woken the ECU). After the halt, the callout <code>EcuM_CheckRamHash</code> checks that the RAM did not change during the long sleep.</p>
+<p>In <strong>Poll</strong>, EcuM sets the MCU mode and then loops: it calls the callout <code class="term">EcuM_SleepActivity</code> (integrator code that runs on each pass of the poll loop) and <code>EcuM_CheckWakeupHook</code> for every wakeup source that needs polling, until a wakeup is pending or validated. It reports the new wakeup state to BswM with <code>BswM_EcuM_CurrentWakeup</code>.</p>
+
+<h2>Leaving sleep: WakeupRestart</h2>
+<p>After a wakeup event EcuM leaves the sleep through the <span class="term">WakeupRestart sequence</span> (the steps back to normal operation): it restores the normal MCU mode, reads the pending wakeup events, disarms the sources that woke the ECU with <code>EcuM_DisableWakeupSources</code> (the others stay armed), calls <code>EcuM_AL_DriverRestart</code> to re-initialize the drivers that need it, and releases its resource. Now the other tasks run again, <code>EcuM_GoDownHaltPoll</code> returns <code>E_OK</code>, and the wakeup is validated in the main function of EcuM (lesson 34).</p>
+<p>A check started by an interrupt runs under a check-wakeup timer. If all these timers expire without a wakeup event, EcuM goes back to GoSleep and sleeps again, and reports the runtime error <code>ECUM_E_WAKEUP_TIMEOUT</code>. A hardware reset or a power cycle during Halt or Poll is not a wakeup of this kind: the ECU starts again from the STARTUP phase.</p>
+
+<h2>Try it</h2>
+<p>Choose the kind of sleep and step through one night of the example ECU, from <code>EcuM_GoDownHaltPoll</code> to the restart after a frame on body CAN.</p>
+<div class="panel no-print">
+<div class="controls">
+  <label class="inline"><input type="radio" name="kind" value="halt" checked> HALT (CPU stopped)</label>
+  <label class="inline"><input type="radio" name="kind" value="poll"> POLL (CPU keeps running)</label>
+</div>
+<div id="seq"></div>
+</div>
+
+<div class="older">
+<p>In <strong>R20-11</strong> and <strong>4.4.0</strong>, <code>EcuM_CheckWakeup</code> was the callout itself; from R21-11 it is a function of EcuM that calls the new callout <code>EcuM_CheckWakeupHook</code>. Going back to sleep when all check-wakeup timers expire, and the error <code>ECUM_E_WAKEUP_TIMEOUT</code>, are specified from R21-11 on. Up to <strong>4.3.1</strong> BswM started the two kinds of sleep with <code>EcuM_GoHalt</code> and <code>EcuM_GoPoll</code>.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Both kinds of sleep share GoSleep and WakeupRestart; only the middle part differs. In Halt the wakeup interrupt starts the check; in Poll EcuM's own loop does. The OS keeps running all the time: EcuM only blocks the other tasks with its resource.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">sleep mode</span></td><td>A configured low-power mode: an MCU mode, the wakeup sources that may end it, and whether the CPU stops</td></tr>
+<tr><td><span class="term">HALT</span></td><td>Sleep in which the CPU stops until a wakeup interrupt</td></tr>
+<tr><td><span class="term">POLL</span></td><td>Sleep in which the CPU keeps running and EcuM polls the wakeup sources</td></tr>
+<tr><td><span class="term">GoSleep sequence</span></td><td>EcuM arms the wakeup sources and locks the scheduler before the sleep</td></tr>
+<tr><td><code class="term">EcuM_EnableWakeupSources</code></td><td>Callout that arms the wakeup sources of the sleep mode</td></tr>
+<tr><td><code class="term">EcuM_SleepActivity</code></td><td>Callout that runs on each pass of the poll loop</td></tr>
+<tr><td><span class="term">WakeupRestart sequence</span></td><td>The steps from sleep back to normal operation: MCU mode, drivers, scheduler</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 7.1.4, 7.5, 7.7.1 and 8.5.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const lanes = ['BswM', 'EcuM', 'Callouts', 'OS', 'Mcu', 'CanIf, CanTrcv'];
+  const W = 'ECUM_WKSOURCE_BODYCAN';
+  const goSleep = [
+    { ctx: 'BswM action list', from: 'BswM', to: 'EcuM', call: 'EcuM_GoDownHaltPoll(user)', text: 'The shutdown target is SLEEP with a sleep mode that allows the body CAN wakeup. BswM starts the sleep.' },
+    { ctx: 'GoSleep sequence', from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(sources, ECUM_WKSTATUS_NONE)', text: 'EcuM sets the wakeup states reported to BswM back to none.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_EnableWakeupSources(' + W + ')', text: 'The callout arms each wakeup source of the sleep mode, here the transceiver of body CAN.' },
+    { from: 'EcuM', to: 'OS', call: 'GetResource(RES_AUTOSAR_ECUM_0)', text: 'EcuM takes its resource: no other task of this core runs now. The OS itself keeps running.' }
+  ];
+  const halt = [
+    { ctx: 'Halt sequence', from: 'EcuM', to: 'Callouts', call: 'EcuM_GenerateRamHash()', text: 'The integrator can compute a RAM checksum here, to check it after the sleep.' },
+    { from: 'EcuM', to: 'Mcu', call: 'Mcu_SetMode(sleep MCU mode)', text: 'The microcontroller enters the MCU mode of the sleep mode.' },
+    { from: 'Mcu', note: 'HALT: the CPU stops', text: 'No code runs. Hours may pass.' },
+    { ctx: 'wakeup interrupt (ISR)', from: 'Callouts', to: 'EcuM', call: 'EcuM_CheckWakeup(' + W + ')', text: 'A frame on body CAN: the transceiver raises the wakeup interrupt, and integrator code in the ISR calls EcuM_CheckWakeup.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckWakeupHook(' + W + ')', text: 'EcuM calls the callout that knows which driver to ask.' },
+    { from: 'Callouts', to: 'EcuM', call: 'EcuM_StartCheckWakeup(' + W + ')', text: 'This starts the check-wakeup timer: the ECU must not go down before the driver has checked the source.' },
+    { from: 'Callouts', to: 'CanIf, CanTrcv', call: 'CanIf_CheckWakeup(' + W + ')', text: 'The driver chain checks the transceiver (lesson 35 follows it in detail).' },
+    { from: 'CanIf, CanTrcv', to: 'EcuM', call: 'EcuM_SetWakeupEvent(' + W + ')', text: 'The transceiver driver confirms a wakeup and reports it. The check-wakeup timer is cancelled.' },
+    { ctx: 'after the halt', from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckRamHash()', text: 'The RAM checksum is compared: a long sleep must not have corrupted the RAM.' }
+  ];
+  const poll = [
+    { ctx: 'Poll sequence', from: 'EcuM', to: 'Mcu', call: 'Mcu_SetMode(sleep MCU mode)', text: 'The microcontroller enters a low-power MCU mode in which the CPU keeps running.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_SleepActivity()', text: 'Loop: on each pass the integrator code can do some work, for example count time for the alarm clock.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckWakeupHook(' + W + ')', text: 'Still in the loop: EcuM asks each wakeup source that needs polling.' },
+    { from: 'Callouts', to: 'CanIf, CanTrcv', call: 'CanIf_CheckWakeup(' + W + ')', text: 'The callout asks the driver chain. For many passes nothing is found and the loop repeats.' },
+    { from: 'CanIf, CanTrcv', to: 'EcuM', call: 'EcuM_SetWakeupEvent(' + W + ')', text: 'A frame on body CAN: the transceiver driver reports the wakeup.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(' + W + ', ECUM_WKSTATUS_PENDING)', text: 'The CAN wakeup needs validation, so it is pending. The loop ends.' }
+  ];
+  const restart = [
+    { ctx: 'WakeupRestart sequence', from: 'EcuM', to: 'Mcu', call: 'Mcu_SetMode(normal MCU mode)', text: 'Back to the normal MCU mode.' },
+    { from: 'EcuM', note: 'EcuM_GetPendingWakeupEvents', text: 'EcuM reads which wakeup sources are pending: here body CAN.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_DisableWakeupSources(' + W + ')', text: 'The source that woke the ECU is disarmed; the others stay armed, so later wakeups still work.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_AL_DriverRestart()', text: 'Drivers that need it are initialized again.' },
+    { from: 'EcuM', to: 'OS', call: 'ReleaseResource(RES_AUTOSAR_ECUM_0)', text: 'The scheduler is unlocked: all other tasks may run again.' },
+    { from: 'EcuM', to: 'BswM', call: 'E_OK', ret: true, text: 'EcuM_GoDownHaltPoll returns: the ECU has left the sleep. The pending wakeup is validated in the EcuM main function next (lesson 34).' }
+  ];
+  const story = (k) => goSleep.concat(k === 'poll' ? poll : halt, restart);
+  const seq = Sequence.create(document.getElementById('seq'), { lanes, focus: ['EcuM'], steps: story('halt') });
+  document.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener('change', () => seq.set({ steps: story(r.value) })));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What is the difference between HALT and POLL?',
+    options: ['Whether the CPU stops or keeps running', 'Whether the OS is shut down or not', 'Whether a wakeup is validated or not'],
+    answer: 0,
+    why: 'In HALT the CPU stops until a wakeup interrupt; in POLL it keeps running and EcuM polls the sources. The OS runs in both.'
+  },
+  {
+    prompt: 'A wakeup event arrives while EcuM is still in GoSleep. What happens?',
+    options: ['EcuM does not enter Halt or Poll', 'EcuM enters Halt and wakes at once', 'EcuM ignores it until the next one'],
+    answer: 0,
+    why: 'No wakeup may be missed: Halt and Poll are not entered when a wakeup occurred in GoSleep.'
+  },
+  {
+    prompt: 'Why does EcuM take the resource RES_AUTOSAR_ECUM in GoSleep?',
+    options: ['To keep other tasks of the core from running', 'To shut down the OS before the sleep', 'To arm the wakeup sources of the mode'],
+    answer: 0,
+    why: 'The resource locks the scheduler; it is released at the end of WakeupRestart, when the other tasks may run again.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

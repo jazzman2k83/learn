@@ -1,0 +1,7 @@
+{
+  "title": "Network and Mode Management in AUTOSAR Classic",
+  "description": "How an ECU of the AUTOSAR Classic Platform wakes up, keeps its buses awake exactly as long as someone needs them, coordinates them with other ECUs and goes back to sleep: ComM, network management (NmIf, CanNm, UdpNm), CanSM and EthSM, EcuM and BswM, wakeup validation and partial networking, with the older ways (EcuM Fixed, PNC through COM) for projects on older releases.",
+  "path": "autosar/network-management",
+  "language": "en",
+  "topic": "AUTOSAR"
+}

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synchronized PNC shutdown · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.panel .scroll { overflow-x: auto; }
+#tl .cur { stroke: var(--accent); stroke-width: 1.5; }
+#tl .msg { fill: var(--k-sd); }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Synchronized PNC shutdown</h1>
+<p class="lede">In a hierarchy of <span class="term">PNC gateway</span>s, the release of a <span class="term">PNC</span> creeps from level to level, one reset time at a time, and the ECUs leave the PNC at different moments. A synchronized shutdown lets the top of the hierarchy announce the end to everyone at once.</p>
+
+<p>Lesson 44 built the hierarchy of top-level coordinator, intermediate coordinators and leaf nodes. This lesson shows the problem a release runs into there, and the message and calls that R25-11 adds to solve it.</p>
+
+<h2>A release takes one reset time per level</h2>
+<p>Take Comfort in the hierarchy of lesson 44: a <span class="term">top-level PNC coordinator</span> on Ethernet, the body gateway as <span class="term">intermediate PNC coordinator</span> (<code>Eth</code> passive, <code>BodyCan</code> active), and the Door ECU as <span class="term">PNC leaf node</span>. (In the example ECU itself both channels are active and the gateway is the top-level coordinator; the coordinator above is added here to show all three roles.) The Door ECU releases Comfort, and nobody else requests it. Nothing announces the release; every coordinator only notices that a bit is no longer repeated:</p>
+<ol>
+<li>The gateway's <span class="term">ERA</span> bit for body CAN falls to 0 after one <span class="term">PNC reset timer</span> period. The gateway stops reporting Comfort upwards, but it keeps sending Comfort on body CAN: the top-level coordinator still mirrors it on Ethernet.</li>
+<li>One reset time later, the top-level coordinator's ERA bit falls. It releases Comfort and stops sending it.</li>
+<li>One more reset time later, the gateway's ERA bit for Ethernet falls. Only now does the gateway release Comfort and stop sending it on body CAN.</li>
+</ol>
+<p>So the top-level coordinator's <span class="term">EIRA</span> bit runs out a full reset time before those of the gateway and the Door ECU. The PNC goes to <span class="term">COMM_PNC_PREPARE_SLEEP</span> at different moments on different ECUs, and an application on one ECU may stop sending while its partners still expect its signals: they see timeouts.</p>
+
+<h2>The PN shutdown message</h2>
+<p>With <span class="term">synchronized PNC shutdown</span> (the top-level coordinator announces the release of a PNC in one message that every coordinator passes on at once, so that all ECUs restart their reset timers together) the top-level coordinator does not just go quiet. When it releases a PNC, it sends a <span class="term">PN shutdown message</span> (an NM PDU with the PN Shutdown Request Bit set and a 1 for every PNC that is shut down). Each NM PDU with this bit makes every receiver restart the reset timer of those PNCs, and every intermediate coordinator passes it down at once. So all reset timers of the PNC restart at almost the same moment, and all ECUs reach COMM_PNC_PREPARE_SLEEP together.</p>
+<p>The flag is the <span class="term">PN Shutdown Request Bit</span> (PNSR: bit 1 of the Control Bit Vector, set to 1 in a PN shutdown message). An ECU that is not a coordinator needs no change: it handles the PN shutdown message as an ordinary NM PDU, which simply requests the PNC once more.</p>
+
+<h2>Try it</h2>
+<p>The Door ECU releases Comfort at 0 s. Watch the PNC state on the three ECUs with and without synchronized shutdown. Times are scaled: the PNC reset time is 2 s; the NM message cycle and the prepare sleep timer are left out.</p>
+<div class="panel" id="tlp">
+<div class="buttons-row no-print">
+<button type="button" id="bSync" aria-pressed="false">Synchronized PNC shutdown: off</button>
+<button type="button" id="bPlay" class="primary">Play</button>
+</div>
+<div class="scroll">
+<svg id="tl" viewBox="0 0 640 210" role="img" aria-label="Timeline of the Comfort PNC state on the top-level coordinator, the body gateway and the Door ECU after the Door ECU releases Comfort." style="width:100%;min-width:34rem;height:auto;display:block"></svg>
+</div>
+<div class="legend"><span><span class="box" style="background:var(--k-req-soft);border-color:var(--k-req)"></span>COMM_PNC_REQUESTED</span><span><span class="box" style="background:var(--k-res-soft);border-color:var(--k-res)"></span>COMM_PNC_READY_SLEEP</span><span><span class="box" style="background:var(--k-ev-soft);border-color:var(--k-ev)"></span>COMM_PNC_PREPARE_SLEEP</span><span><span class="box" style="background:var(--k-sd-soft);border-color:var(--k-sd)"></span>PN shutdown message</span></div>
+<p class="readout" id="tlwhy"></p>
+</div>
+
+<h2>The calls, top to bottom</h2>
+<p>ComM decides, NmIf keeps the bookkeeping, and the bus NMs send and receive the message. Step through the release of Comfort, first on the top-level coordinator, then on the body gateway as intermediate coordinator:</p>
+<div class="panel" id="seq"></div>
+<p>Some details complete the picture:</p>
+<ul>
+<li>Only a top-level coordinator starts a shutdown: ComM calls <code class="term">Nm_RequestSynchronizedPncShutdown</code> (ComM asks NmIf to announce the shutdown of one PNC on one channel) when the PNC leaves COMM_PNC_REQUESTED and all channels of the PNC are active.</li>
+<li>NmIf stores the request per channel and handles it in its <span class="term">main function</span>: it calls <code class="term">CanNm_ActivateTxPnShutdownMsg</code> or <code>UdpNm_ActivateTxPnShutdownMsg</code> (NmIf tells the bus NM to send PN shutdown messages), and the deactivate counterpart when no request is left. The bus NM sends the message in its next main function, before any cyclic NM PDU.</li>
+<li>When the bus NM confirms the transmission, NmIf removes the PNCs from its list. Optionally a retransmission time limits how long it keeps trying; if the message still cannot be sent, NmIf drops the request and reports a runtime error to Det. The PNC then shuts down without synchronization.</li>
+<li>A new request wins. If the PNC is requested again, locally or by a received NM PDU, before the message is out, NmIf removes it from its list. An intermediate coordinator does not forward a shutdown while a local user or an active channel still requests the PNC; it can request the network again instead.</li>
+<li>A PN shutdown message received on an active channel is a design error: CanNm reports it as a runtime error and treats the NM PDU as an ordinary one.</li>
+<li>In the example ECU as configured, with <code>BodyCan</code> and <code>Eth</code> both active, the body gateway is the top-level coordinator: it sends the PN shutdown message itself, on body CAN and on Ethernet.</li>
+<li>For PNCs handled in one direction only, or mapped to a channel for transmission only (lesson 44), no synchronized shutdown takes place.</li>
+</ul>
+
+<div class="older">
+<p>4.4.0 has no synchronized PNC shutdown. R20-11 describes it as a draft with other interfaces: <code>Nm_ForwardSynchronizedPncShutdown</code> had no parameters, <code>ComM_Nm_ForwardSynchronizedPncShutdown</code> only a channel, and NmIf passed each request on to <code>CanNm_RequestSynchronizedPncShutdown</code> or <code>UdpNm_RequestSynchronizedPncShutdown</code>, so the bus NM kept the pending PNCs. R21-11 and R22-11 changed this into the R25-11 form: NmIf keeps the pending PNCs and switches the message on and off with <code>CanNm_ActivateTxPnShutdownMsg</code> and <code>CanNm_DeactivateTxPnShutdownMsg</code>, which are valid since R22-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Without synchronization the release of a PNC costs one reset time per level, and the levels finish at different times. The PN shutdown message is an NM PDU that requests the PNC one last time, with the PN Shutdown Request Bit set: everyone restarts the same timer at nearly the same moment. Only the top-level coordinator starts it, intermediate coordinators forward it at once, leaf nodes need nothing new.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">synchronized PNC shutdown</span></td><td>The top-level PNC coordinator announces the release of a PNC with a PN shutdown message that the intermediate coordinators pass on at once, so all ECUs restart their reset timers together</td></tr>
+<tr><td><span class="term">PN shutdown message</span></td><td>An NM PDU with the PN Shutdown Request Bit set; its PNC bits name the PNCs that are shut down</td></tr>
+<tr><td><span class="term">PN Shutdown Request Bit</span></td><td>PNSR: bit 1 of the Control Bit Vector; 1 marks a PN shutdown message</td></tr>
+<tr><td><code class="term">Nm_RequestSynchronizedPncShutdown</code></td><td>ComM asks NmIf to announce the shutdown of one PNC on one channel</td></tr>
+<tr><td><code class="term">Nm_ForwardSynchronizedPncShutdown</code></td><td>The bus NM tells NmIf that a PN shutdown message arrived, with its PNC bit vector</td></tr>
+<tr><td><code class="term">ComM_Nm_ForwardSynchronizedPncShutdown</code></td><td>NmIf passes a received PN shutdown message to ComM at once, with channel and PNC bit vector</td></tr>
+<tr><td><code class="term">CanNm_ActivateTxPnShutdownMsg</code></td><td>NmIf tells CanNm to send PN shutdown messages on a channel (UdpNm: <code>UdpNm_ActivateTxPnShutdownMsg</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.1.3.5 and 7.1.4.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.4.2.1 and 7.4.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, sections 7.6, 7.11 and 8.3.21; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('tl');
+  const X0 = 120, X1 = 625, T0 = -1, T1 = 10;
+  const x = (t) => X0 + (t - T0) * (X1 - X0) / (T1 - T0);
+  const LANES = [
+    { id: 'top', label: 'Top-level', sub: 'coordinator' },
+    { id: 'gw', label: 'Body gateway', sub: 'intermediate' },
+    { id: 'door', label: 'Door ECU', sub: 'leaf node' }
+  ];
+  // spans per lane: [from, to, kind]; times in scaled seconds, release of the Door ECU at 0 s
+  const PLAN = {
+    off: {
+      top: [[T0, 4, 'req'], [4, 6, 'res'], [6, T1, 'ev']],
+      gw: [[T0, 6, 'req'], [6, 8, 'res'], [8, T1, 'ev']],
+      door: [[T0, 0, 'req'], [0, 8, 'res'], [8, T1, 'ev']],
+      msgs: [],
+      why: 'Without synchronization: the top-level coordinator reaches prepare sleep at 6 s, the body gateway and the Door ECU only at 8 s, one reset time later. Each level added one reset time on the way up and the gateway one more on the way down.'
+    },
+    on: {
+      top: [[T0, 4, 'req'], [4, 6.1, 'res'], [6.1, T1, 'ev']],
+      gw: [[T0, 4.1, 'req'], [4.1, 6.2, 'res'], [6.2, T1, 'ev']],
+      door: [[T0, 0, 'req'], [0, 6.2, 'res'], [6.2, T1, 'ev']],
+      msgs: [['top', 4.1, 'on Ethernet'], ['gw', 4.2, 'on body CAN']],
+      why: 'With synchronization: at 4 s the top-level coordinator releases Comfort and sends a PN shutdown message. The gateway forwards it on body CAN at once; every ECU restarts its reset timer at about 4.1 s, and all three reach prepare sleep at about 6.2 s.'
+    }
+  };
+  let sync = false, cursor = T1, raf = 0;
+  const el = (n, a, txt) => { const e = document.createElementNS(NS, n); Object.keys(a).forEach((k) => e.setAttribute(k, a[k])); if (txt != null) e.textContent = txt; return e; };
+  function draw() {
+    const p = PLAN[sync ? 'on' : 'off'];
+    svg.innerHTML = '';
+    svg.appendChild(el('clipPath', { id: 'tlclip' })).appendChild(el('rect', { x: 0, y: 0, width: x(cursor), height: 210 }));
+    const g = svg.appendChild(el('g', { 'clip-path': 'url(#tlclip)' }));
+    LANES.forEach((l, i) => {
+      const y = 22 + i * 52;
+      svg.appendChild(el('text', { x: 8, y: y + 14, class: 'd-t' }, l.label));
+      svg.appendChild(el('text', { x: 8, y: y + 29, class: 'd-s' }, l.sub));
+      p[l.id].forEach(([a, b, k]) => g.appendChild(el('rect', { x: x(a), y: y + 4, width: x(b) - x(a), height: 26, class: 'f-' + k })));
+    });
+    p.msgs.forEach(([lane, t, txt]) => {
+      const i = LANES.findIndex((l) => l.id === lane), y = 22 + i * 52;
+      g.appendChild(el('rect', { x: x(t) - 3, y: y, width: 6, height: 34, class: 'f-sd' }));
+      g.appendChild(el('text', { x: x(t) + 6, y: y + 46, class: 'd-s' }, 'PN shutdown message ' + txt));
+    });
+    svg.appendChild(el('line', { x1: X0, y1: 182, x2: X1, y2: 182, class: 'd-axis' }));
+    for (let t = 0; t <= 10; t += 2) {
+      svg.appendChild(el('line', { x1: x(t), y1: 182, x2: x(t), y2: 187, class: 'd-tick' }));
+      svg.appendChild(el('text', { x: x(t), y: 200, class: 'd-s d-c' }, t + ' s'));
+    }
+    svg.appendChild(el('line', { x1: x(0), y1: 14, x2: x(0), y2: 182, class: 'd-ln dash' }));
+    svg.appendChild(el('text', { x: x(0) + 4, y: 12, class: 'd-s' }, 'Door ECU releases Comfort'));
+    if (cursor < T1) svg.appendChild(el('line', { x1: x(cursor), y1: 14, x2: x(cursor), y2: 182, class: 'cur' }));
+    document.getElementById('tlwhy').textContent = cursor >= T1 ? p.why : 't = ' + Math.max(0, cursor).toFixed(1) + ' s';
+    const b = document.getElementById('bSync');
+    b.setAttribute('aria-pressed', String(sync));
+    b.textContent = 'Synchronized PNC shutdown: ' + (sync ? 'on' : 'off');
+  }
+  function play() {
+    cancelAnimationFrame(raf);
+    const start = performance.now();
+    const tick = () => {
+      cursor = T0 + (performance.now() - start) / 1000;
+      if (cursor >= T1) { cursor = T1; draw(); return; }
+      draw(); raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  document.getElementById('bSync').addEventListener('click', () => { sync = !sync; cancelAnimationFrame(raf); cursor = T1; draw(); });
+  document.getElementById('bPlay').addEventListener('click', play);
+  draw();
+})();
+
+(function () {
+  const nb = (n) => ' '.repeat(Math.max(0, Math.round(n)));
+  const pad = (steps) => steps.map((s) => s.note ? Object.assign({}, s, { note: s.note + nb(s.note.length * 0.08) })
+    : Object.assign({}, s, { call: s.call + nb(s.call.length * 0.06) }));
+  Sequence.create(document.getElementById('seq'), {
+    lanes: ['UdpNm (Eth)', 'NmIf', 'ComM', 'CanNm (BodyCan)', 'body CAN'],
+    focus: ['ComM', 'NmIf'],
+    steps: pad([
+      { ctx: 'On the top-level coordinator', from: 'ComM', note: 'Comfort: ERA 0 on all active channels → COMM_PNC_READY_SLEEP',
+        text: 'Top-level coordinator: no local user and no ERA bit requests Comfort any more, and all channels of Comfort are active. ComM releases the PNC.' },
+      { from: 'ComM', to: 'NmIf', call: 'Nm_RequestSynchronizedPncShutdown(Eth, 16)',
+        text: 'For each channel of the PNC ComM asks NmIf to announce the shutdown of PNC 16. NmIf stores it as pending for that channel.' },
+      { from: 'NmIf', to: 'UdpNm (Eth)', call: 'UdpNm_ActivateTxPnShutdownMsg(Eth)',
+        text: 'In its main function NmIf switches the PN shutdown message on. UdpNm sets the PN Shutdown Request Bit; when it sends, it fetches the PNC bits from NmIf, which now gives only the PNCs being shut down, and counts them in its own EIRA as requested once more.' },
+      { ctx: 'On the body gateway: UdpNm receives the NM PDU', from: 'UdpNm (Eth)', to: 'NmIf', call: 'Nm_ForwardSynchronizedPncShutdown(Eth, 0x01)',
+        text: 'The body gateway receives an NM PDU with the Partial Network Information Bit and the PN Shutdown Request Bit set. UdpNm passes the PNC bit vector on as a shutdown, not as a normal request.' },
+      { from: 'NmIf', note: 'EIRA: Comfort requested again · ERA Eth: Comfort 0, monitoring stopped',
+        text: 'NmIf restarts the EIRA reset timer of Comfort, clears the Comfort bit of the ERA of Eth at once instead of waiting for its reset time, and stops that ERA timer.' },
+      { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_ForwardSynchronizedPncShutdown(Eth, 0x01)',
+        text: 'NmIf informs ComM immediately, with the channel and the PNC bit vector.' },
+      { from: 'ComM', note: 'Comfort: COMM_PNC_REQUESTED → COMM_PNC_READY_SLEEP',
+        text: 'ComM checks: no local user requests Comfort, no active channel has an ERA bit for it, and Eth is a passive channel of Comfort. So it releases the PNC now.' },
+      { from: 'ComM', to: 'NmIf', call: 'Nm_RequestSynchronizedPncShutdown(BodyCan, 16)',
+        text: 'And it passes the shutdown down: one request for each active channel of the PNC, here BodyCan.' },
+      { from: 'NmIf', to: 'CanNm (BodyCan)', call: 'CanNm_ActivateTxPnShutdownMsg(BodyCan)',
+        text: 'NmIf switches the PN shutdown message on for body CAN.' },
+      { from: 'CanNm (BodyCan)', to: 'body CAN', call: 'PN shutdown message: PNSR 1, Comfort 1',
+        text: 'CanNm sends it in its next main function, before any cyclic NM PDU. The Door ECU, a leaf node, handles it as an ordinary NM PDU: its reset timer for Comfort restarts.' },
+      { from: 'CanNm (BodyCan)', to: 'NmIf', call: 'Nm_PncBitVectorTxConfirmation(BodyCan, 0x01, E_OK)',
+        text: 'The transmission is confirmed. NmIf removes Comfort from the pending requests of BodyCan and, with none left, calls CanNm_DeactivateTxPnShutdownMsg. From now on no NM PDU carries the Comfort bit, and all reset timers run out together.' }
+    ])
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which ECU starts a synchronized PNC shutdown?',
+    options: ['The top-level PNC coordinator of the PNC', 'The leaf node that released the PNC last', 'Every ECU whose reset timer runs out first'],
+    answer: 0,
+    why: 'Only the top-level coordinator knows that nobody in the network requests the PNC any more. It calls Nm_RequestSynchronizedPncShutdown for its channels.'
+  },
+  {
+    prompt: 'What does a leaf node do with a PN shutdown message?',
+    options: ['It treats it as an ordinary NM PDU', 'It releases the PNC at once, no timer', 'It forwards it on all its other channels'],
+    answer: 0,
+    why: 'The PNC bit is 1 in it, so it restarts the reset timer like any request. That is the point: all ECUs restart the same timer together.'
+  },
+  {
+    prompt: 'An intermediate coordinator receives a PN shutdown message for Comfort, but its Door ECU on an active channel still requests Comfort. What happens?',
+    options: ['It does not forward the shutdown', 'It forwards it and releases Comfort', 'It sends the message back upwards'],
+    answer: 0,
+    why: 'A request, local or from an active channel, always wins over a shutdown. The intermediate coordinator keeps the PNC and does not pass the message on.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

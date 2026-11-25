@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Power on to full communication · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Power on to full communication</h1>
+<p class="lede">The body gateway is switched on. From the reset to the first NM PDU on body CAN, <span class="term">EcuM</span> starts the ECU, <span class="term">BswM</span> allows communication, and a request of <code>UserComfort</code> travels through <span class="term">ComM</span>, <span class="term">CanSM</span> and <span class="term">CanNm</span> until BswM starts the I-PDU groups.</p>
+
+<p>This is the first of four complete flows on the example ECU of <a href="0003-the-example-ecu.html">lesson 3</a>. Every call, its caller and its order are taken from the R25-11 specifications; where they leave a choice to the integrator, the step says so. The flow puts together what lessons 4, 9, 21, 26 and 27 taught one piece at a time.</p>
+
+<h2>The starting point</h2>
+<p>The battery has just been connected: a power-on reset. Nothing runs yet; there is no OS, no scheduler, no RTE. All three buses sleep. The <span class="term">wakeup source</span> of this start is <code>ECUM_WKSOURCE_POWER</code>, which EcuM derives from the reset reason. The SWC <code>BodyControl</code> will request the Comfort functions as soon as it runs.</p>
+
+<h2>Try it</h2>
+<p>Step through the whole start. Each grey band starts a new execution context: the startup code without OS, the first OS task, the main functions of BswM, EcuM, ComM, CanSM and CanNm, and the runnable of the SWC. The lanes of EcuM, BswM and ComM are drawn highlighted.</p>
+<div class="panel" id="seq"></div>
+
+<h2>The four phases</h2>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">EcuM · lesson 26</p><h3>From reset to BswM</h3><p><code class="term">EcuM_Init</code> runs the <span class="term">StartPreOS Sequence</span> and starts the OS. The first task calls <code class="term">EcuM_StartupTwo</code>, which starts the <span class="term">SchM</span> and initializes BswM. From here on the <span class="term">UP phase</span> runs, and BswM is in charge.</p></div>
+  <div class="card m-bswm"><p class="tag">BswM · lessons 9, 27</p><h3>Initialize, allow, start</h3><p>BswM's <span class="term">action list</span> entries initialize the rest of the <span class="term">BSW</span>, start the RTE and set <span class="term">communication allowed</span> with <code class="term">ComM_CommunicationAllowed</code>. Which rule does what, and in which order, is the integrator's configuration.</p></div>
+  <div class="card m-comm"><p class="tag">ComM · lessons 4, 6, 41</p><h3>The request</h3><p><code class="term">ComM_RequestComMode</code> only stores the request. In <code>ComM_MainFunction_BodyCan</code> the <span class="term">PNC</span> Comfort enters <code class="term">COMM_PNC_REQUESTED</code>, the channel enters <code class="term">COMM_FULL_COMMUNICATION</code>, and ComM calls CanSM first, then <code class="term">Nm_NetworkRequest</code>.</p></div>
+  <div class="card m-sm"><p class="tag">CanSM, CanNm · lessons 13, 21</p><h3>Bus up, mode back up</h3><p>CanSM starts transceiver and controller and reports <code class="term">COMM_FULL_COMMUNICATION</code>; CanNm enters the <span class="term">Repeat Message State</span> and sends the first <span class="term">NM PDU</span>. BswM, told by ComM, starts the I-PDU groups.</p></div>
+</div>
+
+<h2>What the specification leaves to the integrator</h2>
+<p>EcuM fixes the order up to <code>BswM_Init</code>. Everything after that is configuration:</p>
+<ul>
+<li>Which BSW modules BswM initializes, in which order, and when it starts the RTE. EcuM Flex only says that this "becomes code executed in the BswM's action lists". ComM must be initialized after NvM; CanNm after CanIf and the <span class="term">LSduR</span>; the rest follows from such notes in each specification.</li>
+<li>When BswM calls <code class="term">ComM_CommunicationAllowed</code> with TRUE, and for which <span class="term">channel</span> entries. Until then ComM keeps a requested channel in <code class="term">COMM_NO_COM_REQUEST_PENDING</code>; its default after initialization is "not allowed".</li>
+<li>Whether a BswM rule is evaluated at once in the caller's context or later in <code>BswM_MainFunction</code>; that is set per mode request.</li>
+<li>Which I-PDU groups the rules start, on which mode: per channel, per PNC, or both.</li>
+</ul>
+<p>The order of the SWC's request and BswM's permission does not matter: if the request comes first, the channel simply waits in <code class="term">COMM_NO_COM_REQUEST_PENDING</code> until communication is allowed.</p>
+
+<h2>The other two buses</h2>
+<p>PNC Comfort also uses <code>Eth</code>, so the same main function work runs in <code>ComM_MainFunction_Eth</code>: ComM calls <code>EthSM_RequestComMode</code> and <code class="term">Nm_NetworkRequest</code> for <code>Eth</code>, NmIf passes it on as <code class="term">UdpNm_NetworkRequest</code>, and <span class="term">EthSM</span> brings the link up (<a href="0023-ethsm-from-offline-to-online.html">lesson 23</a>). Chassis CAN stays asleep: no user needs it yet, and the <span class="term">NM coordinator</span> keeps only buses awake that are already awake (<a href="0037-coordinating-several-buses.html">lesson 37</a>).</p>
+
+<div class="older">
+<p>The start-up sequence of EcuM Flex is the same in 4.4.0 and R20-11. Two details of this flow differ. In 4.4.0 and R20-11 CanNm calls <code>CanIf_Transmit</code> directly; the LSduR between them exists from R24-11. And up to R20-11 ComM did not use <code class="term">Nm_UpdateIRA</code>: the Comfort bit reached the NM PDU through a COM signal (<a href="0053-pnc-through-com-signals.html">lesson 53</a>). With EcuM Fixed (4.3.1 and older), EcuM itself allowed communication on entering RUN (<a href="0051-ecum-fixed.html">lesson 51</a>).</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> EcuM drives only the first part; once <code>BswM_Init</code> has run, the order is the integrator's. Nothing on the bus moves before BswM allows communication, however early the SWC asks. The way down (ComM to CanSM and NmIf) and the way back up (indications from CanSM and CanNm) are separate, and BswM, not ComM, starts the I-PDU groups.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 7.1.2, 7.3 and 7.6.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of BSW Mode Manager, R25-11</a>, chapters 7 and 10 (request processing, PDU group switch); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7.1.3, 7.2 and 9.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 7.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.2, 7.4 and 7.11; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, chapter 7.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+// Pad labels with no-break spaces: the component sizes note boxes for mixed-case text and estimates call labels slightly short.
+const nb = (n) => ' '.repeat(Math.ceil(n));
+const pad = (steps) => steps.map((s) => s.note ? Object.assign({}, s, { note: s.note + nb((s.note.match(/[A-Z_]/g) || []).length * 0.35) })
+  : Object.assign({}, s, { call: s.call + nb(s.call.length * 0.06) }));
+Sequence.create(document.getElementById('seq'), {
+  lanes: ['OS/SchM', 'EcuM', 'BswM', 'SWC', 'RTE', 'ComM', 'COM', 'NmIf', 'CanNm', 'CanSM', 'CanIf'],
+  focus: ['EcuM', 'BswM', 'ComM'],
+  steps: pad([
+    { ctx: 'after reset: startup code, no OS', from: 'EcuM', note: 'EcuM_Init(), called by the startup code',
+      text: 'The startup code has set up a stack and initialized the C variables. It calls <code>EcuM_Init</code>; EcuM now runs the StartPreOS Sequence (<a href="0026-startup.html">lesson 26</a>).' },
+    { from: 'EcuM', note: 'EcuM_AL_DriverInitZero, PB configuration, EcuM_AL_DriverInitOne',
+      text: 'Init block 0, the post-build configuration with its consistency check, then init block I. Which drivers are in the two callouts is the integrator\'s choice; they only prepare what the OS needs.' },
+    { from: 'EcuM', note: 'reset reason → wakeup source ECUM_WKSOURCE_POWER',
+      text: 'EcuM reads the reset reason from the MCU driver and maps it to a configured wakeup source; for a power-on reset that is <code>ECUM_WKSOURCE_POWER</code>. EcuM remembers it, so that it can be validated later in its main function. Then it selects the default shutdown target.' },
+    { from: 'EcuM', to: 'OS/SchM', call: 'StartOS(ECUM_DEFAULT_APP_MODE)',
+      text: 'EcuM starts the OS. This call does not return: EcuM gives up control until an OS task calls it again.' },
+    { ctx: 'OS task, started automatically', from: 'OS/SchM', to: 'EcuM', call: 'EcuM_StartupTwo()',
+      text: 'The integrator configures a task that starts immediately after <code>StartOS</code> (usually an autostart task) and calls <code>EcuM_StartupTwo</code> as its first action.' },
+    { from: 'EcuM', to: 'OS/SchM', call: 'SchM_Start()',
+      text: 'StartPostOS Sequence, in the order of the specification: start the BSW Scheduler ...' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_Init(ConfigPtr)',
+      text: '... initialize BswM ...' },
+    { from: 'EcuM', to: 'OS/SchM', call: 'SchM_Init(ConfigPtr) · SchM_StartTiming()',
+      text: '... initialize the scheduler\'s critical sections and start the periodic events. The UP phase begins: from now on the main functions run, and BswM decides what happens next.' },
+    { ctx: 'BswM_MainFunction (UP phase)', from: 'BswM', to: 'EcuM', call: 'EcuM_AL_DriverInitBswM_<x>()',
+      text: 'A BswM action calls the init list that EcuM generates for drivers initialized under BswM control.' },
+    { from: 'BswM', note: 'actions: NvM, COM, ComM, NmIf, CanNm, CanSM, EthSM ..., Rte_Start()',
+      text: 'Further actions initialize NvM, COM and the communication stack and start the RTE. The order is the integrator\'s. After its initialization ComM has every channel in COMM_NO_COMMUNICATION with communication not allowed; CanNm is in Bus-Sleep Mode with the network released.' },
+    { ctx: 'EcuM_MainFunction', from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(ECUM_WKSOURCE_POWER, ECUM_WKSTATUS_VALIDATED)',
+      text: 'EcuM handles the wakeup source from the reset reason in its main function. Power needs no validation in the example, so EcuM reports it as validated at once (<a href="0034-wakeup-validation.html">lesson 34</a>).' },
+    { ctx: 'BswM rule evaluation', from: 'BswM', note: 'rule: startup done, wakeup validated → action list',
+      text: 'A rule configured by the integrator becomes true. Whether BswM evaluates it at once or in its next main function is configured per mode request.' },
+    { from: 'BswM', to: 'ComM', call: 'ComM_CommunicationAllowed(BodyCan, TRUE)',
+      text: 'The action list allows communication on <code>BodyCan</code>, and in the same way on <code>ChassisCan</code> and <code>Eth</code> (<a href="0009-communication-allowed-and-bswm.html">lesson 9</a>). ComM stores the flag; no channel is requested yet, so nothing else happens.' },
+    { ctx: 'BodyControl runnable (task)', from: 'SWC', to: 'RTE', call: 'Rte_Call_<port>_RequestComMode(COMM_FULL_COMMUNICATION)',
+      text: 'Now the RTE runs the SWC. <code>BodyControl</code> calls its port connected to ComM\'s port <code>UR_UserComfort</code>.' },
+    { from: 'RTE', to: 'ComM', call: 'ComM_RequestComMode(UserComfort, COMM_FULL_COMMUNICATION)',
+      text: 'The RTE adds the user handle and calls ComM. ComM stores the request and returns E_OK; the work follows in its main function (<a href="0004-one-request-from-top-to-bottom.html">lesson 4</a>).' },
+    { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', note: 'PNC Comfort: COMM_PNC_NO_COMMUNICATION → COMM_PNC_REQUESTED',
+      text: 'PNC actions come before channel actions. A user of Comfort requests full communication, so the PNC enters COMM_PNC_REQUESTED (<a href="0041-the-comm-pnc-state-machine.html">lesson 41</a>).' },
+    { from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentPNCMode(Comfort, COMM_PNC_REQUESTED)',
+      text: 'Every PNC state change is reported to BswM.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(BodyCan, IRA = 0x01)',
+      text: 'ComM sets the bit of PNC 16 (byte 0, bit 0) in the IRA of <code>BodyCan</code> and passes it to NmIf. It does the same for <code>Eth</code>; the specification does not say in which channel\'s main function that call runs.' },
+    { from: 'ComM', note: 'BodyCan: NO_COM_REQUEST_PENDING → COMM_FULL_COMMUNICATION',
+      text: 'The PNC requests full communication for its channels, which counts like a user request. The channel enters COMM_NO_COM_REQUEST_PENDING; communication is allowed, so it moves on to COMM_FULL_COMMUNICATION at once.' },
+    { from: 'ComM', to: 'CanSM', call: 'CanSM_RequestComMode(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: 'Entering full communication: ComM requests the mode from the bus state manager. CanSM stores it and returns E_OK.' },
+    { from: 'ComM', note: 'sub-state COMM_FULL_COM_NETWORK_REQUESTED',
+      text: 'A user needs the channel, so full communication starts in COMM_FULL_COM_NETWORK_REQUESTED.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(BodyCan)',
+      text: 'On entering that sub-state, with the NM variant FULL, ComM requests the network (<a href="0007-network-requested-and-ready-sleep.html">lesson 7</a>).' },
+    { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRequest(BodyCan)',
+      text: 'NmIf passes the request to CanNm. BodyCan belongs to the NM coordination cluster, which only adds requests; it does not hold this one back.' },
+    { ctx: 'CanNm request handling', from: 'CanNm', note: 'Bus-Sleep Mode → Network Mode, Repeat Message State',
+      text: 'The network is requested in Bus-Sleep Mode, so CanNm enters Network Mode in its Repeat Message State and starts the NM-Timeout Timer (<a href="0013-the-cannm-states.html">lesson 13</a>).' },
+    { from: 'CanNm', to: 'NmIf', call: 'Nm_NetworkMode(BodyCan)',
+      text: 'Entering Network Mode is reported to NmIf ...' },
+    { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkMode(BodyCan)',
+      text: '... and NmIf passes it on to ComM.' },
+    { ctx: 'CanSM_MainFunction', from: 'CanSM', to: 'CanIf', call: 'CanIf_SetTrcvMode(0, CANTRCV_TRCVMODE_NORMAL)',
+      text: 'In its main function CanSM works through CANSM_BSM_S_PRE_FULLCOM: transceiver to normal mode first (<a href="0021-cansm-the-state-machine.html">lesson 21</a>).' },
+    { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetControllerMode(0, CAN_CS_STARTED)',
+      text: 'After the transceiver has reported normal mode, the controller: stopped if needed, then started. Each step waits for its mode indication from CanIf; <a href="0004-one-request-from-top-to-bottom.html">lesson 4</a> draws them.' },
+    { ctx: 'CanSM_MainFunction (after the indications)', from: 'CanSM', to: 'CanIf', call: 'CanIf_SetPduMode(0, CANIF_ONLINE)',
+      text: 'CanSM enters full communication. First it sets the PDU mode of CanIf online ...' },
+    { from: 'CanSM', to: 'ComM', call: 'ComM_CanSM_ModeIndication(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: '... then it reports full communication to ComM ...' },
+    { from: 'CanSM', to: 'BswM', call: 'BswM_CanSM_CurrentState(BodyCan, CANSM_BSWM_FULL_COMMUNICATION)',
+      text: '... and then to BswM. This order is fixed in the CanSM specification.' },
+    { ctx: 'ComM: mode indication', from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentMode(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: 'ComM passes the reached mode on to BswM ...' },
+    { from: 'ComM', to: 'RTE', call: 'UM_UserComfort: currentMode = COMM_FULL_COMMUNICATION',
+      text: '... and to the user, as a mode switch on its port <code>UM_UserComfort</code>.' },
+    { ctx: 'BswM rule evaluation', from: 'BswM', to: 'COM', call: 'Com_IpduGroupStart(<I-PDU groups of body CAN>, <initialize>)',
+      text: 'A rule on "BodyCan in full communication" (and, if the integrator wants, on the PNC mode of Comfort) runs an action that starts the I-PDU groups in COM. Now the Comfort signals flow.' },
+    { ctx: 'CanNm_MainFunction', from: 'CanNm', to: 'NmIf', call: 'Nm_PncBitVectorTxIndication(BodyCan, <buffer>)',
+      text: 'The Message Cycle Timer expires. Before sending, CanNm fetches the PNC bit vector: NmIf copies the IRA 0x01 into the buffer.' },
+    { from: 'CanNm', to: 'CanIf', call: 'LSduR_CanNmTransmit → CanIf_Transmit(NM PDU 0x10, byte 2 = 0x01)',
+      text: 'CanNm copies the vector to its offset, byte 2, and sends the NM PDU of node 0x10 through the LSduR to CanIf. The Door ECU sees PNC 16 requested.' },
+    { from: 'CanNm', note: 'Repeat Message Time over, network requested → Normal Operation State',
+      text: 'After the Repeat Message Time CanNm leaves the Repeat Message State. The network is requested, so it enters the Normal Operation State and keeps sending NM PDUs cyclically. The ECU is in full communication on body CAN.' }
+  ])
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which call starts BswM during startup?',
+    options: ['EcuM_StartupTwo, in the first OS task', 'EcuM_Init, before the OS is started', 'StartOS, as part of the OS startup'],
+    answer: 0,
+    why: 'EcuM_StartupTwo runs the StartPostOS Sequence: SchM_Start, BswM_Init, SchM_Init, SchM_StartTiming.'
+  },
+  {
+    prompt: 'The SWC requests UserComfort before BswM allows communication. What happens?',
+    options: ['BodyCan waits in NO_COM_REQUEST_PENDING', 'ComM rejects the request with E_NOT_OK', 'ComM starts body CAN without permission'],
+    answer: 0,
+    why: 'ComM evaluates communication allowed only in COMM_NO_COM_REQUEST_PENDING; the channel waits there until BswM sets it to TRUE.'
+  },
+  {
+    prompt: 'Who decides in which order the BSW modules are initialized after BswM_Init?',
+    options: ['The integrator, in BswM action lists', 'EcuM, in its StartPostOS Sequence', 'ComM, before it requests a channel'],
+    answer: 0,
+    why: 'After BswM_Init further BSW initialization is code in BswM action lists, configured by the integrator.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

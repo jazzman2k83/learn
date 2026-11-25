@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Communication inhibition · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.toggles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin: 0 0 0.9rem; }
+@media (max-width: 34rem) { .toggles { grid-template-columns: 1fr; } }
+.toggles button { width: 100%; text-align: left; padding: 0.55rem 0.7rem; line-height: 1.35; }
+.toggles button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.toggles button[aria-pressed="true"] small { color: inherit; }
+.grp { font-family: var(--sans); font-size: 0.75rem; color: var(--muted); margin: 0.2rem 0 0.4rem; }
+.status { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.35rem 0.8rem; align-items: center; font-family: var(--sans); font-size: 0.82rem; }
+.status .state-pill { overflow-wrap: anywhere; max-width: 100%; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Communication inhibition</h1>
+<p class="lede">Sometimes a request for communication must not be obeyed: a faulty input keeps waking the whole car, or one ECU keeps a bus awake for no reason. <span class="term">ComM</span> can then ignore or override the requests of its users for a channel.</p>
+
+<p>This lesson shows the two kinds of inhibition, how an ECU decides which of them may be used, how rejected requests are counted, and the one exception: diagnostics.</p>
+
+<h2>Two kinds of inhibition</h2>
+<p><span class="term">Communication inhibition</span> (the ComM functions that limit what the requests of ComM users can do to a channel) comes in two kinds. Each can be switched on and off at run time and per channel. It is requested through ComM functions by a privileged SWC or by OEM-specific basic software, never by an ordinary ComM user, and ComM never uses it on its own initiative.</p>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">do not wake the bus</p><h3>Wake up inhibition</h3><p>With <span class="term">wake up inhibition</span> (requests for full communication are not executed while the channel is in no or silent communication) ComM accepts a user's request but does not execute it, so the channel is not woken. A channel that is already in full communication is not affected. The request is kept: when the inhibition is switched off, it is executed. Typical use: a wakeup line has been found faulty, or the vehicle is in transport mode.</p></div>
+  <div class="card m-comm"><p class="tag">take the bus down</p><h3>Limit to no communication</h3><p>With <span class="term">limit to COMM_NO_COMMUNICATION</span> (requests for full communication are ignored and an actively requested channel is taken down) a channel in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> goes to <code class="term">COMM_FULL_COM_READY_SLEEP</code> despite its users, and from there to no communication. All requests for full communication are ignored, and once the channel is in no communication they are cleared: when the limit is lifted, the users must request again. It can be set for one channel or for the whole ECU.</p></div>
+</div>
+<p>Neither kind blocks a <span class="term">passive wakeup</span> (the ECU is woken from outside, for example by a message on the bus): ComM must always be able to follow a bus that another ECU wakes. For the same reason the limit does nothing to a channel that is kept awake only by the other ECUs. Optionally, ComM asks for a reset of the ECU after it has forced a channel down, for the case that a faulty user would keep its request forever.</p>
+
+<h2>ECU group classification</h2>
+<p>Whether the inhibitions may be used at all is decided by the <span class="term">ECU group classification</span> (a small bit field per ECU that enables each kind of inhibition). Bit 0 enables wake up inhibition, bit 1 enables the limit to no communication; the configured default is 3, both enabled. If a function is called for a kind whose bit is not set, ComM refuses the call. The classification can be changed at run time, for example by a diagnostic service; such a change does not cancel an inhibition that is already active.</p>
+
+<h2>Counting rejected requests</h2>
+<p>A user whose request is rejected gets <code class="term">COMM_E_MODE_LIMITATION</code> (the return value of <code class="term">ComM_RequestComMode</code> when the mode cannot be granted because of inhibition). For wake up inhibition, which keeps the request but does not execute it, the specification does not say separately which value the call returns; the simulation below returns <code>COMM_E_MODE_LIMITATION</code> there too. ComM also counts these requests in one counter for the whole ECU, the <span class="term">Inhibited Full Communication Request Counter</span> (the number of requests for full communication that inhibition has rejected). It counts from 0 to 65535 and then stops, can be kept in non-volatile memory, and can be read and reset, for example by a diagnostic service. It helps to find software that keeps trying to wake the bus without a good reason.</p>
+
+<h2>The diagnostic exception</h2>
+<p>While a diagnostic session is active, communication inhibition is suspended. As long as <span class="term">Dcm</span> reports active diagnostics through <code class="term">ComM_DCM_ActiveDiagnostic</code>, the channel is requested and the limit does not take it down; the ECU must not fall asleep under the tester. When Dcm reports <code class="term">ComM_DCM_InactiveDiagnostic</code>, the inhibitions apply again.</p>
+
+<h2>Try it</h2>
+<p>The body gateway, channel <code>ChassisCan</code>, its user <code>UserChassis</code>. Set the ECU group classification, switch the inhibitions, then request. Going to sleep is shortened: assume the other ECUs on chassis CAN are already done.</p>
+<div class="panel no-print" id="isim">
+<p class="grp">ECU group classification</p>
+<div class="toggles">
+<button type="button" aria-pressed="true" data-k="g0">Bit 0: wake up inhibition<small>enabled</small></button>
+<button type="button" aria-pressed="true" data-k="g1">Bit 1: limit to COMM_NO_COMMUNICATION<small>enabled</small></button>
+</div>
+<p class="grp">Inhibition for ChassisCan</p>
+<div class="toggles">
+<button type="button" aria-pressed="false" data-k="wi">Wake up inhibition<small>off</small></button>
+<button type="button" aria-pressed="false" data-k="li">Limit to COMM_NO_COMMUNICATION<small>off</small></button>
+</div>
+<p class="grp">Requests</p>
+<div class="toggles">
+<button type="button" aria-pressed="false" data-k="req">UserChassis<small>does not request full communication</small></button>
+<button type="button" aria-pressed="false" data-k="dcm">Dcm<small>diagnostics inactive</small></button>
+</div>
+<div class="status">
+<span>ChassisCan</span><span><span class="state-pill" id="i-state"></span></span>
+<span>Counter</span><span><span class="state-pill" id="i-count"></span></span>
+</div>
+<p class="readout" id="i-why" aria-live="polite"></p>
+</div>
+
+<div class="older"><p>4.4.0 and R20-11 contradict themselves on the wake up inhibition status: one requirement says it must always be stored in non-volatile memory, while a per-channel configuration switch, already present in these releases, decides whether it is stored. The ECU group classification is listed among the data ComM keeps in non-volatile memory. R25-11 resolves this: both are stored only where the configuration says so; otherwise the configured defaults apply again after a reset.</p></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Wake up inhibition keeps a request and executes it later; the limit throws requests away. Wake up inhibition never stops a channel that is already up, the limit does exactly that. The classification only decides whether an inhibition may be switched on. Active diagnostics overrides both.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">communication inhibition</span></td><td>ComM functions that limit what user requests can do to a channel: wake up inhibition and limit to no communication</td></tr>
+<tr><td><span class="term">wake up inhibition</span></td><td>Requests for full communication are kept but not executed while the channel is in no or silent communication</td></tr>
+<tr><td><span class="term">limit to COMM_NO_COMMUNICATION</span></td><td>Requests for full communication are ignored and cleared; an actively requested channel is taken down</td></tr>
+<tr><td><span class="term">ECU group classification</span></td><td>A bit field per ECU that enables wake up inhibition (bit 0) and the limit (bit 1); changeable at run time</td></tr>
+<tr><td><span class="term">Inhibited Full Communication Request Counter</span></td><td>Counts the requests for full communication that inhibition rejected, 0 to 65535</td></tr>
+<tr><td><code class="term">COMM_E_MODE_LIMITATION</code></td><td>Returned by <code>ComM_RequestComMode</code> when the mode cannot be granted because of inhibition</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.4.1 (communication inhibition) and 7.8.1 (inhibited full communication request counter), and the type ComM_InhibitionStatusType; the same document of 4.4.0 and R20-11 for the storage rules.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const SLEEP = 2000; // ms, scaled: ready sleep until the bus sleeps
+  const s = { g0: true, g1: true, wi: false, li: false, req: false, dcm: false };
+  let st = 'NO';            // NO | NR | RS
+  let stored = false;        // a user request ComM keeps (wake up inhibition)
+  let count = 0;
+  let timer = 0;
+  const why = document.getElementById('i-why');
+  const pill = document.getElementById('i-state');
+  const cnt = document.getElementById('i-count');
+  const btn = (k) => document.querySelector('#isim [data-k="' + k + '"]');
+  const SUB = {
+    g0: (v) => v ? 'enabled' : 'disabled', g1: (v) => v ? 'enabled' : 'disabled',
+    wi: (v) => v ? 'on' : 'off', li: (v) => v ? 'on' : 'off',
+    req: (v) => v ? 'requests full communication' : 'does not request full communication',
+    dcm: (v) => v ? 'diagnostics active' : 'diagnostics inactive'
+  };
+  const NAMES = { NO: 'COMM_NO_COMMUNICATION', NR: 'COMM_FULL_COM_NETWORK_REQUESTED', RS: 'COMM_FULL_COM_READY_SLEEP' };
+
+  function sleepSoon(text) {
+    st = 'RS';
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      st = 'NO';
+      if (s.li && s.req) { s.req = false; stored = false; why.textContent = 'The bus is asleep: COMM_NO_COMMUNICATION. Under the limit, the request of UserChassis is cleared; it must request again later.'; }
+      else why.textContent = 'The bus is asleep: COMM_NO_COMMUNICATION.';
+      evaluate(true);
+      render();
+    }, SLEEP);
+    why.textContent = text;
+  }
+  // Re-evaluate the channel after any change. quiet = keep the readout.
+  function evaluate(quiet) {
+    const wanted = s.dcm || (s.req && !s.li);
+    if (s.dcm) {
+      if (st !== 'NR') { clearTimeout(timer); st = 'NR'; if (!quiet) why.textContent = 'Dcm reports active diagnostics: inhibition is suspended and ChassisCan is requested.'; }
+      return;
+    }
+    if (st === 'NR' && s.li) { sleepSoon('Limit to COMM_NO_COMMUNICATION: ChassisCan is forced to COMM_FULL_COM_READY_SLEEP despite the request, and goes down.'); return; }
+    if (st === 'NR' && !wanted) { sleepSoon('Nothing needs ChassisCan any more: COMM_FULL_COM_READY_SLEEP, then no communication.'); return; }
+    if (st === 'RS' && wanted && !s.li) { clearTimeout(timer); st = 'NR'; if (!quiet) why.textContent = 'Requested again while still awake: COMM_FULL_COM_NETWORK_REQUESTED. Wake up inhibition does not affect a channel in full communication.'; return; }
+    if (st === 'NO' && wanted && !s.wi) { st = 'NR'; stored = false; if (!quiet) why.textContent = 'The request is executed: ChassisCan goes to full communication.'; }
+  }
+  function request() {
+    // A new request for full communication by UserChassis.
+    if (s.dcm) { evaluate(); return; }
+    if (s.li) { count = Math.min(65535, count + 1); why.textContent = 'Rejected with COMM_E_MODE_LIMITATION: the limit ignores every request for full communication. Counter + 1.'; return; }
+    if (s.wi && st === 'NO') { stored = true; count = Math.min(65535, count + 1); why.textContent = 'Rejected with COMM_E_MODE_LIMITATION: wake up inhibition. ComM keeps the request but does not wake the channel. Counter + 1.'; return; }
+    evaluate();
+  }
+  function toggleInhibition(k, bit, name) {
+    if (!s[k] && !s[bit]) { why.textContent = 'Refused: the ECU group classification does not enable ' + name + '. Nothing changes.'; return; }
+    s[k] = !s[k];
+    if (k === 'wi') {
+      if (s.wi) why.textContent = st === 'NO' ? 'Wake up inhibition is on: requests will not wake ChassisCan.' : 'Wake up inhibition is on, but ChassisCan is already up: it is not affected.';
+      else { why.textContent = 'Wake up inhibition is off.' + (stored && s.req ? ' The kept request of UserChassis is executed now.' : ''); evaluate(true); }
+    } else {
+      if (s.li && st === 'NO' && s.req && !s.dcm) { s.req = false; stored = false; why.textContent = 'Limit to COMM_NO_COMMUNICATION is on. ChassisCan is in no communication, so the request of UserChassis is cleared.'; }
+      else if (s.li) { why.textContent = 'Limit to COMM_NO_COMMUNICATION is on.'; evaluate(); }
+      else { why.textContent = 'The limit is lifted.' + (st === 'NO' && !s.req ? ' ChassisCan stays down: the cleared request must be made again.' : ''); evaluate(true); }
+    }
+  }
+  function render() {
+    Object.keys(s).forEach((k) => {
+      const b = btn(k);
+      b.setAttribute('aria-pressed', String(s[k]));
+      b.querySelector('small').textContent = SUB[k](s[k]);
+    });
+    pill.textContent = NAMES[st];
+    pill.className = 'state-pill ' + (st === 'NO' ? 'off' : 'on');
+    cnt.textContent = 'Inhibited Full Communication Request Counter = ' + count;
+  }
+  btn('g0').addEventListener('click', () => { s.g0 = !s.g0; why.textContent = 'Bit 0 is now ' + (s.g0 ? 'set' : 'cleared') + '. An active wake up inhibition is not cancelled by this.'; render(); });
+  btn('g1').addEventListener('click', () => { s.g1 = !s.g1; why.textContent = 'Bit 1 is now ' + (s.g1 ? 'set' : 'cleared') + '. An active limit is not cancelled by this.'; render(); });
+  btn('wi').addEventListener('click', () => { toggleInhibition('wi', 'g0', 'wake up inhibition'); render(); });
+  btn('li').addEventListener('click', () => { toggleInhibition('li', 'g1', 'the limit to COMM_NO_COMMUNICATION'); render(); });
+  btn('req').addEventListener('click', () => {
+    s.req = !s.req;
+    if (s.req) request();
+    else { stored = false; why.textContent = 'UserChassis releases its request.'; evaluate(true); }
+    render();
+  });
+  btn('dcm').addEventListener('click', () => {
+    s.dcm = !s.dcm;
+    if (s.dcm) evaluate();
+    else { why.textContent = 'Dcm reports inactive diagnostics: the inhibitions apply again.'; evaluate(true); }
+    render();
+  });
+  why.textContent = 'ChassisCan is asleep; no inhibition is on.';
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Wake up inhibition is switched on while ChassisCan is in full communication. What happens?',
+    options: ['Nothing; the channel stays up', 'The channel is taken down', 'The channel goes silent'],
+    answer: 0,
+    why: 'Wake up inhibition only stops requests from waking a channel in no or silent communication. Taking a channel down is the job of the limit.'
+  },
+  {
+    prompt: 'A request was rejected under the limit to COMM_NO_COMMUNICATION. The limit is lifted. What happens?',
+    options: ['The user must request again', 'The kept request is executed', 'ComM wakes the channel itself'],
+    answer: 0,
+    why: 'Under the limit, requests are ignored and cleared once the channel is in no communication. Wake up inhibition, in contrast, keeps the request.'
+  },
+  {
+    prompt: 'Which situation suspends communication inhibition?',
+    options: ['Diagnostics is active on the channel', 'The counter has reached its maximum', 'The ECU group classification is 3'],
+    answer: 0,
+    why: 'During an active diagnostic session inhibition is temporarily inactive, so that the ECU does not fall asleep under the tester.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

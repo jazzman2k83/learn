@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PNC through COM signals · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.chooser { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.6rem; }
+.side { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+@media (max-width: 34rem) { .side { grid-template-columns: 1fr; } }
+.side .card { margin: 0; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>PNC through COM signals</h1>
+<p class="lede">Up to R20-11, <span class="term">ComM</span> did not talk to the bus NMs about <span class="term">PNC</span>s at all. <span class="term">CanNm</span> and <span class="term">UdpNm</span> computed <span class="term">EIRA</span> and <span class="term">ERA</span> and handed them to <span class="term">COM</span> like any received data; ComM read them as COM signals and sent its own PNC requests the same way.</p>
+
+<div class="warn"><p><strong>Releases on this page: AUTOSAR 4.x up to R20-11.</strong> R21-11 adds the direct path through <span class="term">NmIf</span> as a draft and marks the COM signal path obsolete; R22-11 removes the COM signal path. The rest of the course (lessons 40 to 46) describes the R25-11 path.</p></div>
+
+<p>This lesson follows a PNC request in both directions through the old path, on body CAN of the example gateway, and then shows what R21-11 and R22-11 changed. The PNC state machine itself (lesson 41) is the same in both paths; only the way the bits travel differs.</p>
+
+<h2>Who computes what</h2>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">CanNm, UdpNm</p><h3>Compute EIRA and ERA</h3><p>The bus NM filters each received <span class="term">NM PDU</span> with the <span class="term">PNC filter mask</span>, sets the bits of the requested PNCs, restarts their <span class="term">PNC reset timer</span> and clears a bit when its timer runs out. The EIRA also takes the NM PDUs that this ECU sends. Whenever a bit changes, CanNm passes the new EIRA (one for all CAN channels) or ERA (one per channel) as a received PDU to <span class="term">PduR</span>.</p></div>
+  <div class="card m-com"><p class="tag">PduR, COM</p><h3>Carry the bits</h3><p>PduR routes the EIRA and ERA PDUs to COM. In COM each is an ordinary receive <span class="term">I-PDU</span> with one signal: a bit vector with one bit per PNC. In the transmit direction COM holds the <span class="term">user data</span> I-PDU of the NM PDU, in which the <span class="term">PNC bit vector</span> lies.</p></div>
+  <div class="card m-comm"><p class="tag">ComM</p><h3>Reads and writes signals</h3><p>For each PNC a configuration names its COM signals in <code class="term">ComMPncComSignal</code> (older ComM configuration, up to R20-11: a COM signal through which ComM reads EIRA or ERA, or sends its PNC requests), with a direction RX or TX and, for RX, a kind EIRA or ERA. ComM reads with <code class="term">Com_ReceiveSignal</code> and writes with <code class="term">Com_SendSignal</code>.</p></div>
+</div>
+<p>COM tells ComM about a change through <code class="term">ComM_COMCbk_&lt;sn&gt;</code> (the ComM callback that COM calls when an EIRA or ERA signal was updated; <code>&lt;sn&gt;</code> is the signal's short name). The callback only notes the change; ComM reads the signal and runs the <span class="term">PNC state machine</span> in its next main function.</p>
+<p>The bit of a PNC follows the same rule in both paths: byte index = (<span class="term">PNC ID</span> div 8) − PNC vector offset, bit index = PNC ID mod 8. On body CAN the PNC bit vector is one byte at offset 2, so Comfort (16) is bit 0 and Lighting (17) bit 1 of that byte, which is byte 2 of the NM PDU.</p>
+
+<h2>Try it</h2>
+<p>Step through a request in each direction on the body gateway. <strong>Receive</strong>: the Door ECU requests Comfort. <strong>Transmit</strong>: <code>BodyControl</code> requests Comfort through <code>UserComfort</code>. The signal names <code>PncEira</code> and <code>PncTxBodyCan</code> are examples; a project chooses its own.</p>
+<div class="panel no-print">
+<div class="chooser" role="group" aria-label="Direction">
+<button type="button" id="dRx" aria-pressed="true">Receive: EIRA to ComM</button>
+<button type="button" id="dTx" aria-pressed="false">Transmit: ComM to the NM PDU</button>
+</div>
+<div id="seq"></div>
+</div>
+
+<h2>The gateway case: ERA</h2>
+<p>A <span class="term">PNC gateway</span> needs to know on which channel a request came from. With <code>CanNmPnEraCalcEnabled</code> on a channel, CanNm keeps an ERA for that channel, built only from received NM PDUs, and passes it through its own Rx PDU to COM. ComM reads it through a <code class="term">ComMPncComSignal</code> with direction RX and kind ERA; <code>ComMPncComSignalChannelRef</code> names the channel, whose gateway type (active or passive) then decides on which channels ComM mirrors the request with <code class="term">Com_SendSignal</code>. The rules of the gateway are the ones of lesson 44; only the transport is different.</p>
+
+<h2>What R21-11 and R22-11 changed</h2>
+<div class="side">
+  <div class="card m-com"><p class="tag">up to R20-11</p><h3>Through COM</h3><p>CanNm/UdpNm compute EIRA and ERA (<code>CanNmPnEiraCalcEnabled</code>, <code>CanNmPnEraCalcEnabled</code>, <code>CanNmPnResetTime</code>, <code>CanNmPnInfo</code> …) → PduR → COM → <code class="term">ComM_COMCbk_&lt;sn&gt;</code>, <code class="term">Com_ReceiveSignal</code>. ComM's requests: <code class="term">Com_SendSignal</code> → COM → PduR → NM user data.</p></div>
+  <div class="card m-nm"><p class="tag">R22-11 and later</p><h3>Through NmIf</h3><p><span class="term">NmIf</span> computes EIRA and ERA from the PNC bit vectors that the bus NMs pass up, and calls <code class="term">ComM_Nm_UpdateEIRA</code> and <code class="term">ComM_Nm_UpdateERA</code>. ComM passes its <span class="term">IRA</span> per channel with <code class="term">Nm_UpdateIRA</code>. The parameters moved to NmIf (<code>NmPnEiraCalcEnabled</code>, <code>NmPnResetTime</code> …, lesson 54).</p></div>
+</div>
+<ul>
+<li><strong>R21-11</strong>: the NmIf path appears as a draft (<code>Nm_UpdateIRA</code>, <code>ComM_Nm_UpdateEIRA</code>, <code>ComM_Nm_UpdateERA</code>), and the ComM change history says it "set the usage of ComSignals to obsolete": the requirements of the COM path and the container <code>ComMPncComSignal</code> are marked obsolete, as are the EIRA/ERA parameters of CanNm.</li>
+<li><strong>R22-11</strong>: the NmIf path becomes valid, and the obsolete requirements, <code>ComMPncComSignal</code>, <code>ComM_COMCbk_&lt;sn&gt;</code> and the CanNm EIRA/ERA parameters are removed.</li>
+</ul>
+<p>What stays: the PNC state machine, the bit position rule, the filter mask idea, the reset timer and the gateway types. A project that moves forward keeps its PNC IDs and its NM PDU layout; it changes where the parameters live and drops the COM signals, the PduR routes and the COM I-PDUs of EIRA and ERA.</p>
+
+<div class="older"><p>Between 4.4.0 and R20-11 the COM path itself is the same. R20-11 adds, as drafts, the <span class="term">synchronized PNC shutdown</span> and <span class="term">PN learning</span> with <span class="term">dynamic PNC-to-channel mapping</span>, which still use the COM signals in that release (lessons 45 and 46). In 4.4.0 and R20-11 a <span class="term">PNC ID</span> lies between 8 and 63; R25-11 allows up to 511.</p></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> In the old path the bus NM does the PNC work and COM is only the courier: ComM never calls an NM function for a PNC. Every bit change costs a trip through PduR and COM, and ComM learns of it only in its next main function. The R25-11 path removes the courier, not the logic.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">ComMPncComSignal</code></td><td>Older ComM configuration (up to R20-11): a COM signal through which ComM reads EIRA or ERA, or sends its PNC requests</td></tr>
+<tr><td><code class="term">ComM_COMCbk_&lt;sn&gt;</code></td><td>ComM callback (up to R21-11) that COM calls when an EIRA or ERA signal was updated; ComM handles it in its next main function</td></tr>
+<tr><td><code class="term">Com_ReceiveSignal</code></td><td>COM API that copies a received signal value; ComM used it to read EIRA and ERA</td></tr>
+<tr><td><code class="term">Com_SendSignal</code></td><td>COM API that writes a signal value for transmission; ComM used it to set its PNC bits in the NM user data</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COMManager.pdf">Specification of Communication Manager, R20-11</a>, chapters 7.1, 8 and 10.2.9; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R20-11</a>, chapters 7.11 and 7.14; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R20-11</a>; Specification of Communication Manager, R21-11 and R22-11, document change history.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const lanes = ['SWC', 'ComM', 'COM', 'PduR', 'CanNm', 'CanIf'];
+  const rx = [
+    { ctx: 'CanIf receive (interrupt or task)', from: 'CanIf', to: 'CanNm', call: 'CanNm_RxIndication(NM PDU 0x21)', text: 'The NM PDU of the Door ECU (node 0x21) arrives. Byte 2 of it, the PNC bit vector, is 0x01: Comfort is requested.' },
+    { from: 'CanNm', note: '0x01 AND mask 0x03: PNC 16 relevant', text: 'The filter mask byte of the gateway is 0x03 (Comfort and Lighting). Bit 0 is set in both, so the request is relevant: the PDU is kept, the EIRA bit of PNC 16 becomes 1, its reset timer starts.' },
+    { from: 'CanNm', to: 'PduR', call: 'PduR_CanNmRxIndication(EIRA PDU)', text: 'An EIRA bit changed, so CanNm passes the EIRA, as a received PDU, to PduR.' },
+    { from: 'PduR', to: 'COM', call: 'Com_RxIndication(EIRA I-PDU)', text: 'PduR routes it to COM like any other received I-PDU.' },
+    { from: 'COM', to: 'ComM', call: 'ComM_COMCbk_PncEira()', text: 'COM unpacks the signal <code>PncEira</code> and calls its notification, the ComM callback. ComM only notes that something changed.' },
+    { ctx: 'ComM_MainFunction_BodyCan (BSW task)', from: 'ComM', to: 'COM', call: 'Com_ReceiveSignal(PncEira, &bits)', text: 'In its next main function ComM reads the signal with direction RX and kind EIRA.' },
+    { from: 'COM', to: 'ComM', call: 'E_OK, bits = 0x01', ret: true, text: 'Byte (16 div 8) − 2 = 0, bit 16 mod 8 = 0: PNC Comfort is requested.' },
+    { from: 'ComM', note: 'Comfort: COMM_PNC_NO_COMMUNICATION → COMM_PNC_READY_SLEEP', text: 'An EIRA bit changed to 1 while the PNC was in no communication: the PNC enters ready sleep (lesson 41), and BswM can switch on the I-PDU groups of Comfort.' }
+  ];
+  const tx = [
+    { ctx: 'SWC runnable (through the RTE)', from: 'SWC', to: 'ComM', call: 'ComM_RequestComMode(UserComfort, FULL)', text: '<code>BodyControl</code> requests full communication for <code>UserComfort</code>, which is mapped to PNC Comfort.' },
+    { ctx: 'ComM_MainFunction_BodyCan (BSW task)', from: 'ComM', note: 'Comfort → COMM_PNC_REQUESTED', text: 'The PNC state machine enters requested; ComM also requests full communication on the channels of Comfort.' },
+    { from: 'ComM', to: 'COM', call: 'Com_SendSignal(PncTxBodyCan, bit 0 = 1)', text: 'On entering requested, ComM writes 1 into the bit of Comfort in the signal with direction TX. The signal lies in the NM user data I-PDU of body CAN.' },
+    { ctx: 'CanNm_MainFunction (BSW task)', from: 'CanNm', to: 'PduR', call: 'PduR_CanNmTriggerTransmit(user data I-PDU)', text: 'Before each NM PDU it sends, CanNm collects the user data through PduR (CanNmComUserDataSupport).' },
+    { from: 'PduR', to: 'COM', call: 'Com_TriggerTransmit(user data I-PDU)', text: 'PduR fetches the current bytes of the I-PDU from COM.' },
+    { from: 'COM', to: 'CanNm', call: 'user data with byte 2 = 0x01', ret: true, text: 'The bytes travel back. CanNm puts its own bytes (node identifier 0x10 and Control Bit Vector) in front.' },
+    { from: 'CanNm', note: 'sending: EIRA bit of PNC 16 set', text: 'A PNC requested in an NM PDU that CanNm sends also counts for the EIRA and restarts its reset timer.' },
+    { from: 'CanNm', to: 'CanIf', call: 'CanIf_Transmit(NM PDU)', text: 'The NM PDU leaves with the Comfort bit set. The Door ECU sees the request in its own EIRA.' }
+  ];
+  const seq = Sequence.create(document.getElementById('seq'), { lanes, steps: rx, focus: ['COM', 'PduR'] });
+  const a = document.getElementById('dRx'), b = document.getElementById('dTx');
+  a.addEventListener('click', () => { a.setAttribute('aria-pressed', 'true'); b.setAttribute('aria-pressed', 'false'); seq.set({ steps: rx }); });
+  b.addEventListener('click', () => { b.setAttribute('aria-pressed', 'true'); a.setAttribute('aria-pressed', 'false'); seq.set({ steps: tx }); });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Up to R20-11, which module computes the EIRA?',
+    options: ['CanNm or UdpNm, then COM carries it', 'ComM, from the bits that COM delivers', 'NmIf, from the bit vectors of the bus NMs'],
+    answer: 0,
+    why: 'With CanNmPnEiraCalcEnabled the bus NM computes it and passes it through PduR to COM. NmIf took this over in R22-11.'
+  },
+  {
+    prompt: 'COM calls ComM_COMCbk_<sn>. When does the PNC state machine react?',
+    options: ['In the next ComM main function cycle', 'Inside the callback, before it returns', 'Only after the PNC reset timer is over'],
+    answer: 0,
+    why: 'The callback only informs ComM; it reads the signal with Com_ReceiveSignal and runs the PNC state machine in its next main function.'
+  },
+  {
+    prompt: 'In which release is the COM signal path for PNCs removed?',
+    options: ['R22-11', 'R21-11', 'R20-11'],
+    answer: 0,
+    why: 'R21-11 marks it obsolete next to the new draft NmIf path; R22-11 removes it.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

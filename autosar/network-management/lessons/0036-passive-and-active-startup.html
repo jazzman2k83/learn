@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passive and active startup · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Passive and active startup</h1>
+<p class="lede">A bus can wake because this ECU needs it, or because another ECU does. The <span class="term">wakeup</span> looks the same on the wires, but ComM and NM treat the two starts differently, and so does the moment this ECU lets the bus sleep again.</p>
+
+<p>The example is chassis CAN: the gateway and the Brake ECU. Either the gateway's ComM user <code>UserChassis</code> needs the bus, or the Brake ECU wakes it.</p>
+
+<h2>Active wakeup</h2>
+<p>An <span class="term">active wakeup</span> (a wakeup this ECU starts itself because a local user needs the bus) begins with a request: <code>BodyControl</code> calls <code class="term">ComM_RequestComMode</code> for <code>UserChassis</code>. Once <span class="term">communication allowed</span> is set, ComM enters <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code>, asks CanSM for full communication and calls <code class="term">Nm_NetworkRequest</code>.</p>
+<p>CanNm leaves <span class="term">Bus-Sleep Mode</span> for the <span class="term">Repeat Message State</span> and sends NM PDUs, if configured first with <span class="term">immediate transmission</span>. If the <span class="term">Active Wakeup Bit</span> is enabled, CanNm sets it in its NM PDUs, because it left Bus-Sleep (or Prepare Bus-Sleep) Mode through a network request; it clears the bit when it leaves Network Mode. The other ECUs wake up passively. After the <span class="term">Repeat Message Time</span> the gateway, still requesting the network, goes to the <span class="term">Normal Operation State</span> and keeps the bus awake.</p>
+
+<h2>Passive wakeup</h2>
+<p>A <span class="term">passive wakeup</span> (a wakeup by another ECU through the bus; this ECU joins without requesting the network) reaches ComM in one of two ways:</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">through EcuM</p><h3>A validated wakeup</h3><p>The transceiver woke the sleeping ECU, EcuM validated it (lesson 35) and called <code class="term">ComM_EcuM_WakeUpIndication</code>. ComM goes through <code class="term">COMM_NO_COM_REQUEST_PENDING</code> to full communication.</p></div>
+  <div class="card m-nm"><p class="tag">through NM</p><h3>An NM PDU in Bus-Sleep Mode</h3><p>CanNm is in Bus-Sleep Mode but still receives an NM PDU, for example when another node sends from Prepare Bus-Sleep Mode just after this one fell asleep. CanNm calls <code class="term">Nm_NetworkStartIndication</code>, NmIf forwards <code class="term">ComM_Nm_NetworkStartIndication</code>, and ComM switches to full communication if communication is allowed.</p></div>
+</div>
+<p>Either way ComM enters <code>COMM_FULL_COM_NETWORK_REQUESTED</code> and calls <code class="term">Nm_PassiveStartUp</code> instead of <code>Nm_NetworkRequest</code>. CanNm enters the Repeat Message State and sends NM PDUs for the Repeat Message Time, so that the others see it, but without the Active Wakeup Bit. Then, because the network is not requested, it goes to the <span class="term">Ready Sleep State</span>: it stops sending and stays awake only as long as other ECUs send.</p>
+
+<h2>Does ComM go to ready sleep on a passive wakeup?</h2>
+<p>Yes. With the <span class="term">NM variant</span> <span class="term">FULL</span> (all three channels of the gateway), ComM leaves <code>COMM_FULL_COM_NETWORK_REQUESTED</code> for <code class="term">COMM_FULL_COM_READY_SLEEP</code> as soon as no ComM user requests full communication and Dcm reports no active diagnostics. On entering it, ComM calls <code class="term">Nm_NetworkRelease</code>. ComM needs no timer of its own here: NM's Repeat Message Time already keeps the bus awake for a minimum time. With the variants <span class="term">LIGHT</span> and <span class="term">NONE</span>, ComM instead stays in network requested until a configured minimum full-communication time has passed.</p>
+<p>If <code>UserChassis</code> requests the bus later, ComM goes back to network requested and calls <code>Nm_NetworkRequest</code>: CanNm moves from Ready Sleep to Normal Operation. If the channel belongs to an <span class="term">NM coordination cluster</span> (buses that the NM coordinator keeps awake and puts to sleep together, lesson 37), NmIf treats <code>Nm_PassiveStartUp</code> of that channel like a network request.</p>
+
+<h2>Side by side</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th></th><th>Active wakeup</th><th>Passive wakeup</th></tr></thead>
+<tbody>
+<tr><td>Starts with</td><td><code>ComM_RequestComMode</code> of a local user</td><td><code>ComM_EcuM_WakeUpIndication</code> or <code>ComM_Nm_NetworkStartIndication</code></td></tr>
+<tr><td>ComM calls</td><td><code>Nm_NetworkRequest</code></td><td><code>Nm_PassiveStartUp</code>, then <code>Nm_NetworkRelease</code></td></tr>
+<tr><td>ComM sub-state</td><td>stays in <code>COMM_FULL_COM_NETWORK_REQUESTED</code></td><td>moves on to <code>COMM_FULL_COM_READY_SLEEP</code></td></tr>
+<tr><td>CanNm</td><td>Repeat Message → Normal Operation</td><td>Repeat Message → Ready Sleep</td></tr>
+<tr><td>Active Wakeup Bit</td><td>set (if enabled)</td><td>not set</td></tr>
+<tr><td>Bus may sleep</td><td>after this ECU releases it</td><td>as soon as the other ECUs stop</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Try it</h2>
+<p>Compare the three starts on chassis CAN. The rows are in time order; the timings are not to scale.</p>
+<div class="panel no-print">
+<div class="controls">
+  <label class="inline"><input type="radio" name="v" value="act" checked> active: UserChassis needs the bus</label>
+  <label class="inline"><input type="radio" name="v" value="pas"> passive: the Brake ECU wakes it</label>
+  <label class="inline"><input type="radio" name="v" value="nm"> passive: NM PDU in Bus-Sleep Mode</label>
+</div>
+<div id="seq"></div>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The difference lies in one call: <code>Nm_NetworkRequest</code> or <code>Nm_PassiveStartUp</code>. Both put CanNm into the Repeat Message State and make it send, so every wakeup is visible on the bus. Only an active wakeup sets the Active Wakeup Bit and keeps the bus awake after the Repeat Message Time; a passive one follows the others.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">active wakeup</span></td><td>A wakeup this ECU starts itself because a local user needs the bus; NM sends with the Active Wakeup Bit if enabled</td></tr>
+<tr><td><span class="term">passive wakeup</span></td><td>A wakeup by another ECU through the bus; this ECU joins the network without requesting it</td></tr>
+<tr><td><code class="term">Nm_PassiveStartUp</code></td><td>Starts NM in Network Mode without requesting the network, after a passive wakeup</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.2.2, 7.2.4 and 7.7.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, sections 7.2 and 8.3; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7 and 8.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const actors = [
+    { id: 'app', label: 'BodyControl', sub: 'user UserChassis' },
+    { id: 'comm', label: 'ComM', sub: 'gateway, ChassisCan' },
+    { id: 'nm', label: 'NmIf / CanNm', sub: 'gateway, ChassisCan' },
+    { id: 'brk', label: 'Brake ECU', sub: 'chassis CAN' }
+  ];
+  const act = [
+    { text: 'The SWC needs chassis CAN and requests full communication for UserChassis. ComM waits in COMM_NO_COM_REQUEST_PENDING until communication is allowed.',
+      rows: [{ from: 'app', to: 'comm', label: 'ComM_RequestComMode(UserChassis)', kind: 'req' }] },
+    { text: 'ComM enters COMM_FULL_COM_NETWORK_REQUESTED, asks CanSM for full communication and requests the network from NM.',
+      rows: [{ from: 'comm', to: 'nm', label: 'Nm_NetworkRequest(ChassisCan)', kind: 'req' }, { at: 'nm', note: 'Repeat Message State' }] },
+    { text: 'CanNm sends NM PDUs, first as immediate transmissions if configured. The Active Wakeup Bit is set: this node woke the bus. The Brake ECU wakes up passively.',
+      rows: [{ from: 'nm', to: 'brk', label: 'NM PDU · Active Wakeup Bit = 1', kind: 'ev' }, { at: 'brk', note: 'passive wakeup' }] },
+    { text: 'After the Repeat Message Time the network is still requested, so CanNm goes to Normal Operation and keeps sending. ComM stays in network requested while UserChassis requests.',
+      rows: [{ at: 'nm', note: 'Normal Operation State' }, { at: 'comm', note: 'network requested' }] }
+  ];
+  const pasStart = {
+    pas: [
+      { text: 'The Brake ECU starts sending. The gateway sleeps; its transceiver detects the activity and EcuM validates the wakeup (lesson 35).',
+        rows: [{ from: 'brk', to: 'nm', label: 'NM PDU of the Brake ECU', kind: 'ev' }, { span: ['comm', 'nm'], note: 'CanTrcv wakeup, validated by EcuM' }] },
+      { text: 'EcuM tells ComM. ComM passes COMM_NO_COM_REQUEST_PENDING and, once communication is allowed, enters full communication.',
+        rows: [{ at: 'comm', note: 'ComM_EcuM_WakeUpIndication' }] }
+    ],
+    nm: [
+      { text: 'CanNm has just entered Bus-Sleep Mode, but the Brake ECU sends one more NM PDU, from its Prepare Bus-Sleep Mode.',
+        rows: [{ from: 'brk', to: 'nm', label: 'NM PDU of the Brake ECU', kind: 'ev' }, { at: 'nm', note: 'received in Bus-Sleep Mode' }] },
+      { text: 'CanNm does not start by itself: it calls Nm_NetworkStartIndication, and NmIf forwards ComM_Nm_NetworkStartIndication. ComM switches to full communication if communication is allowed.',
+        rows: [{ from: 'nm', to: 'comm', label: 'ComM_Nm_NetworkStartIndication(ChassisCan)', kind: 'res' }] }
+    ]
+  };
+  const pasEnd = [
+    { text: 'ComM enters COMM_FULL_COM_NETWORK_REQUESTED. Because the start came from outside, it calls Nm_PassiveStartUp, not Nm_NetworkRequest.',
+      rows: [{ from: 'comm', to: 'nm', label: 'Nm_PassiveStartUp(ChassisCan)', kind: 'req' }, { at: 'nm', note: 'Repeat Message State' }] },
+    { text: 'No user requests the channel and Dcm is not active, so ComM moves on to COMM_FULL_COM_READY_SLEEP and releases the network at once.',
+      rows: [{ at: 'comm', note: 'ready sleep' }, { from: 'comm', to: 'nm', label: 'Nm_NetworkRelease(ChassisCan)', kind: 'req' }] },
+    { text: 'In the Repeat Message State CanNm still sends its NM PDUs, so the other nodes see the gateway, but without the Active Wakeup Bit.',
+      rows: [{ from: 'nm', to: 'brk', label: 'NM PDU · Active Wakeup Bit = 0', kind: 'ev' }] },
+    { text: 'After the Repeat Message Time the network is released, so CanNm goes to Ready Sleep: it stops sending and stays awake only while the Brake ECU sends.',
+      rows: [{ at: 'nm', note: 'Ready Sleep State' }, { from: 'brk', to: 'nm', label: 'NM PDU of the Brake ECU', kind: 'ev' }] }
+  ];
+  const story = (v) => v === 'act' ? act : pasStart[v].concat(pasEnd);
+  const s = Seq.create(document.getElementById('seq'), { actors, width: 860, steps: act });
+  document.querySelectorAll('input[name="v"]').forEach((r) => r.addEventListener('change', () => s.set({ steps: story(r.value) })));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'After a passive wakeup, no ComM user requests the channel (NM variant FULL). Which sub-state does ComM reach?',
+    options: ['COMM_FULL_COM_READY_SLEEP', 'COMM_FULL_COM_NETWORK_REQUESTED', 'COMM_NO_COM_REQUEST_PENDING'],
+    answer: 0,
+    why: 'ComM enters network requested and calls Nm_PassiveStartUp, then moves on to ready sleep at once and calls Nm_NetworkRelease.'
+  },
+  {
+    prompt: 'Which NM PDUs carry the Active Wakeup Bit (if enabled)?',
+    options: ['Those of the node that requested the bus', 'Those of every node after any wakeup', 'Those of the node that started passively'],
+    answer: 0,
+    why: 'CanNm sets the bit only when it left Bus-Sleep or Prepare Bus-Sleep Mode through a network request, an active wakeup.'
+  },
+  {
+    prompt: 'CanNm receives an NM PDU in Bus-Sleep Mode. What does it do?',
+    options: ['Calls Nm_NetworkStartIndication', 'Enters Repeat Message State alone', 'Calls ComM_EcuM_WakeUpIndication'],
+    answer: 0,
+    why: 'CanNm only reports it. NmIf forwards ComM_Nm_NetworkStartIndication, and ComM starts NM with Nm_PassiveStartUp.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

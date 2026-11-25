@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NM timers · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.timers td:nth-child(3) { overflow-wrap: anywhere; }
+.timers td:last-child { white-space: nowrap; }
+.calc .controls input { width: 6.5rem; }
+.calc .res { font-family: var(--sans); font-size: 0.95rem; margin: 0.4rem 0; }
+.calc .res strong { font-family: var(--mono); font-size: 1.05rem; }
+.calc .bar { display: flex; height: 2rem; margin: 0.9rem 0 0.3rem; border: 1px solid var(--rule); background: var(--paper); position: relative; }
+.calc .bar > div { position: relative; overflow: hidden; font-family: var(--sans); font-size: 0.66rem; line-height: 2rem; padding: 0 0.3rem; white-space: nowrap; color: var(--ink); }
+.calc .bar .rms { background: var(--m-nm-soft); border-right: 1px solid var(--m-nm); }
+.calc .bar .rs { background: var(--warn-soft); border-right: 1px solid var(--warn); }
+.calc .bar .pbs { background: var(--sig-soft); }
+.calc .bar i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--m-nm); }
+.calc .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-family: var(--sans); font-size: 0.72rem; color: var(--muted); }
+.calc .legend span::before { content: ""; display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: 0.3rem; vertical-align: -0.1rem; border: 1px solid var(--rule); }
+.calc .legend .l-rms::before { background: var(--m-nm-soft); border-color: var(--m-nm); }
+.calc .legend .l-rs::before { background: var(--warn-soft); border-color: var(--warn); }
+.calc .legend .l-pbs::before { background: var(--sig-soft); }
+.calc .legend .l-pdu::before { width: 2px; background: var(--m-nm); border: 0; }
+.calc ul.checks { margin: 0.6rem 0 0; padding-left: 1.2rem; font-size: 0.88rem; }
+.calc ul.checks li.bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">Network Management</p>
+<h1>NM timers</h1>
+<p class="lede">Every timer that decides when a bus wakes, stays awake or falls asleep, on one sheet: what it does, which module runs it, its configuration parameter, the rule that limits it, and the lesson that explains it. At the end, a calculator for the four <span class="term">CanNm</span> timers.</p>
+
+<h2 id="busnm">CanNm and UdpNm</h2>
+<p><span class="term">CanNm</span> and <span class="term">UdpNm</span> use the same timers; only the prefix of the parameter changes (CanNm… or UdpNm…, in CanNmChannelConfig or UdpNmChannelConfig). All values are in seconds. The rules marked "same in the cluster" must have the same value in every node of the <span class="term">NM cluster</span>.</p>
+<div class="table-wrap">
+<table class="data timers">
+<thead><tr><th>Timer</th><th>What it does</th><th>Parameter</th><th>Rule</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Message Cycle Time</span></td><td>Period of the <span class="term">NM PDU</span>s in the <span class="term">Repeat Message State</span> and the <span class="term">Normal Operation State</span>.</td><td>CanNmMsgCycleTime</td><td>Not used in <span class="term">passive mode</span>.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+<tr><td>Message Cycle Offset</td><td>Delays the first periodic NM PDU after the Repeat Message State is entered, when no <span class="term">immediate transmission</span>s are sent (a start that is not this node's own network request, or a count of 0).</td><td>CanNmMsgCycleOffset</td><td>Smaller than the Message Cycle Time.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+<tr><td><span class="term">Repeat Message Time</span></td><td>How long a node stays in the Repeat Message State after it enters <span class="term">Network Mode</span>.</td><td>CanNmRepeatMessageTime</td><td>n × Message Cycle Time; larger than the immediate transmissions × their cycle time. 0: no Repeat Message State, no <span class="term">node detection</span>.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a>, <a href="../lessons/0016-repeat-message-request-and-node-detection.html">16</a></td></tr>
+<tr><td><span class="term">NM-Timeout Time</span></td><td>In the <span class="term">Ready Sleep State</span>: time from the last NM PDU sent or received to <span class="term">Prepare Bus-Sleep Mode</span>. In the other two states: no NM PDU in this time is a run-time error.</td><td>CanNmTimeoutTime</td><td>Larger than the Message Cycle Time; same in the cluster.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+<tr><td><span class="term">Wait Bus-Sleep Time</span></td><td>How long the node stays in Prepare Bus-Sleep Mode before <span class="term">Bus-Sleep Mode</span>, so that every node can stop sending.</td><td>CanNmWaitBusSleepTime</td><td>Not used with CanNmStayInPbsEnabled (Prepare Bus-Sleep Mode is then left only by a restart or power-off).</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+<tr><td>Immediate NM cycle time and count</td><td>After this node's own network request (or repeat message request), the first NM PDUs go out this many times at this shorter cycle; the offset is not applied.</td><td>CanNmImmediateNmCycleTime, CanNmImmediateNmTransmissions</td><td>Count 0 to 255; the cycle time is used only for a count above 1.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+<tr><td><span class="term">Remote Sleep Indication Time</span></td><td>How long it takes to recognize that all other nodes are ready to sleep: then <code class="term">Nm_RemoteSleepIndication</code>.</td><td>CanNmRemoteSleepIndTime</td><td>At least the Message Cycle Time; only with remote sleep indication switched on.</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td>Reduced cycle time (<span class="term">bus load reduction</span>)</td><td>In the Normal Operation State, a received NM PDU reloads the cycle timer with this node's own, shorter time. Only the two nodes with the smallest values keep sending. CanNm only.</td><td>CanNmMsgReducedTime</td><td>0.5 × Message Cycle Time ≤ value &lt; Message Cycle Time.</td><td><a href="../lessons/0017-passive-mode-communication-control-bus-load-reduction.html">17</a></td></tr>
+<tr><td>NM PDU transmission timeout</td><td>With <span class="term">partial networking</span>: an NM PDU not confirmed in this time is reported as an error (to CanSM, which recovers the network).</td><td>CanNmMsgTimeoutTime</td><td>Smaller than the Message Cycle Time.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">The rule that ties them together (Foundation NM protocol, PRS_Nm_00506 and PRS_Nm_00115): with the network released, a node enters Bus-Sleep Mode when no NM PDU has been on the bus for the NM-Timeout Time plus the Wait Bus-Sleep Time. UdpNm has no bus load reduction and no CanNmMsgReducedTime.</p>
+
+<h2 id="nmif">NmIf: the NM coordinator and partial networking</h2>
+<div class="table-wrap">
+<table class="data timers">
+<thead><tr><th>Timer</th><th>What it does</th><th>Parameter</th><th>Rule</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Global coordinator time</span></td><td>The longest time a <span class="term">coordinated shutdown</span> of the whole <span class="term">NM coordination cluster</span> takes, <span class="term">nested sub-bus</span>es included.</td><td>NmGlobalCoordinatorTime (NmGlobalFeatures)</td><td>At least the largest <code class="term">TSHUTDOWN_CHANNEL</code> of the cluster. 0: every shutdown delay is 0.</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a>, <a href="../lessons/0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a></td></tr>
+<tr><td><span class="term">Shutdown timer</span> (shutdown delay timer)</td><td>Started for each awake <span class="term">actively coordinated channel</span> when the coordinated shutdown starts; when it runs out, NmIf releases that channel. So that all buses reach Bus-Sleep Mode together.</td><td>NmGlobalCoordinatorTime − TSHUTDOWN_CHANNEL</td><td>TSHUTDOWN_CHANNEL for CanNm: Ready Sleep Time + Prepare Bus-Sleep time. Not subtracted for a channel without bus NM (NM_BUSNM_LOCALNM).</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a></td></tr>
+<tr><td><span class="term">PNC reset timer</span></td><td>One per PNC bit of the <span class="term">EIRA</span> and of each <span class="term">ERA</span>: the bit drops back to 0 when no NM PDU has requested the PNC for this time.</td><td>NmPnResetTime (NmGlobalProperties)</td><td>Larger than the Message Cycle Time; one value for all channels. With late NM PDUs: (NmPnResetTime − Message Cycle Time) &gt; n × main function period.</td><td><a href="../lessons/0042-eira-and-era.html">42</a></td></tr>
+</tbody>
+</table>
+</div>
+<div class="older"><p>Up to R21-11 the PNC reset time belongs to the bus NMs (CanNmPnResetTime, UdpNmPnResetTime), because CanNm and UdpNm compute EIRA and ERA themselves. From R22-11 on it is NmPnResetTime in NmIf. See <a href="../lessons/0053-pnc-through-com-signals.html">53</a>.</p></div>
+
+<h2 id="comm">ComM</h2>
+<div class="table-wrap">
+<table class="data timers">
+<thead><tr><th>Timer</th><th>What it does</th><th>Parameter</th><th>Rule</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Minimum full communication duration</td><td>With <span class="term">NM variant</span> <span class="term">LIGHT</span> or <span class="term">NONE</span>: the channel stays at least this long in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code>, so that it does not toggle. Cancelled by a limitation to no communication.</td><td>ComMTMinFullComModeDuration (ComMGeneral)</td><td>0.001 to 65 s, default 5 s.</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a></td></tr>
+<tr><td>LIGHT timeout</td><td>With NM variant LIGHT: started when the channel enters <code class="term">COMM_FULL_COM_READY_SLEEP</code>; when it runs out, the channel goes to <code class="term">COMM_NO_COMMUNICATION</code>. A new request cancels it.</td><td>ComMNmLightTimeout (ComMNetworkManagement, per channel)</td><td>Above 0 and at most 255 s, default 10 s.</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a></td></tr>
+<tr><td><span class="term">PNC prepare sleep timer</span></td><td>How long a PNC stays in <code class="term">COMM_PNC_PREPARE_SLEEP</code> before <code class="term">COMM_PNC_NO_COMMUNICATION</code>. A request or an EIRA bit going to 1 stops it.</td><td>ComMPncPrepareSleepTimer (ComMGeneral)</td><td>0 to 63 s; NmPnResetTime + this timer &lt; NM-Timeout Time (CanNm, UdpNm).</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="cansm">CanSM: bus-off recovery</h2>
+<div class="table-wrap">
+<table class="data timers">
+<thead><tr><th>Timer</th><th>What it does</th><th>Parameter</th><th>Rule</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Recovery time, level 1</td><td>After a <span class="term">bus-off</span>, the wait before <span class="term">CanSM</span> lets the network transmit again, while the bus-offs in a row are fewer than the threshold.</td><td>CanSMBorTimeL1</td><td>Short.</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a></td></tr>
+<tr><td>Recovery time, level 2</td><td>The same wait once the threshold of bus-offs in a row is reached.</td><td>CanSMBorTimeL2, threshold CanSMBorCounterL1ToL2</td><td>Long.</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a></td></tr>
+<tr><td>Transmission ensured time</td><td>After the recovery switched transmission on again: a new bus-off within this time counts as one more bus-off in a row, without a successful recovery.</td><td>CanSMBorTimeTxEnsured</td><td>Long enough for PDUs to be sent (for example longer than the period of COM's periodic I-PDUs).</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">With CanSMEnableBusOffDelay, a project function (<code>&lt;User_GetBusOffDelay&gt;</code>) adds a number of CanSM cycles to these waits. All bus-off recovery parameters sit in CanSMManagerNetwork.</p>
+
+<h2 id="ecum">EcuM: wakeup validation</h2>
+<div class="table-wrap">
+<table class="data timers">
+<thead><tr><th>Timer</th><th>What it does</th><th>Parameter</th><th>Rule</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Validation timeout</span></td><td>How long <span class="term">EcuM</span> waits for a <span class="term">pending</span> <span class="term">wakeup event</span> to be validated before it becomes <span class="term">expired</span>.</td><td>EcuMValidationTimeout (EcuMWakeupSource)</td><td>One per <span class="term">wakeup source</span>. Not configured: the source needs no validation.</td><td><a href="../lessons/0034-wakeup-validation.html">34</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="calc">Try it: when does the bus sleep?</h2>
+<p>Enter the four <span class="term">CanNm</span> timers of one channel, in seconds. The sheet applies the rule of the NM protocol: Bus-Sleep Mode follows the last <span class="term">NM PDU</span> on the bus after the <span class="term">NM-Timeout Time</span> plus the <span class="term">Wait Bus-Sleep Time</span>. The bar shows a node that was woken by another node, which then fell silent, and that nobody needs: it stays in the Repeat Message State, sends its NM PDUs, and then falls asleep. Immediate transmissions and the offset are left out (offset 0).</p>
+<div class="panel calc" id="calc-panel">
+  <div class="controls">
+    <label>Message Cycle Time (s)<input type="number" id="c-cyc" min="0.001" step="0.01" value="0.5"></label>
+    <label>Repeat Message Time (s)<input type="number" id="c-rm" min="0" step="0.1" value="1.5"></label>
+    <label>NM-Timeout Time (s)<input type="number" id="c-to" min="0.002" step="0.1" value="2"></label>
+    <label>Wait Bus-Sleep Time (s)<input type="number" id="c-wbs" min="0.001" step="0.1" value="1"></label>
+  </div>
+  <p class="res">Last NM PDU on the bus → Bus-Sleep Mode: <strong id="r-last">–</strong></p>
+  <p class="res">This node releases the network and nobody else sends any more → Bus-Sleep Mode after <strong id="r-rel">–</strong></p>
+  <p class="res">Woken by another node, nobody needs the bus → Bus-Sleep Mode about <strong id="r-wake">–</strong> after entering Network Mode</p>
+  <div class="scroll"><div class="bar" id="bar" aria-hidden="true"></div></div>
+  <div class="legend"><span class="l-rms">Repeat Message State</span><span class="l-rs">Ready Sleep State (NM-Timeout Time from the last NM PDU)</span><span class="l-pbs">Prepare Bus-Sleep Mode</span><span class="l-pdu">NM PDU sent</span></div>
+  <ul class="checks" id="checks"></ul>
+</div>
+<p class="small">The middle line depends on where the release falls in the cycle: the node's last NM PDU went out up to one Message Cycle Time before the release, and the NM-Timeout Time counts from that NM PDU. The last line counts the NM PDUs of the Repeat Message State at 0, 1, 2 … Message Cycle Times; the last one is the one before the Repeat Message Time runs out.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Only the NM-Timeout Time and the Wait Bus-Sleep Time decide how long a quiet bus stays awake, and both must be the same in every node so that the nodes fall asleep together. The Message Cycle Time sets how often a node that needs the bus says so; the Repeat Message Time is the shortest stay after a wakeup. The ComM and NmIf timers sit on top: they delay the release (ComM LIGHT and minimum duration, the NM coordinator's shutdown timers), they never shorten the bus NM's own way to sleep.</p>
+</div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/FO/AUTOSAR_FO_PRS_NetworkManagementProtocol.pdf">Specification of the AUTOSAR Network Management Protocol, R25-11</a>, PRS_Nm_00506, PRS_Nm_00115, PRS_Nm_00005, PRS_Nm_00334 and Table 6.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">CAN Network Management, R25-11</a>, chapter 10 (ECUC_CanNm_00020 to 00057); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">UDP Network Management, R25-11</a>, chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Network Management Interface, R25-11</a>, SWS_Nm_00175, SWS_Nm_00284, section 7.2.8, ECUC_Nm_00237 and ECUC_Nm_00250; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Communication Manager, R25-11</a>, SWS_ComM_00886, SWS_ComM_00891, SWS_ComM_00947 and chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">CAN State Manager, R25-11</a>, SWS_CanSM_00514, SWS_CanSM_00515 and CanSMManagerNetwork; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">ECU State Manager, R25-11</a>, ECUC_EcuM_00148.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const ids = ['c-cyc', 'c-rm', 'c-to', 'c-wbs'];
+  const fmt = (x) => Number(x.toFixed(3)).toString() + ' s';
+  function seg(cls, w, text) {
+    const d = document.createElement('div');
+    d.className = cls;
+    d.style.width = w + '%';
+    d.textContent = text;
+    return d;
+  }
+  function update() {
+    const [c, rm, to, wbs] = ids.map((i) => parseFloat($(i).value));
+    const checks = $('checks');
+    checks.innerHTML = '';
+    const bar = $('bar');
+    bar.innerHTML = '';
+    const add = (ok, text) => {
+      const li = document.createElement('li');
+      li.className = ok ? 'ok' : 'bad';
+      li.textContent = (ok ? '✓ ' : '✗ ') + text;
+      checks.appendChild(li);
+    };
+    if ([c, rm, to, wbs].some((v) => !isFinite(v) || v < 0) || c <= 0) {
+      ['r-last', 'r-rel', 'r-wake'].forEach((i) => { $(i).textContent = '–'; });
+      add(false, 'Enter a value for every timer; the Message Cycle Time must be above 0.');
+      return;
+    }
+    $('r-last').textContent = fmt(to + wbs);
+    $('r-rel').textContent = 'between ' + fmt(Math.max(0, to - c) + wbs) + ' and ' + fmt(to + wbs);
+    // NM PDUs of the Repeat Message State at 0, c, 2c ... before rm (at least the one at 0)
+    const n = rm > 0 ? Math.ceil(rm / c - 1e-9) : 1;
+    const lastTx = (n - 1) * c;
+    const sleepAt = Math.max(rm, lastTx + to) + wbs;
+    $('r-wake').textContent = fmt(sleepAt);
+    const total = sleepAt;
+    const pbsStart = sleepAt - wbs;
+    bar.appendChild(seg('rms', (rm / total) * 100, 'Repeat Message ' + fmt(rm)));
+    bar.appendChild(seg('rs', ((pbsStart - rm) / total) * 100, 'Ready Sleep'));
+    bar.appendChild(seg('pbs', (wbs / total) * 100, 'Prepare Bus-Sleep'));
+    for (let k = 0; k < n && k < 200; k++) {
+      const t = document.createElement('i');
+      t.style.left = ((k * c) / total) * 100 + '%';
+      bar.appendChild(t);
+    }
+    add(to > c, 'NM-Timeout Time larger than the Message Cycle Time (required).');
+    const ratio = rm / c;
+    add(Math.abs(ratio - Math.round(ratio)) < 1e-6, 'Repeat Message Time a whole multiple of the Message Cycle Time (' + (Math.round(ratio * 100) / 100) + ' ×).');
+    if (rm === 0) add(false, 'Repeat Message Time 0: no Repeat Message State, no node detection.');
+  }
+  ids.forEach((i) => $(i).addEventListener('input', update));
+  update();
+})();
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

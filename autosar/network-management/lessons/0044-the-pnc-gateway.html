@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The PNC gateway · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.panel .scroll { overflow-x: auto; }
+.drive { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .drive { grid-template-columns: 1fr; } }
+.drive button { width: 100%; text-align: left; padding: 0.5rem 0.7rem; line-height: 1.35; }
+.drive button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.drive button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+.drive button[aria-pressed="true"] small { color: var(--ink); }
+.cfglbl { font-family: var(--sans); font-size: 0.72rem; color: var(--muted); margin: 0 0 0.3rem; }
+#gw .on { stroke: var(--k-req); }
+#gw text.on { fill: var(--k-req); stroke: none; font-weight: 700; }
+#gw line.off { stroke: var(--d-mute); stroke-dasharray: 4 4; }
+#gw text.off { fill: var(--muted); }
+table.pg td:first-child code { white-space: nowrap; overflow-wrap: normal; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The PNC gateway</h1>
+<p class="lede">The <span class="term">PNC</span> Comfort lives on body CAN and on Ethernet. For a request of the Door ECU to reach the Head unit, the gateway has to turn what it receives on one bus into its own request on the other.</p>
+
+<p>Lesson 42 introduced the <span class="term">ERA</span>, the external requests per channel. This lesson shows what ComM does with it when the ECU is a PNC gateway: which requests it forwards, which it mirrors back, and how several gateways form a hierarchy.</p>
+
+<h2>Why the gateway has to forward</h2>
+<p>Without the gateway function, the body gateway handles Comfort like any other ECU. When the Door ECU requests Comfort, the gateway's <span class="term">EIRA</span> bit becomes 1 and its <span class="term">PNC state machine</span> goes to <span class="term">COMM_PNC_READY_SLEEP</span>. But the gateway puts the Comfort bit into its own NM PDUs only for its own ComM users. On Ethernet nobody sends the Comfort bit, and the Head unit keeps sleeping.</p>
+<p>A <span class="term">PNC gateway</span> (an ECU that forwards PNC requests between its channels, so that a PNC can span several buses) solves this. Its configuration states for each PNC which channels reach the members of that PNC, the PNC-to-channel mapping: Comfort on <code>BodyCan</code> and <code>Eth</code>, Lighting on <code>BodyCan</code>. A PNC request received on one channel makes the PNC state machine enter <span class="term">COMM_PNC_REQUESTED</span>, as if a local user had asked, and the gateway sends the bit on the PNC's other channels.</p>
+
+<h2>Active and passive channels</h2>
+<p>Each channel of the gateway gets a gateway type, or none:</p>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">COMM_GATEWAY_TYPE_ACTIVE</p><h3>The gateway coordinates this channel</h3><p>On an <span class="term">active PNC gateway</span> channel (the gateway coordinates the PNC there: it collects the requests and sends the combined result back) the gateway sends every PNC that is requested anywhere, including a request it received on this same channel. So all ECUs on the channel see the same requests, and the gateway is the last node on the channel to release a PNC.</p></div>
+  <div class="card m-comm"><p class="tag">COMM_GATEWAY_TYPE_PASSIVE</p><h3>Someone above coordinates</h3><p>On a <span class="term">passive PNC gateway</span> channel (another, superior coordinator coordinates the channel; the gateway only reports upwards) the gateway sends only its own requests and the requests from its active channels. It never sends back what it received on the passive channel. A channel is passive only where it connects two gateways: one coordinates it actively, the other passively.</p></div>
+  <div class="card"><p class="tag">no type</p><h3>Not coordinated</h3><p>A channel without a gateway type takes no part in forwarding. ERA bits of it are not used by ComM.</p></div>
+</div>
+<p>Mirroring back only on active channels prevents an endless loop of "phantom" requests: if two gateways both mirrored the same bit to each other, neither could ever release it. The result is a hierarchy for each PNC:</p>
+<ul>
+<li>The <span class="term">top-level PNC coordinator</span> (a gateway whose channels of this PNC are all active) sees every request of the PNC in the network and sends the result down.</li>
+<li>An <span class="term">intermediate PNC coordinator</span> (a gateway with a passive channel towards a superior coordinator) aggregates its lower channels, reports up on the passive channel, and passes what comes from above down to its active channels.</li>
+<li>A <span class="term">PNC leaf node</span> (an ECU that is no PNC coordinator) only requests PNCs and follows the bits it receives.</li>
+</ul>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 240" role="img" aria-labelledby="f1t">
+<title id="f1t">A PNC hierarchy. At the top a PNC coordinator on Ethernet, all channels active. Below, the body gateway with Eth passive and BodyCan active: an intermediate coordinator. At the bottom the Door ECU and the Light ECU on body CAN, leaf nodes. Requests travel up; the aggregated requests travel down.</title>
+<defs><marker id="ah44" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="200" y="10" width="240" height="40" class="m-comm"/>
+<text x="320" y="28" class="d-tb d-c">top-level PNC coordinator</text><text x="320" y="43" class="d-s d-c">all its channels of the PNC: A</text>
+<line x1="60" y1="80" x2="580" y2="80" class="d-axis"/><text x="130" y="74" class="d-s">Ethernet</text>
+<line x1="320" y1="50" x2="320" y2="80" class="d-ln"/>
+<text x="334" y="70" class="d-tb">A</text>
+<rect x="200" y="110" width="240" height="40" class="m-comm"/>
+<text x="320" y="128" class="d-tb d-c">body gateway: intermediate</text><text x="320" y="143" class="d-s d-c">Eth: P · BodyCan: A</text>
+<line x1="320" y1="80" x2="320" y2="110" class="d-ln"/>
+<text x="334" y="100" class="d-tb">P</text>
+<line x1="60" y1="180" x2="580" y2="180" class="d-axis"/><text x="130" y="174" class="d-s">body CAN</text>
+<line x1="320" y1="150" x2="320" y2="180" class="d-ln"/>
+<text x="334" y="170" class="d-tb">A</text>
+<rect x="150" y="200" width="130" height="32" class="m-app"/><text x="215" y="220" class="d-t d-c">Door ECU: leaf</text>
+<rect x="360" y="200" width="130" height="32" class="m-app"/><text x="425" y="220" class="d-t d-c">Light ECU: leaf</text>
+<line x1="215" y1="200" x2="215" y2="180" class="d-ln"/><line x1="425" y1="200" x2="425" y2="180" class="d-ln"/>
+<line x1="110" y1="190" x2="110" y2="20" class="k-req" marker-end="url(#ah44)"/>
+<text x="102" y="110" class="d-s d-r">requests</text><text x="102" y="123" class="d-s d-r">go up</text>
+<line x1="530" y1="20" x2="530" y2="190" class="k-res" marker-end="url(#ah44)"/>
+<text x="538" y="110" class="d-s">result</text><text x="538" y="123" class="d-s">comes down</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> A PNC hierarchy with the body gateway in the middle. A = active channel, P = passive channel. The example ECU of this course has no coordinator above it: there <code>Eth</code> is active as well and the Head unit is a leaf node. The coordinator above is drawn here to show the intermediate role.</figcaption>
+</figure>
+
+<p>In the example ECU, <code>BodyCan</code> and <code>Eth</code> both have the type ACTIVE: the body gateway is the top-level coordinator of Comfort and Lighting, and the other ECUs are leaf nodes. Figure 1 shows the other case, where a coordinator above makes <code>Eth</code> passive.</p>
+<p>ComM's rules for one PNC on a gateway, where all channels of the PNC have a gateway type, come down to this:</p>
+<div class="table-wrap">
+<table class="data pg">
+<thead><tr><th>Situation</th><th>What ComM does</th></tr></thead>
+<tbody>
+<tr><td>a local ComM user requests the PNC</td><td>COMM_PNC_REQUESTED; Comfort bit in the <span class="term">IRA</span> of all channels of the PNC, active and passive</td></tr>
+<tr><td>ERA bit 1 on an active channel</td><td>COMM_PNC_REQUESTED; bit in the IRA of all active channels (mirrored back on the source channel too) and of all passive channels (reported up)</td></tr>
+<tr><td>ERA bit 1 on a passive channel only</td><td>COMM_PNC_REQUESTED; bit in the IRA of the active channels only (passed down, never mirrored up)</td></tr>
+<tr><td>no local user, all ERA bits 0</td><td>COMM_PNC_READY_SLEEP; bit cleared in every IRA; from there as in lesson 41</td></tr>
+</tbody>
+</table>
+</div>
+<p>In COMM_PNC_REQUESTED the PNC requests full communication on all its channels, whatever caused the request. ComM passes each changed IRA to NmIf with <code class="term">Nm_UpdateIRA</code>.</p>
+
+<h2>Try it</h2>
+<p>The example gateway is configured as the top-level coordinator: <code>BodyCan</code> and <code>Eth</code> are both active, and the later lessons use this setting. Compare it with the other two, then switch the Comfort requests on and off. The picture shows the final state once the NM PDUs have been exchanged (the reset timers of lesson 42 are left out).</p>
+<div class="panel no-print" id="sim">
+<p class="cfglbl">Gateway types</p>
+<div class="drive" id="cfgs">
+<button type="button" data-cfg="none" aria-pressed="false">No gateway type<small>BodyCan: none · Eth: none</small></button>
+<button type="button" data-cfg="aa" aria-pressed="true">Top-level coordinator<small>BodyCan: ACTIVE · Eth: ACTIVE</small></button>
+<button type="button" data-cfg="ap" aria-pressed="false">Intermediate coordinator<small>BodyCan: ACTIVE · Eth: PASSIVE</small></button>
+</div>
+<p class="cfglbl">Comfort requests</p>
+<div class="drive" id="reqs">
+<button type="button" data-req="door" aria-pressed="false">Door ECU<small>on body CAN: off</small></button>
+<button type="button" data-req="user" aria-pressed="false">UserComfort<small>in the gateway: off</small></button>
+<button type="button" data-req="head" aria-pressed="false">Head unit<small>on Ethernet: off</small></button>
+</div>
+<div class="scroll">
+<svg id="gw" viewBox="0 0 640 200" role="img" aria-label="The Comfort bits on body CAN and Ethernet: what the gateway receives and what it sends." style="width:100%;min-width:34rem;height:auto;display:block">
+<defs><marker id="ah44b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="208" y="60" width="224" height="80" class="m-comm"/>
+<text x="320" y="82" class="d-tb d-c">Body gateway</text>
+<text x="320" y="102" class="d-s d-c" id="gState">COMM_PNC_NO_COMMUNICATION</text>
+<text x="320" y="120" class="d-s d-c" id="gChan">no channel request</text>
+<rect x="10" y="70" width="110" height="60" class="m-app"/><text x="65" y="96" class="d-t d-c">Door ECU</text><text x="65" y="113" class="d-s d-c">body CAN</text>
+<rect x="520" y="70" width="110" height="60" class="m-app"/><text x="575" y="96" class="d-t d-c">Head unit</text><text x="575" y="113" class="d-s d-c">Ethernet</text>
+<text x="164" y="52" class="d-tb d-c" id="tyB">BodyCan</text>
+<text x="476" y="52" class="d-tb d-c" id="tyE">Eth</text>
+<line x1="122" y1="85" x2="204" y2="85" id="inB" class="d-ln" marker-end="url(#ah44b)"/>
+<text x="164" y="78" class="d-s d-c" id="inBt">Comfort 0</text>
+<line x1="206" y1="118" x2="124" y2="118" id="outB" class="d-ln" marker-end="url(#ah44b)"/>
+<text x="164" y="134" class="d-s d-c" id="outBt">Comfort 0</text>
+<line x1="518" y1="85" x2="436" y2="85" id="inE" class="d-ln" marker-end="url(#ah44b)"/>
+<text x="476" y="78" class="d-s d-c" id="inEt">Comfort 0</text>
+<line x1="434" y1="118" x2="516" y2="118" id="outE" class="d-ln" marker-end="url(#ah44b)"/>
+<text x="476" y="134" class="d-s d-c" id="outEt">Comfort 0</text>
+<text x="320" y="170" class="d-s d-c">upper arrows: received (ERA) · lower arrows: sent by the gateway (IRA)</text>
+<text x="476" y="190" class="d-s d-c" id="above"></text>
+</svg>
+</div>
+<p class="readout" id="why"></p>
+</div>
+
+<h2>PNCs without a gateway type</h2>
+<p>A gateway ECU may also have PNCs that it does not coordinate. If none of the channels of a PNC has a gateway type, the PNC behaves as on an ECU without a gateway: only local users put its bit into the IRA, and ERA bits play no part. A PNC on several channels is coordinated either on all of them or on none. If it is not coordinated, the network design has to make sure that its channels are requested and released at the same time, because an application expects all channels of a requested PNC to be in full communication.</p>
+<p>Not every PNC has to be handled in both directions. A PNC can be mapped to a channel for transmission only: the gateway then sends the PNC bit there when the PNC is requested, without requesting the channel itself unless a local user asks. And a filter mask that passes a PNC on a channel to which the PNC is not mapped lets the gateway forward requests from that channel without mirroring them back.</p>
+
+<h2>More than one top-level coordinator</h2>
+<p>For different PNCs, different gateways can be the top-level coordinator. One PNC usually has one. It can also have several, but only if the network topology meets a design constraint of the AUTOSAR System Template; a gateway is top-level for a PNC simply when all its channels of that PNC are active. This matters for the synchronized shutdown of lesson 45, which only a top-level coordinator starts.</p>
+
+<h2>Managing and managed channels</h2>
+<p>A ComM channel can manage other channels. The <span class="term">managing channel</span> (a ComM channel with the NM variant FULL that handles NM for the channels it manages) talks to NmIf; each <span class="term">managed channel</span> (a ComM channel without NM of its own, NM variant LIGHT, that follows its managing channel) has exactly one managing channel. A managed channel has no gateway type: PNC coordination happens on the channel with NM.</p>
+
+<div class="older">
+<p>The gateway rules are the same in 4.4.0 and R20-11, but the bits travel differently: the bus NMs computed the ERA, and ComM read it and sent its requests through COM signals (lesson 53). The behaviour of a PNC whose channels have no gateway type, on an ECU with the gateway enabled, was first specified in R19-11; in 4.4.0 the requirements assume that every channel of a gateway has a type. Transmission-only PNCs and the description of different top-level coordinators for different PNCs came with R21-11; up to R23-11 only one top-level coordinator per PNC is supported, several for the same PNC are allowed from R24-11. Managing and managed channels exist since 4.4.0.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> On an active channel the gateway sends back what it received there; on a passive channel it never does. That one rule gives each PNC a tree with a top-level coordinator, intermediate coordinators and leaf nodes. A request from anywhere puts the PNC into COMM_PNC_REQUESTED on the gateway, and with it all its channels into full communication.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">PNC gateway</span></td><td>An ECU that forwards PNC requests between its channels, so that a PNC can span several buses</td></tr>
+<tr><td><span class="term">active PNC gateway</span></td><td>Gateway type of a channel: the gateway coordinates the PNC there and sends back the combined requests, including those received on that channel</td></tr>
+<tr><td><span class="term">passive PNC gateway</span></td><td>Gateway type of a channel: a superior coordinator coordinates it; the gateway reports up but never mirrors back what it received there</td></tr>
+<tr><td><span class="term">top-level PNC coordinator</span></td><td>A PNC gateway whose channels of a PNC are all active; it sees every request of the PNC</td></tr>
+<tr><td><span class="term">intermediate PNC coordinator</span></td><td>A PNC gateway with a passive channel towards a superior coordinator</td></tr>
+<tr><td><span class="term">PNC leaf node</span></td><td>An ECU that is no PNC coordinator; it requests PNCs and follows the bits it receives</td></tr>
+<tr><td><span class="term">managing channel</span></td><td>A ComM channel with NM (variant FULL) that handles NM for the channels it manages</td></tr>
+<tr><td><span class="term">managed channel</span></td><td>A ComM channel without NM of its own (variant LIGHT) that follows its managing channel</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.1.3, 7.1.4, 7.1.6 and 7.2.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, section 7.4.2.2.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  let cfg = 'aa';
+  const req = { door: false, user: false, head: false };
+  const $ = (id) => document.getElementById(id);
+  const SUB = { door: 'on body CAN', user: 'in the gateway', head: 'on Ethernet' };
+  function compute() {
+    const r = { eraB: req.door ? 1 : 0, eraE: req.head ? 1 : 0, txB: 0, txE: 0, state: '', why: '' };
+    if (cfg === 'none') {
+      r.txB = r.txE = req.user ? 1 : 0;
+      const eira = req.door || req.head || req.user;
+      r.state = req.user ? 'COMM_PNC_REQUESTED' : eira ? 'COMM_PNC_READY_SLEEP' : 'COMM_PNC_NO_COMMUNICATION';
+      r.why = req.user ? 'UserComfort requests Comfort: the gateway sends the bit on both channels of the PNC.'
+        : eira ? 'The EIRA bit is 1, so the PNC is in ready sleep. Without a gateway type nothing is forwarded: ' + (req.door && !req.head ? 'the Head unit never sees the Door ECU\'s request.' : req.head && !req.door ? 'the Door ECU never sees the Head unit\'s request.' : 'each bus sees only its own request.')
+        : 'Nobody requests Comfort.';
+      return r;
+    }
+    if (cfg === 'aa') {
+      const on = req.user || req.door || req.head;
+      r.txB = r.txE = on ? 1 : 0;
+      r.state = on ? 'COMM_PNC_REQUESTED' : 'COMM_PNC_NO_COMMUNICATION';
+      r.why = !on ? 'Nobody requests Comfort.'
+        : 'Both channels are active: every request is sent on both channels, also back to the channel it came from. The gateway is the top-level coordinator of Comfort.';
+      return r;
+    }
+    // ap: BodyCan active, Eth passive; a coordinator above mirrors back on Ethernet what it receives
+    r.txE = (req.user || req.door) ? 1 : 0;
+    r.eraE = (req.head || r.txE) ? 1 : 0;
+    const on = req.user || req.door || r.eraE;
+    r.txB = on ? 1 : 0;
+    r.state = on ? 'COMM_PNC_REQUESTED' : 'COMM_PNC_NO_COMMUNICATION';
+    if (!on) r.why = 'Nobody requests Comfort.';
+    else if (r.txE) r.why = 'A request from below or from a local user is reported up on the passive channel Eth. The coordinator above sends it back on Ethernet, so ERA Eth is 1 too; that is how the whole network sees one state.';
+    else r.why = 'The request comes only from Ethernet, the passive channel: the gateway passes it down to body CAN but does not send it back up on Ethernet.';
+    return r;
+  }
+  function setLine(id, v) {
+    $(id).setAttribute('class', v ? 'k-req on' : 'd-ln off');
+    $(id + 't').textContent = 'Comfort ' + v;
+    $(id + 't').setAttribute('class', 'd-s d-c' + (v ? ' on' : ' off'));
+  }
+  function render() {
+    document.querySelectorAll('#cfgs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cfg === cfg)));
+    document.querySelectorAll('#reqs button').forEach((b) => {
+      b.setAttribute('aria-pressed', String(req[b.dataset.req]));
+      b.querySelector('small').textContent = SUB[b.dataset.req] + (req[b.dataset.req] ? ': requests Comfort' : ': off');
+    });
+    const r = compute();
+    setLine('inB', r.eraB); setLine('inE', r.eraE); setLine('outB', r.txB); setLine('outE', r.txE);
+    $('tyB').textContent = 'BodyCan' + (cfg === 'none' ? '' : ' · ACTIVE');
+    $('tyE').textContent = 'Eth' + (cfg === 'none' ? '' : cfg === 'aa' ? ' · ACTIVE' : ' · PASSIVE');
+    $('gState').textContent = r.state;
+    $('gChan').textContent = r.state === 'COMM_PNC_REQUESTED' ? 'requests BodyCan and Eth: FULL' : 'no channel request from the PNC';
+    $('above').textContent = cfg === 'ap' ? 'coordinator above mirrors back on Ethernet' : '';
+    $('why').textContent = (cfg === 'none' ? '(ERA not used without a gateway type) ' : '') + r.why;
+  }
+  document.querySelectorAll('#cfgs button').forEach((b) => b.addEventListener('click', () => { cfg = b.dataset.cfg; render(); }));
+  document.querySelectorAll('#reqs button').forEach((b) => b.addEventListener('click', () => { req[b.dataset.req] = !req[b.dataset.req]; render(); }));
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The gateway\'s <code>BodyCan</code> is active. Only the Door ECU requests Comfort. Does the gateway send the Comfort bit on body CAN?',
+    options: ['Yes, it mirrors the request back there', 'No, the request came from body CAN itself', 'Only if a local ComM user requests it too'],
+    answer: 0,
+    why: 'On an active channel the gateway sends every request of the PNC, including the one it received there. So all ECUs on the channel see the same state.'
+  },
+  {
+    prompt: '<code>Eth</code> is passive. A request for Comfort arrives only on Ethernet. Where does the gateway send the bit?',
+    options: ['On body CAN only, not back on Ethernet', 'On Ethernet and body CAN, like any request', 'Nowhere: passive channels are only listened to'],
+    answer: 0,
+    why: 'What arrives on a passive channel is passed down to the active channels but never mirrored back up; otherwise two coordinators would hold each other\'s bits forever.'
+  },
+  {
+    prompt: 'What makes a gateway the top-level PNC coordinator of a PNC?',
+    options: ['All its channels of the PNC are active', 'It has the lowest node identifier on the bus', 'It is the first ECU to request the PNC'],
+    answer: 0,
+    why: 'With no passive channel there is nobody above it: it sees every request of the PNC in the network.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

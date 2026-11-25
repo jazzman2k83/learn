@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wakeup validation · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Wakeup validation</h1>
+<p class="lede">A <span class="term">pending</span> <span class="term">wakeup source</span> is not trusted yet. EcuM switches the source on, asks again and again whether the wakeup was real, and gives up when its time runs out.</p>
+
+<p>Lesson 33 showed the four states of a wakeup source. This lesson follows the step from pending to <span class="term">validated</span> or <span class="term">expired</span>, call by call, with the body CAN wakeup of the example ECU.</p>
+
+<h2>Why validate</h2>
+<p>Wakeup events can be produced by accident: an electromagnetic spike on the CAN wires or a bouncing contact on a pin looks like a wakeup to the hardware. If the ECU started its communication on every such event, it would drain the battery. <span class="term">Wakeup validation</span> (checking that a wakeup was real, for example that a valid CAN message follows) waits for proof before the ECU acts.</p>
+<p>Validation is configured per wakeup source: a source with a configured <span class="term">validation timeout</span> (how long EcuM waits for proof) is validated, a source without one counts as validated as soon as it is reported. The five predefined sources (power, resets, watchdogs) are never validated. Exactly one module of the basic software confirms a given source, by calling <code class="term">EcuM_ValidateWakeupEvent</code> (the call that tells EcuM a pending wakeup is real); it may be a driver, an interface such as <span class="term">CanIf</span>, a handler or a manager.</p>
+
+<h2>The WakeupValidation sequence</h2>
+<p>EcuM runs the validation in its <span class="term">main function</span>. It does not know how to check a CAN bus or a pin, so it calls three callouts that the integrator writes (they belong to the integration code, not to a module):</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">once, on pending</p><h3><code class="term">EcuM_StartWakeupSources</code></h3><p>Switches the source on so that it can deliver the proof. For a CAN source it calls <code class="term">CanSM_StartWakeupSource</code> (CanSM starts the transceiver and controller of the network without full communication).</p></div>
+  <div class="card m-ecum"><p class="tag">every main function cycle</p><h3><code class="term">EcuM_CheckValidation</code></h3><p>Asks the validating module whether the proof has arrived, for CAN with <code>CanIf_CheckValidation</code>. If it has, that module calls <code>EcuM_ValidateWakeupEvent</code>.</p></div>
+  <div class="card m-ecum"><p class="tag">once, on expiry</p><h3><code class="term">EcuM_StopWakeupSources</code></h3><p>Switches the source off again after a failed validation, for CAN with <code>CanSM_StopWakeupSource</code>.</p></div>
+</div>
+<p>When a source is validated, EcuM does three things: it calls <code class="term">ComM_EcuM_WakeUpIndication</code> for every ComM <span class="term">channel</span> the source names, it calls <code class="term">ComM_EcuM_PNCWakeUpIndication</code> (EcuM tells ComM that a <span class="term">PNC</span> has woken up) for every PNC the source names, and it reports <code>ECUM_WKSTATUS_VALIDATED</code> to <span class="term">BswM</span> with <code class="term">BswM_EcuM_CurrentWakeup</code>. For a source that belongs to a communication channel the validation always has this full effect, whatever phase the ECU is in.</p>
+
+<h2>Try it</h2>
+<p>Step through the validation of <code>ECUM_WKSOURCE_BODYCAN</code>, then switch to the variant in which no valid message arrives. The lanes show the modules; the grey bands show in which execution context each call runs.</p>
+<div class="panel no-print">
+<div class="controls">
+  <label class="inline"><input type="radio" name="v" value="ok" checked> a valid message arrives</label>
+  <label class="inline"><input type="radio" name="v" value="pnc"> the source also names PNC Comfort</label>
+  <label class="inline"><input type="radio" name="v" value="exp"> no valid message</label>
+</div>
+<div id="seq"></div>
+</div>
+
+<h2>The validation timeout</h2>
+<p>The timer starts when <code class="term">EcuM_SetWakeupEvent</code> reports the source, and <code>EcuM_ValidateWakeupEvent</code> stops it. A second report of the same source does not restart it. EcuM may run one timer per source, or a single timer that it prolongs to the longest timeout when a new source reports.</p>
+<p>When the timer runs out, EcuM marks the source expired, reports <code>ECUM_WKSTATUS_EXPIRED</code> to BswM and calls <code>EcuM_StopWakeupSources</code>. BswM judges the whole validation: it has passed if at least one pending source was validated, and failed if the last timeout expires without one. Because the checks run in the main function, its period should be about half of the shortest validation timeout.</p>
+
+<div class="older">
+<p>The sequence and its functions are the same in <strong>4.4.0</strong> and <strong>R20-11</strong>. <code>ComM_EcuM_PNCWakeUpIndication</code> exists since 4.3.0; older releases informed ComM per channel only.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The report (<code>EcuM_SetWakeupEvent</code>) usually comes from an interrupt, the validation from EcuM's main function, cycle after cycle. EcuM never checks a bus itself: the callouts hand the work to CanSM and CanIf. ComM hears of a wakeup only once it is validated.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">wakeup validation</span></td><td>Checking that a pending wakeup was real before the ECU acts on it</td></tr>
+<tr><td><span class="term">validation timeout</span></td><td>How long EcuM waits for the validation of a pending wakeup source, configured per source</td></tr>
+<tr><td><code class="term">EcuM_ValidateWakeupEvent</code></td><td>Called by the validating module; EcuM marks the source validated and informs ComM and BswM</td></tr>
+<tr><td><code class="term">EcuM_StartWakeupSources</code></td><td>Callout: switches a pending source on so that it can be validated</td></tr>
+<tr><td><code class="term">EcuM_CheckValidation</code></td><td>Callout called in every main function cycle during validation; asks the validating module</td></tr>
+<tr><td><code class="term">EcuM_StopWakeupSources</code></td><td>Callout: switches a source off again after its validation failed</td></tr>
+<tr><td><code class="term">ComM_EcuM_WakeUpIndication</code></td><td>EcuM tells ComM that a wakeup on a channel was validated</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, sections 7.6.4, 7.6.5, 8.4.1.2, 8.5.5 and 8.6.1, figures 7.15 and 7.16; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, section 8.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const lanes = ['CanTrcv', 'EcuM', 'Callouts', 'CanSM', 'CanIf', 'BswM', 'ComM'];
+  const W = 'ECUM_WKSOURCE_BODYCAN';
+  const start = [
+    { ctx: 'wakeup interrupt (driver check)', from: 'CanTrcv', to: 'EcuM', call: 'EcuM_SetWakeupEvent(' + W + ')', text: 'The transceiver driver reports the wakeup of body CAN. EcuM sets the pending bit and starts the validation timeout.' },
+    { ctx: 'EcuM_MainFunction', from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(' + W + ', ECUM_WKSTATUS_PENDING)', text: 'In its main function EcuM handles the new state: it tells BswM that the source is pending.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_StartWakeupSources(' + W + ')', text: 'EcuM calls the callout that switches the source on for validation.' },
+    { from: 'Callouts', to: 'CanSM', call: 'CanSM_StartWakeupSource(BodyCan)', text: 'For CAN the callout asks CanSM to start the transceiver and the CAN controller of BodyCan. CanSM stops the controller before it starts it, which sets the PDU mode of CanIf to receive only (CANIF_TX_OFFLINE): frames can be received, nothing is sent.' },
+    { ctx: 'EcuM_MainFunction (next cycles)', from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckValidation(' + W + ')', text: 'From now on EcuM asks in every cycle whether the wakeup is confirmed.' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckValidation(' + W + ')', text: 'The callout asks CanIf. Nothing has been received yet, so CanIf does nothing. The loop goes on while the source is pending and the timeout has not expired.' }
+  ];
+  const ok = [
+    { ctx: 'CAN reception', from: 'CanIf', note: 'first frame received: stored', text: 'A frame from another ECU arrives. CanIf passes it up as usual and also remembers that a valid frame was received on this controller (lesson 35 follows the frame).' },
+    { ctx: 'EcuM_MainFunction (next cycle)', from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckValidation(' + W + ')', text: 'The next cycle asks again.' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckValidation(' + W + ')', text: 'Now CanIf has the proof.' },
+    { from: 'CanIf', to: 'EcuM', call: 'EcuM_ValidateWakeupEvent(' + W + ')', text: 'CanIf, the validating module of this source, confirms the wakeup. EcuM stops the validation timeout and sets the validated bit.' },
+    { from: 'EcuM', to: 'ComM', call: 'ComM_EcuM_WakeUpIndication(BodyCan)', text: 'The source names channel BodyCan, so EcuM tells ComM that this channel has woken up.' }
+  ];
+  const pnc = [{ from: 'EcuM', to: 'ComM', call: 'ComM_EcuM_PNCWakeUpIndication(Comfort)', text: 'If the wakeup source also named a PNC, here Comfort, EcuM would call this once for every named PNC (lesson 41 shows what ComM does with it). The example ECU configures no PNC for this source.' }];
+  const end = [
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(' + W + ', ECUM_WKSTATUS_VALIDATED)', text: 'BswM hears that the source is validated; its rules bring the ECU back to normal operation and allow communication.' },
+    { from: 'ComM', note: 'channel BodyCan: request full communication', text: 'ComM starts the channel for the wakeup, and NM with a passive startup (lessons 35 and 36).' }
+  ];
+  const exp = [
+    { ctx: 'EcuM_MainFunction (later cycle)', from: 'EcuM', note: 'validation timeout expired', text: 'No valid frame has arrived, and the validation timeout runs out. EcuM sets the expired bit.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(' + W + ', ECUM_WKSTATUS_EXPIRED)', text: 'EcuM reports the expired source to BswM. ComM never hears of this wakeup.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_StopWakeupSources(' + W + ')', text: 'EcuM calls the callout that switches the source off again.' },
+    { from: 'Callouts', to: 'CanSM', call: 'CanSM_StopWakeupSource(BodyCan)', text: 'CanSM takes transceiver and controller back to no communication.' },
+    { from: 'BswM', note: 'all sources none or expired', text: 'If every wakeup source is now none or expired, a BswM rule prepares the sleep again and calls EcuM_GoDownHaltPoll.' }
+  ];
+  const story = (v) => v === 'exp' ? start.concat(exp) : start.concat(ok, v === 'pnc' ? pnc : [], end);
+  const seq = Sequence.create(document.getElementById('seq'), { lanes, focus: ['EcuM'], steps: story('ok') });
+  document.querySelectorAll('input[name="v"]').forEach((r) => r.addEventListener('change', () => seq.set({ steps: story(r.value) })));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Who calls EcuM_ValidateWakeupEvent for the body CAN wakeup?',
+    options: ['CanIf, during CanIf_CheckValidation', 'EcuM, after its validation timer', 'ComM, when it requests the channel'],
+    answer: 0,
+    why: 'The integrator callout EcuM_CheckValidation calls CanIf_CheckValidation; if a valid frame was stored, CanIf calls EcuM_ValidateWakeupEvent.'
+  },
+  {
+    prompt: 'The same source reports its wakeup a second time while it is pending. What happens to the validation timeout?',
+    options: ['It keeps running, not restarted', 'It starts again from the full time', 'It stops and the source is valid'],
+    answer: 0,
+    why: 'A repeated EcuM_SetWakeupEvent for the same source does not restart the validation timeout.'
+  },
+  {
+    prompt: 'What does ComM hear of a wakeup whose validation expired?',
+    options: ['Nothing at all', 'ComM_EcuM_WakeUpIndication', 'A request for no communication'],
+    answer: 0,
+    why: 'ComM is told only on validation. On expiry EcuM informs BswM and stops the source.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

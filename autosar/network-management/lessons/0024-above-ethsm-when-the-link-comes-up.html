@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Above EthSM: when the link comes up · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Above EthSM: when the link comes up</h1>
+<p class="lede">For <span class="term">EthSM</span>, full communication means that IP works. What makes IP work, and what starts once it does, lives in the modules above: <span class="term">TcpIp</span>, the Socket Adaptor, Service Discovery and <span class="term">UdpNm</span>.</p>
+
+<h2>The modules above EthSM</h2>
+<p>On Ethernet, data does not go from <span class="term">PduR</span> straight to the interface. TcpIp implements the protocols of the TCP/IP family (among them IPv4 and IPv6, UDP, TCP, ARP, ICMP and DHCP) and offers sockets. Its upper module is <span class="term">SoAd</span> (Socket Adaptor: maps PDUs to sockets of TcpIp; its socket connections open once TcpIp has an IP address). Above SoAd sit PduR for the I-PDUs of COM, <span class="term">Sd</span> (the Service Discovery module: offers and finds SOME/IP services once the network is up), and UdpNm for the <span class="term">NM PDU</span>.</p>
+<p>All of them depend on one thing that EthSM waits for in <code class="term">ETHSM_STATE_WAIT_ONLINE</code>: TcpIp being online, which needs an IP address on the controller.</p>
+
+<h2>Try it: the link comes up</h2>
+<p>Step through what happens on the channel <code>Eth</code> of the example ECU after EthSM has set the controller active.</p>
+<div class="panel no-print" id="up"></div>
+
+<h2>Service Discovery and the SOME/IP course</h2>
+<p>Sd starts to offer a service only when two things are there: BswM has set the service as available (a rule of the kind shown in lesson 27), and the IP address is assigned. Then it begins its Initial Wait Phase and sends its first offer. If the address is no longer reported as assigned, Sd enters its Down Phase and the offers stop; when the address is reported assigned again, Sd starts over with the Initial Wait Phase. That happens when TcpIp goes offline, and also during a short link loss: in ONHOLD TcpIp keeps the address but reports it as on hold, and SoAd passes that on to Sd.</p>
+<p>The details belong to the <a href="https://jazzman2k83.github.io/learn/autosar/someip/">SOME/IP in AUTOSAR Classic</a> course: <a href="https://jazzman2k83.github.io/learn/autosar/someip/lessons/0012-the-sd-phases.html">the Sd phases</a>, <a href="https://jazzman2k83.github.io/learn/autosar/someip/lessons/0017-sd-and-bswm.html">Sd and BswM</a> and <a href="https://jazzman2k83.github.io/learn/autosar/someip/lessons/0021-socket-connections-and-routing-groups.html">socket connections and routing groups</a>.</p>
+
+<h2>UdpNm needs the path too</h2>
+<p>UdpNm hands every NM PDU to SoAd with <code>SoAd_IfTransmit</code>, and receives through SoAd as well. While the transmission path is not ready, SoAd does not accept the request. This matters after a <span class="term">passive wakeup</span> (a wakeup caused by another ECU): the first NM PDU may come before EthSM has the path open. An option of UdpNm repeats that first transmit request in each <span class="term">main function</span> until SoAd accepts it.</p>
+<p>For ComM, nothing of this is visible. The channel <code>Eth</code> reaches full communication with the indication from EthSM in <code class="term">ETHSM_STATE_ONLINE</code>; socket connections, offers and NM PDUs follow from there.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The IP address is the gate: EthSM's ONLINE, SoAd's socket connections and Sd's offers all wait for it. A short link loss (ONHOLD) keeps the address and ComM sees no change, but TcpIp reports the address as on hold, so Sd stops its offers and starts again with the Initial Wait Phase once the link is back.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">SoAd</span></td><td>Socket Adaptor: maps PDUs to sockets of TcpIp; its socket connections open once TcpIp has an IP address</td></tr>
+<tr><td><span class="term">Sd</span></td><td>Service Discovery module: offers and finds SOME/IP services once the Ethernet network is up</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_EthernetStateManager.pdf">Specification of Ethernet State Manager, R25-11</a>, sections 7.6 and 9; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>, section 7 (transmission); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R25-11</a> (communication stack TCP/IP); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of Basic Software Mode Manager, R25-11</a>, section 7.8 (Service Discovery control); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_TcpIp.pdf">Specification of TCP/IP Stack, R25-11</a>, sections 5.4 and 7.8 (state machine, IP address notification); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_SocketAdaptor.pdf">Specification of Socket Adaptor, R25-11</a>, section 7.1 (socket connections, IP address notification); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ServiceDiscovery.pdf">Specification of Service Discovery, R25-11</a>, section 7.6 (server service phases).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/stepper.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Stepper.create(document.getElementById('up'), {
+  vertical: true,
+  stages: [
+    { html: '<strong>Sd</strong> <small>offers and finds services</small>', cls: 'm-sd' },
+    { html: '<strong>UdpNm</strong> <small>NM PDUs</small>', cls: 'm-nm' },
+    { html: '<strong>SoAd</strong> <small>socket connections</small>', cls: 'm-ip' },
+    { html: '<strong>TcpIp</strong> <small>IP address, sockets</small>', cls: 'm-ip' },
+    { html: '<strong>EthSM</strong> <small>channel Eth</small>', cls: 'm-sm' },
+    { html: '<strong>EthIf</strong> <small>controller and link state</small>', cls: 'm-if' },
+    { html: '<strong>EthTrcv</strong> <small>PHY, cable</small>', cls: 'm-drv' }
+  ],
+  steps: [
+    { at: [6, 5], text: 'The PHY finds its link partner. EthIf polls the link state, sees <code>ETHTRCV_LINK_STATE_ACTIVE</code> and calls <code>EthSM_TrcvLinkStateChg</code>.' },
+    { at: [4, 3], text: 'In its next main function EthSM moves from WAIT_TRCVLINK to WAIT_ONLINE and calls <code>TcpIp_RequestComMode(TCPIP_STATE_ONLINE)</code>.' },
+    { at: [3], text: 'TcpIp brings up IP on the controller: it needs an IP address, configured or obtained from the network (for example by DHCP). Only then is IP communication available.' },
+    { at: [3, 4], text: 'TcpIp reports <code>EthSM_TcpIpModeIndication(TCPIP_STATE_ONLINE)</code>. EthSM enters ONLINE and reports full communication to ComM and the new sub-state to BswM.' },
+    { at: [3, 2], text: 'With the address assigned, SoAd can open its socket connections. SoAd also passes the news on to its upper modules, among them Sd.' },
+    { at: [2, 0], text: 'Sd starts the services BswM has marked as available: Initial Wait Phase, then the first offer. Clients start to look for the services they need.' },
+    { at: [1, 2], text: 'Once ComM has requested the network, UdpNm sends its NM PDUs through <code>SoAd_IfTransmit</code>, and the NM of lessons 12 to 20 runs on Ethernet as it does on CAN.' }
+  ]
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What does EthSM wait for in ETHSM_STATE_WAIT_ONLINE?',
+    options: ['TcpIp reporting that IP is online', 'Sd sending its first OfferService', 'SoAd opening every socket connection'],
+    answer: 0,
+    why: 'EthSM only depends on TcpIp. SoAd and Sd react to the IP address afterwards; EthSM does not wait for them.'
+  },
+  {
+    prompt: 'Through which module does UdpNm send its NM PDUs?',
+    options: ['SoAd, with SoAd_IfTransmit', 'EthIf, with a direct frame', 'PduR, like the I-PDUs of COM'],
+    answer: 0,
+    why: 'UdpNm is an upper module of SoAd: it transmits with SoAd_IfTransmit and receives through SoAd.'
+  },
+  {
+    prompt: 'The link drops for a second and comes back. Does Sd start over with its Initial Wait Phase?',
+    options: ['Yes: TcpIp reports the address on hold', 'No: in ONHOLD nothing above notices', 'Only if ComM requested a new mode'],
+    answer: 0,
+    why: 'In ONHOLD TcpIp keeps the address but reports it as on hold; SoAd passes that to Sd, which enters its Down Phase. When the link is back, the address is reported assigned again and Sd starts with the Initial Wait Phase.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EthSM: from OFFLINE to ONLINE · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.eth-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.6rem 1rem; margin: 0 0 0.8rem; font-family: var(--sans); font-size: 0.8rem; }
+.eth-ctl fieldset { border: 1px solid var(--rule); padding: 0.4rem 0.6rem 0.6rem; margin: 0; }
+.eth-ctl legend { font-size: 0.75rem; color: var(--muted); padding: 0 0.3rem; }
+.eth-ctl button { margin: 0.2rem 0.3rem 0 0; }
+table.nw td:first-child code { white-space: nowrap; }
+.eth-now { display: grid; grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr)); gap: 0.4rem; margin: 0.6rem 0 0; font-family: var(--sans); font-size: 0.78rem; }
+.eth-now div { border: 1px solid var(--rule); background: var(--paper); padding: 0.3rem 0.5rem; }
+.eth-now b { display: block; font-family: var(--mono); font-weight: 400; font-size: 0.74rem; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>EthSM: from OFFLINE to ONLINE</h1>
+<p class="lede">On Ethernet, a request for full communication is not done when the controller runs. <span class="term">EthSM</span> waits for a working cable connection and then for IP communication, and only then tells ComM that the channel <code>Eth</code> has full communication.</p>
+
+<svg class="defs" aria-hidden="true"><defs><marker id="a23" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker></defs></svg>
+
+<h2>Three conditions for full communication</h2>
+<p>EthSM is the <span class="term">bus state manager</span> for Ethernet: one state machine per Ethernet network, which on the example ECU is the ComM <span class="term">channel</span> <code>Eth</code>. (A VLAN counts as a network of its own and gets its own ComM channel.) EthSM controls the Ethernet controller through <span class="term">EthIf</span>, and it needs three things before it reports <span class="term">COMM_FULL_COMMUNICATION</span>:</p>
+<div class="cards">
+  <div class="card m-if"><p class="tag">1 · controller</p><h3>Controller active</h3><p>EthSM asks EthIf to set the controller mode to <code>ETH_MODE_ACTIVE</code>; EthIf switches the controller and the transceiver on.</p></div>
+  <div class="card m-drv"><p class="tag">2 · link</p><h3>Link up</h3><p>The <span class="term">EthTrcv</span> (Ethernet Transceiver Driver: controls the PHY between controller and cable) reports a <span class="term">link state</span> (whether the transceiver has a working connection to its link partner) of <code>ETHTRCV_LINK_STATE_ACTIVE</code>.</p></div>
+  <div class="card m-sm"><p class="tag">3 · IP</p><h3>IP communication</h3><p><span class="term">TcpIp</span> reports <code>TCPIP_STATE_ONLINE</code>: IP communication is available, which needs an IP address for the controller. Lesson 24 shows what this starts above.</p></div>
+</div>
+<p>EthIf polls the link state in a main function and reports every change to EthSM (<code>EthSM_TrcvLinkStateChg</code>); with a switch, EthIf reports the link of the switch port towards the controller. TcpIp reports its state with <code>EthSM_TcpIpModeIndication</code>. EthSM stores both and acts on them at the latest in its next <span class="term">main function</span>.</p>
+<p>EthSM has no silent communication of its own. Its two main states are <code>ETHSM_NO_COMMUNICATION</code> and <code>ETHSM_FULL_COMMUNICATION</code>, with three sub-states each.</p>
+
+<h2>The six sub-states</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 660 300" role="img" aria-labelledby="f23t" id="ethsvg">
+<title id="f23t">EthSM sub-states. Top row, no communication: OFFLINE, WAIT_TRCVLINK, WAIT_ONLINE. Bottom row, full communication: WAIT_OFFLINE, ONHOLD, ONLINE. Forward: OFFLINE to WAIT_TRCVLINK on a full communication request, to WAIT_ONLINE when the link is up, to ONLINE when TcpIp is online. ONLINE to ONHOLD when the link goes down and back when it comes up. ONLINE to WAIT_OFFLINE on a silent or no communication request; WAIT_OFFLINE to OFFLINE when TcpIp is offline.</title>
+<rect x="8" y="8" width="644" height="112" class="d-frame"/><text x="16" y="24" class="d-s">ETHSM_NO_COMMUNICATION</text>
+<rect x="8" y="174" width="644" height="118" class="d-frame"/><text x="16" y="286" class="d-s">ETHSM_FULL_COMMUNICATION</text>
+<g data-st="OFFLINE"><rect x="20" y="40" width="190" height="46" class="d-state m-sm"/><text x="115" y="60" class="d-m d-c">ETHSM_STATE_OFFLINE</text><text x="115" y="76" class="d-s d-c">controller down</text></g>
+<g data-st="WAIT_TRCVLINK"><rect x="235" y="40" width="190" height="46" class="d-state m-sm"/><text x="330" y="60" class="d-m d-c">ETHSM_STATE_WAIT_TRCVLINK</text><text x="330" y="76" class="d-s d-c">waits for the link</text></g>
+<g data-st="WAIT_ONLINE"><rect x="450" y="40" width="190" height="46" class="d-state m-sm"/><text x="545" y="60" class="d-m d-c">ETHSM_STATE_WAIT_ONLINE</text><text x="545" y="76" class="d-s d-c">waits for TcpIp online</text></g>
+<g data-st="WAIT_OFFLINE"><rect x="20" y="210" width="190" height="46" class="d-state m-sm"/><text x="115" y="230" class="d-m d-c">ETHSM_STATE_WAIT_OFFLINE</text><text x="115" y="246" class="d-s d-c">going down, IP still on</text></g>
+<g data-st="ONHOLD"><rect x="235" y="210" width="190" height="46" class="d-state m-sm"/><text x="330" y="230" class="d-m d-c">ETHSM_STATE_ONHOLD</text><text x="330" y="246" class="d-s d-c">link lost, IP kept</text></g>
+<g data-st="ONLINE"><rect x="450" y="210" width="190" height="46" class="d-state m-sm"/><text x="545" y="230" class="d-m d-c">ETHSM_STATE_ONLINE</text><text x="545" y="246" class="d-s d-c">IP communication</text></g>
+<line x1="210" y1="56" x2="233" y2="56" class="d-ln" marker-end="url(#a23)"/>
+<line x1="233" y1="72" x2="212" y2="72" class="d-ln dash" marker-end="url(#a23)"/>
+<text x="222" y="104" class="d-s d-c">FULL req</text>
+<line x1="425" y1="56" x2="448" y2="56" class="d-ln" marker-end="url(#a23)"/>
+<line x1="448" y1="72" x2="427" y2="72" class="d-ln dash" marker-end="url(#a23)"/>
+<text x="437" y="104" class="d-s d-c">link up</text>
+<line x1="600" y1="86" x2="600" y2="208" class="d-ln" marker-end="url(#a23)"/>
+<text x="606" y="150" class="d-s">TcpIp</text><text x="606" y="162" class="d-s">online</text>
+<line x1="450" y1="226" x2="427" y2="226" class="d-ln" marker-end="url(#a23)"/>
+<line x1="427" y1="242" x2="448" y2="242" class="d-ln" marker-end="url(#a23)"/>
+<text x="437" y="204" class="d-s d-c">link down / up</text>
+<line x1="490" y1="208" x2="490" y2="88" class="d-ln dash" marker-end="url(#a23)"/>
+<text x="484" y="150" class="d-s d-r">TcpIp offline</text>
+<path d="M545,256 L545,274 L115,274 L115,258" class="d-ln" marker-end="url(#a23)"/>
+<text x="330" y="270" class="d-s d-c">SILENT or NO request</text>
+<line x1="70" y1="208" x2="70" y2="88" class="d-ln" marker-end="url(#a23)"/>
+<text x="76" y="150" class="d-s">TcpIp offline</text>
+<line x1="300" y1="208" x2="300" y2="88" class="d-ln dash" marker-end="url(#a23)"/>
+<text x="306" y="150" class="d-s">TcpIp offline</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Read the top row left to right, then down on the right: that is the way up. Dashed arrows are the ways back when a condition is lost. A NO request also leads from every waiting state straight to OFFLINE (not drawn).</figcaption>
+</figure>
+<div class="table-wrap">
+<table class="data nw">
+<thead><tr><th>Sub-state</th><th>Controller</th><th>Link state</th><th>TcpIp</th><th>Main state</th></tr></thead>
+<tbody>
+<tr><td><code class="term">ETHSM_STATE_OFFLINE</code></td><td>down</td><td>down</td><td>offline</td><td>no communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_WAIT_TRCVLINK</code></td><td>active</td><td>down</td><td>offline</td><td>no communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_WAIT_ONLINE</code></td><td>active</td><td>active</td><td>offline</td><td>no communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_ONLINE</code></td><td>active</td><td>active</td><td>online</td><td>full communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_ONHOLD</code></td><td>active</td><td>down</td><td>online (on hold)</td><td>full communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_WAIT_OFFLINE</code></td><td>active or transmit off</td><td>active</td><td>online</td><td>full communication</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Up.</strong> A full communication request in OFFLINE sets the controller active (WAIT_TRCVLINK). When the link comes up, EthSM asks TcpIp for <code>TCPIP_STATE_ONLINE</code> (WAIT_ONLINE). When TcpIp reports online, EthSM enters ONLINE and calls <code>ComM_EthSM_ModeIndication</code> with full communication.</p>
+<p><strong>Link lost.</strong> If the link goes down in ONLINE, EthSM asks TcpIp to put its state on hold and enters ONHOLD. ComM is not told: for a short break in the cable the channel stays in full communication, and TcpIp keeps its address. If the link comes back, EthSM asks for online again and returns to ONLINE. If TcpIp reports offline instead, EthSM drops to WAIT_TRCVLINK and reports no communication to ComM. In this transition, and when the link comes back in WAIT_TRCVLINK, EthSM can report a link-down event to <span class="term">DEM</span> as failed and passed, if it is configured.</p>
+<p><strong>Down.</strong> A silent or no communication request in ONLINE leads to WAIT_OFFLINE. For silent communication, EthSM can switch the controller to transmit off (<code>ETH_MODE_ACTIVE_TX_OFFLINE</code>), if that forwarding is configured; for no communication it asks TcpIp for offline. When TcpIp reports offline, EthSM sets the controller down, enters OFFLINE and reports no communication to ComM. A full communication request in WAIT_OFFLINE turns the way round again.</p>
+<p>Every time EthSM enters a sub-state it reports it to <span class="term">BswM</span> with <code>BswM_EthSM_CurrentState</code>, so BswM rules can react to the sub-state, not only to the ComM mode.</p>
+
+<h2>Try it</h2>
+<p>Drive the state machine of channel <code>Eth</code>. The buttons on the left are ComM's requests; the ones on the right are what happens on the cable and in TcpIp. In this example silent communication forwarding is configured, and TcpIp gets its IP address only while "IP address available" is on. Each button press runs EthSM's main function until nothing changes.</p>
+<div class="panel no-print" id="eth">
+<div class="eth-ctl">
+<fieldset><legend>ComM requests (EthSM_RequestComMode)</legend>
+<button type="button" data-req="FULL">FULL</button><button type="button" data-req="SILENT">SILENT</button><button type="button" data-req="NO">NO</button>
+</fieldset>
+<fieldset><legend>Cable and IP</legend>
+<button type="button" id="cable" aria-pressed="true">Cable connected</button>
+<button type="button" id="ip" aria-pressed="true">IP address available</button>
+</fieldset>
+</div>
+<div class="eth-now">
+<div>ComM requests<b id="vReq">COMM_NO_COMMUNICATION</b></div>
+<div>Controller<b id="vCtrl">ETH_MODE_DOWN</b></div>
+<div>Link state<b id="vLink">ETHTRCV_LINK_STATE_DOWN</b></div>
+<div>TcpIp<b id="vTcp">TCPIP_STATE_OFFLINE</b></div>
+<div>EthSM<b id="vSt">ETHSM_STATE_OFFLINE</b></div>
+<div>Indicated to ComM<b id="vComm">COMM_NO_COMMUNICATION</b></div>
+</div>
+<ul class="log" id="elog" aria-live="polite"></ul>
+</div>
+
+<h2>Ethernet wakeup</h2>
+<div class="card m-drv">
+<p class="tag">wakeup on the data line</p>
+<h3>When the Ethernet wakes the ECU</h3>
+<p>With Ethernet hardware following the OPEN Alliance specification OA TC10, the PHY can detect a <span class="term">wakeup</span> on the cable and also send one. A sleeping ECU then reports the wakeup through the usual chain of <span class="term">EcuM</span> (lessons 33 to 35): the interrupt or a poll leads to <code>EcuM_CheckWakeup</code>, the integration code calls <code class="term">EthIf_CheckWakeup</code>, EthIf asks the transceiver or switch driver to check its hardware, and the driver reports the wakeup to EcuM. An ECU with an Ethernet switch has many ports to check, so the interrupt only marks the transceivers to be checked later, in the transceiver's main function.</p>
+<p style="margin-top:0.6rem">To wake the link partners, ComM can request <code class="term">COMM_FULL_COMMUNICATION_WITH_WAKEUP_REQUEST</code>. If wakeup and sleep on the data line are configured, EthSM then sets the controller to <code>ETH_MODE_ACTIVE_WITH_WAKEUP_REQUEST</code>, in any sub-state, so that the hardware sends a wakeup on the network.</p>
+</div>
+<div class="older">
+<p>EcuM describes the Ethernet wakeup sequence only since R21-11; in R20-11 and 4.4.0 it is not part of the EcuM specification. The request with wakeup (<code>COMM_FULL_COMMUNICATION_WITH_WAKEUP_REQUEST</code>) came with the reworked EthSM state machine of R20-11 and does not exist in 4.4.0. Forwarding silent communication to the controller (transmit off in WAIT_OFFLINE) exists only since R21-11; in R20-11 and 4.4.0 a silent request does not switch off transmission.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> ComM gets full communication only in ONLINE, so only once IP works, not when the controller or the link is up. A lost link first leads to ONHOLD, where ComM still sees full communication; only when TcpIp gives up does ComM see no communication. Going down waits for TcpIp to report offline before the controller is switched off.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">EthTrcv</span></td><td>Ethernet Transceiver Driver: controls the PHY between controller and cable, including its link state and wakeup</td></tr>
+<tr><td><span class="term">link state</span></td><td>Whether an Ethernet transceiver has a working connection to its link partner (active or down)</td></tr>
+<tr><td><code class="term">ETHSM_STATE_OFFLINE</code></td><td>EthSM sub-state: controller down, no communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_WAIT_TRCVLINK</code></td><td>EthSM sub-state: controller active, waiting for the link</td></tr>
+<tr><td><code class="term">ETHSM_STATE_WAIT_ONLINE</code></td><td>EthSM sub-state: link active, waiting for TcpIp to be online</td></tr>
+<tr><td><code class="term">ETHSM_STATE_ONLINE</code></td><td>EthSM sub-state: IP communication available, full communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_ONHOLD</code></td><td>EthSM sub-state: link lost while online; TcpIp on hold, still full communication</td></tr>
+<tr><td><code class="term">ETHSM_STATE_WAIT_OFFLINE</code></td><td>EthSM sub-state: silent or no communication requested; waiting for TcpIp to be offline</td></tr>
+<tr><td><code class="term">EthIf_CheckWakeup</code></td><td>EthIf function that checks the Ethernet hardware for a wakeup and reports it to EcuM</td></tr>
+<tr><td><code class="term">COMM_FULL_COMMUNICATION_WITH_WAKEUP_REQUEST</code></td><td>Full communication request that also makes the Ethernet hardware send a wakeup on the network</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_EthernetStateManager.pdf">Specification of Ethernet State Manager, R25-11</a>, chapter 7 and section 8.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_EthernetInterface.pdf">Specification of Ethernet Interface, R25-11</a>, section 7.1.10.3 (link state handling); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, section 9.2.6 (Ethernet wakeup sequence).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const M = { FULL: 'COMM_FULL_COMMUNICATION', SILENT: 'COMM_SILENT_COMMUNICATION', NO: 'COMM_NO_COMMUNICATION' };
+  const s = { req: 'NO', ctrl: 'DOWN', cable: true, ip: true, link: 'DOWN', tcp: 'OFFLINE', tcpReq: 'OFFLINE', st: 'OFFLINE', main: 'NO' };
+  const logEl = $('elog');
+  function log(t) { const li = document.createElement('li'); li.textContent = t; logEl.prepend(li); while (logEl.children.length > 14) logEl.lastChild.remove(); }
+  function ctrl(m) { if (s.ctrl !== m) { s.ctrl = m; log('EthIf_SetControllerMode(ETH_MODE_' + m + ')'); } }
+  function tcpReq(m) { if (s.tcpReq !== m) { s.tcpReq = m; log('TcpIp_RequestComMode(TCPIP_STATE_' + m + ')'); } }
+  function go(st, ind) {
+    s.st = st;
+    log('BswM_EthSM_CurrentState(ETHSM_STATE_' + st + ')');
+    if (ind) { s.main = ind; log('ComM_EthSM_ModeIndication(Eth, ' + M[ind] + ')'); }
+    return true;
+  }
+  // The world below EthSM: EthIf reports the link, TcpIp follows its requests.
+  function lower() {
+    let changed = false;
+    const link = s.cable && s.ctrl !== 'DOWN' ? 'ACTIVE' : 'DOWN';
+    if (link !== s.link) { s.link = link; log('EthSM_TrcvLinkStateChg(ETHTRCV_LINK_STATE_' + link + ')'); changed = true; }
+    let tcp = s.tcp;
+    if (s.tcpReq === 'OFFLINE') tcp = 'OFFLINE';
+    else if (!s.ip) tcp = 'OFFLINE';
+    else if (s.tcpReq === 'ONLINE') tcp = 'ONLINE';
+    else if (s.tcpReq === 'ONHOLD' && s.tcp === 'ONLINE') tcp = 'ONHOLD';
+    if (tcp !== s.tcp) { s.tcp = tcp; log('EthSM_TcpIpModeIndication(TCPIP_STATE_' + tcp + ')'); changed = true; }
+    return changed;
+  }
+  // One EthSM main function: at most one transition.
+  function main() {
+    const r = s.req, L = s.link === 'ACTIVE', T = s.tcp;
+    switch (s.st) {
+      case 'OFFLINE':
+        if (r === 'FULL') { ctrl('ACTIVE'); return go('WAIT_TRCVLINK'); }
+        break;
+      case 'WAIT_TRCVLINK':
+        if (r === 'NO') { ctrl('DOWN'); return go('OFFLINE'); }
+        if (L) { tcpReq('ONLINE'); return go('WAIT_ONLINE'); }
+        break;
+      case 'WAIT_ONLINE':
+        if (r === 'NO') { ctrl('DOWN'); tcpReq('OFFLINE'); return go('OFFLINE'); }
+        if (!L) { tcpReq('OFFLINE'); return go('WAIT_TRCVLINK'); }
+        if (T === 'ONLINE' && r === 'SILENT') { ctrl('ACTIVE_TX_OFFLINE'); return go('WAIT_OFFLINE', 'FULL'); }
+        if (T === 'ONLINE') return go('ONLINE', 'FULL');
+        break;
+      case 'ONLINE':
+        if (T === 'OFFLINE') return go('WAIT_ONLINE', 'NO');
+        if (r === 'SILENT') { ctrl('ACTIVE_TX_OFFLINE'); return go('WAIT_OFFLINE'); }
+        if (r === 'NO') { tcpReq('OFFLINE'); return go('WAIT_OFFLINE'); }
+        if (!L) { tcpReq('ONHOLD'); log('Dem_SetEventStatus(ETHSM_E_LINK_DOWN, DEM_EVENT_STATUS_FAILED), if configured'); return go('ONHOLD'); }
+        break;
+      case 'ONHOLD':
+        if (r === 'NO') { ctrl('DOWN'); tcpReq('OFFLINE'); return go('OFFLINE', 'NO'); }
+        if (L) { tcpReq('ONLINE'); log('Dem_SetEventStatus(ETHSM_E_LINK_DOWN, DEM_EVENT_STATUS_PASSED), if configured'); return go('ONLINE'); }
+        if (T === 'OFFLINE') return go('WAIT_TRCVLINK', 'NO');
+        break;
+      case 'WAIT_OFFLINE':
+        if (r === 'NO' && s.tcpReq !== 'OFFLINE') { tcpReq('OFFLINE'); return true; }
+        if (r === 'FULL' && (s.ctrl !== 'ACTIVE' || s.tcpReq !== 'ONLINE')) { ctrl('ACTIVE'); tcpReq('ONLINE'); return true; }
+        if (T === 'OFFLINE') { ctrl('DOWN'); return go('OFFLINE', 'NO'); }
+        if (T === 'ONLINE' && r === 'FULL') return go('ONLINE');
+        break;
+    }
+    return false;
+  }
+  function settle() {
+    for (let i = 0; i < 20; i++) { const a = lower(); const b = main(); if (!a && !b) break; }
+    render();
+  }
+  function render() {
+    $('vReq').textContent = M[s.req];
+    $('vCtrl').textContent = 'ETH_MODE_' + s.ctrl;
+    $('vLink').textContent = 'ETHTRCV_LINK_STATE_' + s.link;
+    $('vTcp').textContent = 'TCPIP_STATE_' + s.tcp;
+    $('vSt').textContent = 'ETHSM_STATE_' + s.st;
+    $('vComm').textContent = M[s.main];
+    document.querySelectorAll('#ethsvg [data-st]').forEach((g) => g.querySelector('rect').classList.toggle('on', g.dataset.st === s.st));
+    document.querySelectorAll('#eth [data-req]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.req === s.req)));
+    $('cable').setAttribute('aria-pressed', String(s.cable));
+    $('ip').setAttribute('aria-pressed', String(s.ip));
+  }
+  document.querySelectorAll('#eth [data-req]').forEach((b) => b.addEventListener('click', () => {
+    if (s.req === b.dataset.req) return;
+    s.req = b.dataset.req; log('EthSM_RequestComMode(Eth, ' + M[s.req] + ')'); settle();
+  }));
+  $('cable').addEventListener('click', () => { s.cable = !s.cable; log(s.cable ? 'Cable connected' : 'Cable disconnected'); settle(); });
+  $('ip').addEventListener('click', () => { s.ip = !s.ip; log(s.ip ? 'IP address available' : 'IP address no longer available'); settle(); });
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'ComM requests full communication on Eth. When does EthSM report COMM_FULL_COMMUNICATION?',
+    options: ['When TcpIp reports online in WAIT_ONLINE', 'As soon as the controller mode is active', 'As soon as the link state becomes active'],
+    answer: 0,
+    why: 'Controller active and link up are only the first two conditions. EthSM enters ONLINE and reports full communication when TcpIp reports TCPIP_STATE_ONLINE.'
+  },
+  {
+    prompt: 'The cable is pulled for a moment while EthSM is ONLINE. What does ComM see?',
+    options: ['Still full communication: EthSM is ONHOLD', 'No communication until a new user request', 'Silent communication until the link is back'],
+    answer: 0,
+    why: 'EthSM goes to ONHOLD and asks TcpIp to hold its state; the main state stays full communication. Only if TcpIp reports offline does ComM get no communication.'
+  },
+  {
+    prompt: 'What does EthSM wait for in WAIT_OFFLINE before it switches the controller down?',
+    options: ['TcpIp reporting TCPIP_STATE_OFFLINE', 'The link state reporting it is down', 'A confirmation from the NM of the channel'],
+    answer: 0,
+    why: 'After a no communication request EthSM asks TcpIp for offline; when TcpIp reports offline it sets the controller down and enters OFFLINE.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

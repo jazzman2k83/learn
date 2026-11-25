@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The CanNm states · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+<svg class="defs" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs></svg>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The CanNm states</h1>
+<p class="lede"><span class="term">CanNm</span> runs the coordination algorithm of lesson 12 on one CAN network. It does so with three modes and, inside the first one, three states. This lesson walks through all of them.</p>
+
+<p>Each node runs its own copy of this state machine. It sees only two things: whether its own ECU needs the bus (the network is requested or released) and the <span class="term">NM PDUs</span> it sends and receives. From these alone, all nodes of the bus reach the same decision.</p>
+
+<h2>Three modes</h2>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">awake</p><h3>Network Mode</h3><p><span class="term">Network Mode</span> (the mode in which the bus is awake; it holds three states). The node takes part in communication.</p></div>
+  <div class="card m-nm"><p class="tag">calming down</p><h3>Prepare Bus-Sleep Mode</h3><p><span class="term">Prepare Bus-Sleep Mode</span> (the bus is quietening down: queued messages are sent, then no node sends any more). It lasts a fixed wait.</p></div>
+  <div class="card m-nm"><p class="tag">asleep</p><h3>Bus-Sleep Mode</h3><p><span class="term">Bus-Sleep Mode</span> (the bus sleeps; controller and transceiver can go into low-power modes). After initialization CanNm is here.</p></div>
+</div>
+<p>CanNm reports every change of mode upward: through <span class="term">NmIf</span> to <span class="term">ComM</span>. Entering Network Mode, Prepare Bus-Sleep Mode or Bus-Sleep Mode each has its own report; lesson 6 showed what ComM does with them.</p>
+
+<h2>Three states inside Network Mode</h2>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">entered first</p><h3>Repeat Message State</h3><p><span class="term">Repeat Message State</span> (the node sends NM PDUs for a fixed time, so that every other node sees it). Every entry into Network Mode starts here. It also keeps a node awake for a minimum time.</p></div>
+  <div class="card m-nm"><p class="tag">network requested</p><h3>Normal Operation State</h3><p><span class="term">Normal Operation State</span> (the node needs the bus and keeps sending NM PDUs). It lasts as long as the network is requested.</p></div>
+  <div class="card m-nm"><p class="tag">network released</p><h3>Ready Sleep State</h3><p><span class="term">Ready Sleep State</span> (the node no longer needs the bus and stops sending, but stays awake while others still send). It waits for the bus to fall silent.</p></div>
+</div>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 700 330" role="img" aria-labelledby="f1t">
+<title id="f1t">The CanNm state machine: Network Mode with Repeat Message State, Normal Operation State and Ready Sleep State; Prepare Bus-Sleep Mode; Bus-Sleep Mode; with the transitions and their triggers.</title>
+<rect x="10" y="10" width="680" height="160" class="d-frame"/>
+<text x="20" y="162" class="d-tb">Network Mode</text>
+<rect x="30" y="56" width="160" height="56" class="d-state m-nm"/><text x="110" y="80" class="d-t d-c">Repeat Message</text><text x="110" y="96" class="d-t d-c">State</text>
+<rect x="270" y="56" width="160" height="56" class="d-state m-nm"/><text x="350" y="80" class="d-t d-c">Normal Operation</text><text x="350" y="96" class="d-t d-c">State</text>
+<rect x="510" y="56" width="160" height="56" class="d-state m-nm"/><text x="590" y="80" class="d-t d-c">Ready Sleep</text><text x="590" y="96" class="d-t d-c">State</text>
+<line x1="190" y1="76" x2="268" y2="76" class="d-ln" marker-end="url(#ah)"/>
+<text x="229" y="66" class="d-s d-c">time over,</text><text x="229" y="96" class="d-s d-c">requested</text>
+<line x1="430" y1="70" x2="508" y2="70" class="d-ln" marker-end="url(#ah)"/><text x="469" y="64" class="d-s d-c">released</text>
+<line x1="510" y1="98" x2="432" y2="98" class="d-ln" marker-end="url(#ah)"/><text x="471" y="112" class="d-s d-c">requested</text>
+<path d="M110,56 C110,24 590,24 590,54" class="d-ln" marker-end="url(#ah)"/>
+<text x="350" y="32" class="d-s d-c">Repeat Message Time over, network released</text>
+
+<rect x="30" y="236" width="200" height="50" class="d-state m-nm"/><text x="130" y="265" class="d-t d-c">Bus-Sleep Mode</text>
+<rect x="430" y="236" width="240" height="50" class="d-state m-nm"/><text x="550" y="265" class="d-t d-c">Prepare Bus-Sleep Mode</text>
+<line x1="620" y1="112" x2="620" y2="234" class="d-ln" marker-end="url(#ah)"/>
+<text x="626" y="190" class="d-s">NM-Timeout</text><text x="626" y="202" class="d-s">Time over</text>
+<line x1="430" y1="270" x2="232" y2="270" class="d-ln" marker-end="url(#ah)"/>
+<text x="331" y="284" class="d-s d-c">Wait Bus-Sleep Time over</text>
+<line x1="90" y1="236" x2="90" y2="114" class="d-ln" marker-end="url(#ah)"/>
+<text x="96" y="196" class="d-s">network requested</text><text x="96" y="208" class="d-s">or passive startup</text>
+<line x1="470" y1="236" x2="170" y2="114" class="d-ln" marker-end="url(#ah)"/>
+<text x="300" y="214" class="d-s">NM PDU received, network requested</text><text x="300" y="226" class="d-s">or passive startup</text>
+<text x="130" y="306" class="d-s d-c">NM PDU received: only reported,</text><text x="130" y="318" class="d-s d-c">no change of mode</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The CanNm state machine of one node, without the optional features of lessons 16 to 18. Every way into Network Mode leads to the Repeat Message State.</figcaption>
+</figure>
+
+<h2>Requested and released</h2>
+<p>Next to the states, CanNm keeps a second, parallel piece of information: the network is either requested or released. ComM requests the network when a channel enters <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> and releases it in <code class="term">COMM_FULL_COM_READY_SLEEP</code>. After initialization it is released.</p>
+<ul>
+<li>When the Repeat Message State ends, the node goes to the Normal Operation State if the network is requested, otherwise to the Ready Sleep State.</li>
+<li>Released in the Normal Operation State: the node goes to the Ready Sleep State and stops sending NM PDUs.</li>
+<li>Requested in the Ready Sleep State: the node goes back to the Normal Operation State and starts sending again at once.</li>
+</ul>
+<p>Released does not mean asleep. In the Ready Sleep State the node still communicates; it just no longer votes for staying awake.</p>
+
+<h2>The way down and the way back</h2>
+<p>A node in the Ready Sleep State waits until no NM PDU has been seen for the <span class="term">NM-Timeout Time</span> (a timer restarted by every NM PDU sent or received; lesson 14). Each NM PDU of another node restarts it. When it runs out, the node enters Prepare Bus-Sleep Mode and stays there for the <span class="term">Wait Bus-Sleep Time</span> (the length of the calm-down phase; lesson 14). Then it enters Bus-Sleep Mode. Because all nodes see the same last NM PDU and use the same times, they fall asleep at about the same moment.</p>
+<p>Three things bring a node back into Network Mode, always into the Repeat Message State:</p>
+<ul>
+<li>its own ECU requests the network, in Bus-Sleep Mode or in Prepare Bus-Sleep Mode;</li>
+<li>a passive startup (the node joins the network without requesting it, typically after a <span class="term">wakeup</span> by another node), in either of these modes;</li>
+<li>an NM PDU received in Prepare Bus-Sleep Mode: another node still or again needs the bus.</li>
+</ul>
+<p>An NM PDU received in Bus-Sleep Mode is different. CanNm does not wake up by itself: it only reports the received PDU upward (as a network start indication) and leaves the decision to ComM and the ECU's mode management. Whether the ECU may communicate at that moment depends on where it is in its startup or shutdown.</p>
+
+<div class="older">
+<p>In 4.4.0, Prepare Bus-Sleep Mode always ends after the Wait Bus-Sleep Time. From R19-11 on (so also in R20-11), a node can be configured to stay in Prepare Bus-Sleep Mode until it is powered off or a reason to restart applies.</p>
+</div>
+
+<h2>Try it</h2>
+<p>The example ECU's channel <code>ChassisCan</code> and the Brake ECU. Request and release the network through <code>UserChassis</code>, let the Brake ECU keep the bus awake, or let it wake the bus for a short time. Timings are small example values on a real-time clock.</p>
+<div class="panel" id="sim"></div>
+<p>Things to try: wake the bus by the Brake ECU and watch the gateway pass through the Repeat Message State although nobody on it requests the network. Release the user while the Brake ECU still sends, then switch the Brake ECU off. Request again during Prepare Bus-Sleep Mode.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Every entry into Network Mode goes through the Repeat Message State, so every node that wakes is seen by the others. A node that no longer needs the bus stops sending, but only the silence of <em>all</em> nodes moves it towards sleep. In Bus-Sleep Mode a received NM PDU is only reported; the ECU decides whether to wake.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Network Mode</span></td><td>CanNm mode in which the bus is awake; it holds the Repeat Message, Normal Operation and Ready Sleep States</td></tr>
+<tr><td><span class="term">Repeat Message State</span></td><td>First state of Network Mode: the node sends NM PDUs for the Repeat Message Time, so that all nodes see it</td></tr>
+<tr><td><span class="term">Normal Operation State</span></td><td>State of Network Mode while the network is requested: the node keeps sending NM PDUs</td></tr>
+<tr><td><span class="term">Ready Sleep State</span></td><td>State of Network Mode while the network is released: the node stops sending and waits until no node sends any more</td></tr>
+<tr><td><span class="term">Prepare Bus-Sleep Mode</span></td><td>CanNm mode in which the bus calms down for the Wait Bus-Sleep Time before it sleeps</td></tr>
+<tr><td><span class="term">Bus-Sleep Mode</span></td><td>CanNm mode in which the bus sleeps; a received NM PDU is only reported</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.1 to 7.4 and 7.18 (UML state chart); <a href="https://www.autosar.org/fileadmin/standards/R25-11/FO/AUTOSAR_FO_PRS_NetworkManagementProtocol.pdf">Specification of the AUTOSAR Network Management Protocol, R25-11</a>, chapters 5.3 and 5.4.1 (transition to Bus-Sleep Mode, length of Prepare Bus-Sleep Mode).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/cansim.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+CanSim.create(document.getElementById('sim'), {
+  show: ['cannm', 'comm', 'timeline', 'log'],
+  lanes: ['self', 'node', 'cannm', 'comm'],
+  controls: ['user', 'node', 'burst', 'run'],
+  logModules: ['SWC', 'ComM', 'NmIf', 'CanNm', 'EcuM', 'Bus', 'CanTrcv', 'CanIf']
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A node in Bus-Sleep Mode receives an NM PDU. What does CanNm do?',
+    options: ['It reports it and stays asleep', 'It enters the Repeat Message State', 'It enters Prepare Bus-Sleep Mode'],
+    answer: 0,
+    why: 'CanNm only reports the PDU upward (network start indication). The ECU decides whether to start; then ComM calls a passive startup or a network request.'
+  },
+  {
+    prompt: 'The Repeat Message State ends while the network is released. Where does the node go?',
+    options: ['Ready Sleep State', 'Normal Operation State', 'Prepare Bus-Sleep Mode'],
+    answer: 0,
+    why: 'Released means the node no longer needs the bus: it goes to the Ready Sleep State, stops sending and waits for the bus to fall silent.'
+  },
+  {
+    prompt: 'What makes a node leave the Ready Sleep State for Prepare Bus-Sleep Mode?',
+    options: ['No NM PDU for the NM-Timeout Time', 'Its own ECU releases the network', 'The Repeat Message Time is over'],
+    answer: 0,
+    why: 'Every NM PDU sent or received restarts the NM-Timeout Time. When it runs out in the Ready Sleep State, no node needs the bus any more.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

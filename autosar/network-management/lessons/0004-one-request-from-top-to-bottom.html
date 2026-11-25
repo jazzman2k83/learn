@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One request from top to bottom · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>One request from top to bottom</h1>
+<p class="lede">The SWC <code>BodyControl</code> of the body gateway needs the Comfort functions. One call through the <span class="term">RTE</span> sets off work in <span class="term">ComM</span>, <span class="term">CanSM</span>, <span class="term">NmIf</span>, <span class="term">CanNm</span> and <span class="term">BswM</span>, until body CAN is running and the Comfort I-PDUs flow.</p>
+
+<p>This lesson follows that one request call by call. Each module is explained in its own part later; here the aim is the order, and which code runs when.</p>
+
+<h2>Where the work happens</h2>
+<p>Most of the calls below do not do their work at once. They store a request, and a <span class="term">main function</span> (a function of a module that the scheduler calls cyclically; timers and state machines advance in it) does the work later. ComM has one main function per channel, <code>ComM_MainFunction_BodyCan</code> for body CAN; CanSM and CanNm have one each. In the diagram, every grey band starts a new execution context: the runnable of the SWC in its task, then the main functions one after the other, and the callbacks of the CAN driver.</p>
+<p>The starting point: the gateway is running, body CAN sleeps, and BswM has already set <span class="term">communication allowed</span> (a flag per channel that BswM sets in ComM; ComM switches a channel on only while it is TRUE) for <code>BodyCan</code>.</p>
+
+<h2>Try it</h2>
+<p>Step through the request. The context bands show which code is running; the lanes of the modules that act are drawn highlighted.</p>
+<div class="panel" id="seq"></div>
+
+<h2>The three phases</h2>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">ComM</p><h3>Request, then decide in the main function</h3><p><code class="term">ComM_RequestComMode</code> (the ComM API with which a <span class="term">ComM user</span>, a logical requester of communication, asks for a mode) only stores the request. In its main function ComM moves <span class="term">PNC</span> Comfort to <code class="term">COMM_PNC_REQUESTED</code> (the PNC is needed by a local user), and then switches the <span class="term">channel</span> <code>BodyCan</code> (ComM's name for body CAN) to <code class="term">COMM_FULL_COMMUNICATION</code> (the channel sends and receives).</p></div>
+  <div class="card m-sm"><p class="tag">two paths down</p><h3>Hardware and network management</h3><p>On entering full communication ComM asks CanSM for the mode, and on entering <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> (the part of full communication in which a user needs the channel) it requests the network with <code class="term">Nm_NetworkRequest</code> (ComM asks NM to keep the bus awake). CanSM switches transceiver and controller on; CanNm starts sending NM PDUs.</p></div>
+  <div class="card m-bswm"><p class="tag">back up</p><h3>Indications, then BswM switches COM</h3><p>When the controller runs, CanSM reports full communication to ComM and BswM. ComM passes the mode on to BswM and to the user's port. A BswM rule then starts the I-PDU groups of body CAN in COM.</p></div>
+</div>
+
+<h2>The NM message on the bus</h2>
+<p>CanNm leaves <span class="term">Bus-Sleep Mode</span> (the CanNm mode in which the bus sleeps) and enters <span class="term">Network Mode</span> (the mode in which the network is awake) in its <span class="term">Repeat Message State</span> (the first state of Network Mode, in which the node makes itself seen by sending NM PDUs). From then on it sends an <span class="term">NM PDU</span> (the NM message an ECU sends while it needs the bus) cyclically. ComM has also put the bit of PNC 16 into the <span class="term">IRA</span> (internal request array: one bit per PNC that this ECU requests itself) of <code>BodyCan</code> with <code>Nm_UpdateIRA</code>, so the NM PDUs carry the Comfort request to the Door ECU.</p>
+<p>The same happens on Ethernet, because PNC Comfort also uses <code>Eth</code>: in <code>ComM_MainFunction_Eth</code> ComM requests the mode from <span class="term">EthSM</span> and the network through NmIf from <span class="term">UdpNm</span>. Lessons 23 and 24 follow that path.</p>
+
+<div class="older">
+<p>Up to R20-11 (and in 4.4.0) ComM did not pass PNC requests with <code>Nm_UpdateIRA</code>. It wrote them into a COM signal that was packed into the NM PDU, and read the received PNC requests from COM signals as well (lesson 53). The path through NmIf came as draft in R21-11 and replaced the COM path in R22-11.</p>
+<p>In 4.4.0 and R20-11 CanNm sends its NM PDU by calling <code>CanIf_Transmit</code> directly; R25-11 places the L-SDU Router between them (<code>LSduR_CanNmTransmit</code>, marked draft).</p>
+<p>Up to R24-11 the mode indication that CanSM calls in ComM is <code>ComM_BusSM_ModeIndication</code>, one name for every bus state manager. R25-11 ComM names it <code>ComM_CanSM_ModeIndication</code> on CAN; the R25-11 CanSM text still uses the old name (lesson 21).</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The SWC's call returns at once; nothing on the bus has changed yet. ComM requests CanSM <em>before</em> it requests NM, and both in the same main function call. The reached mode travels back up by indications: CanSM to ComM and BswM, ComM to BswM and the RTE. BswM, not ComM, starts the I-PDU groups.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">main function</span></td><td>A function of a module that the scheduler calls cyclically; timers and state machines advance in it</td></tr>
+<tr><td><span class="term">IRA</span></td><td>Internal request array: one bit per PNC that this ECU requests itself, passed by ComM to NmIf per channel</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7.1.3, 7.2 and 9.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, chapter 7.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.1 and 7.11; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of BSW Mode Manager, R25-11</a> (BswMPduGroupSwitch).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+// Pad labels with no-break spaces: the component sizes note boxes for mixed-case text and estimates call labels slightly short.
+const nb = (n) => '\u00a0'.repeat(Math.ceil(n));
+const pad = (steps) => steps.map((s) => s.note ? Object.assign({}, s, { note: s.note + nb((s.note.match(/[A-Z_]/g) || []).length * 0.35) })
+  : Object.assign({}, s, { call: s.call + nb(s.call.length * 0.06) }));
+Sequence.create(document.getElementById('seq'), {
+  lanes: ['SWC', 'RTE', 'ComM', 'BswM', 'COM', 'NmIf', 'CanNm', 'CanSM', 'CanIf', 'Can/CanTrcv'],
+  focus: ['ComM', 'CanSM', 'CanNm'],
+  steps: pad([
+    { ctx: 'BodyControl runnable (task)', from: 'SWC', to: 'RTE', call: 'Rte_Call_<port>_RequestComMode(COMM_FULL_COMMUNICATION)',
+      text: 'The SWC <code>BodyControl</code> calls the client-server port connected to ComM\'s port <code>UR_UserComfort</code>. It names no user and no bus.' },
+    { from: 'RTE', to: 'ComM', call: 'ComM_RequestComMode(UserComfort, COMM_FULL_COMMUNICATION)',
+      text: 'The RTE adds the user handle of <code>UserComfort</code> (a port-defined argument of that port) and calls ComM.' },
+    { from: 'ComM', note: 'stores the request of UserComfort',
+      text: 'ComM only stores the request. PNC state changes caused by a user request happen in the ComM main function only.' },
+    { from: 'ComM', to: 'SWC', call: 'E_OK', ret: true,
+      text: 'The call returns E_OK through the RTE: the request was accepted, not yet carried out. The runnable goes on.' },
+    { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', note: 'PNC Comfort: COMM_PNC_NO_COMMUNICATION → COMM_PNC_REQUESTED',
+      text: 'In the next main function of <code>BodyCan</code> ComM handles PNC actions first: PNC Comfort enters COMM_PNC_REQUESTED.' },
+    { from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentPNCMode(Comfort, COMM_PNC_REQUESTED)',
+      text: 'Every PNC state change is reported to BswM.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(BodyCan, IRA)',
+      text: 'ComM sets the bit of PNC 16 in the IRA of <code>BodyCan</code> and passes it to NmIf; CanNm will copy it into the NM PDUs.' },
+    { from: 'ComM', note: 'BodyCan: NO_COM_NO_PENDING_REQUEST → NO_COM_REQUEST_PENDING → FULL_COMMUNICATION',
+      text: 'The PNC requests full communication for its channels, which counts like a user request. The channel leaves COMM_NO_COM_NO_PENDING_REQUEST; communication allowed is TRUE, so it enters COMM_FULL_COMMUNICATION at once.' },
+    { from: 'ComM', to: 'CanSM', call: 'CanSM_RequestComMode(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: 'On entering full communication ComM requests the mode from the bus state manager. CanSM accepts it and returns E_OK; it does the work in its own main function.' },
+    { from: 'ComM', note: 'sub-state COMM_FULL_COM_NETWORK_REQUESTED',
+      text: 'Full communication starts in its sub-state COMM_FULL_COM_NETWORK_REQUESTED, because a user needs the channel.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(BodyCan)',
+      text: 'On entering that sub-state, with the NM variant FULL on this channel, ComM requests the network from NmIf.' },
+    { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRequest(BodyCan)',
+      text: 'NmIf passes the request to the NM of this bus. CanNm sets its network state to "requested".' },
+    { ctx: 'CanNm request handling', from: 'CanNm', note: 'Bus-Sleep Mode → Repeat Message State',
+      text: 'Because the network is requested in Bus-Sleep Mode, CanNm enters Network Mode, in its Repeat Message State. The API is asynchronous: the specification only says that state transitions happen at the latest in the next CanNm main function, not whether this one happens inside the call.' },
+    { from: 'CanNm', to: 'NmIf', call: 'Nm_NetworkMode(BodyCan)',
+      text: 'Entering Network Mode is reported to NmIf ...' },
+    { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkMode(BodyCan)',
+      text: '... and NmIf passes it on to ComM.' },
+    { ctx: 'CanSM_MainFunction', from: 'CanSM', note: 'CANSM_BSM_S_PRE_FULLCOM',
+      text: 'In its main function CanSM works through its pre-full-communication steps: transceiver to normal, controller stopped, controller started.' },
+    { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetTrcvMode(0, CANTRCV_TRCVMODE_NORMAL)',
+      text: 'First the transceiver of body CAN (CanIf transceiver 0 in this example) goes to normal mode.' },
+    { from: 'CanIf', to: 'Can/CanTrcv', call: 'CanTrcv_SetOpMode(0, NORMAL)',
+      text: 'CanIf passes the request to the CAN transceiver driver.' },
+    { from: 'Can/CanTrcv', to: 'CanIf', call: 'CanIf_TrcvModeIndication(0, NORMAL)',
+      text: 'When the transceiver has reached normal mode, CanTrcv reports it ...' },
+    { from: 'CanIf', to: 'CanSM', call: 'CanSM_TransceiverModeIndication(0, NORMAL)',
+      text: '... and CanIf passes the indication to CanSM.' },
+    { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetControllerMode(0, CAN_CS_STARTED)',
+      text: 'Then the CAN controller: first CAN_CS_STOPPED if it is in another mode (not drawn), then CAN_CS_STARTED.' },
+    { from: 'CanIf', to: 'Can/CanTrcv', call: 'Can_SetControllerMode(0, CAN_CS_STARTED)',
+      text: 'CanIf passes the request to the CAN driver.' },
+    { ctx: 'CAN driver: controller started', from: 'Can/CanTrcv', to: 'CanIf', call: 'CanIf_ControllerModeIndication(0, CAN_CS_STARTED)',
+      text: 'The CAN driver reports when the controller has started ...' },
+    { from: 'CanIf', to: 'CanSM', call: 'CanSM_ControllerModeIndication(0, CAN_CS_STARTED)',
+      text: '... and CanIf passes it to CanSM.' },
+    { ctx: 'CanSM_MainFunction', from: 'CanSM', to: 'CanIf', call: 'CanIf_SetPduMode(0, CANIF_ONLINE)',
+      text: 'In its next main function CanSM enters full communication. First it sets the PDU mode of CanIf online, so frames may be sent and received.' },
+    { from: 'CanSM', to: 'ComM', call: 'ComM_CanSM_ModeIndication(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: 'Then CanSM tells ComM that body CAN has reached full communication ...' },
+    { from: 'CanSM', to: 'BswM', call: 'BswM_CanSM_CurrentState(BodyCan, CANSM_BSWM_FULL_COMMUNICATION)',
+      text: '... and BswM.' },
+    { ctx: 'ComM: mode indication', from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentMode(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: 'ComM passes the indicated mode on to BswM ...' },
+    { from: 'ComM', to: 'RTE', call: 'UM_UserComfort: currentMode = COMM_FULL_COMMUNICATION',
+      text: '... and to the user, by a mode switch on its port <code>UM_UserComfort</code>. A user with several channels is shown the lowest of their modes. The specification does not say explicitly that the channels of a user\'s PNC count here; if they do, the port shows full communication only once <code>Eth</code> has reached it too.' },
+    { ctx: 'BswM rule evaluation', from: 'BswM', note: 'rule: BodyCan in full communication → action list',
+      text: 'A configured BswM rule becomes true and BswM runs its action list.' },
+    { from: 'BswM', to: 'COM', call: 'Com_IpduGroupStart(<I-PDU group of body CAN>, <initialize>)',
+      text: 'The action starts the I-PDU groups of body CAN in COM. Now the Comfort signals are sent and received.' },
+    { ctx: 'CanNm_MainFunction', from: 'CanNm', to: 'CanIf', call: 'LSduR_CanNmTransmit → CanIf_Transmit(NM PDU)',
+      text: 'In its main function CanNm sends an NM PDU with node identifier 0x10 and the bit of PNC 16. In R25-11 it goes through the L-SDU Router to CanIf. Had CanIf not been online yet, CanNm would retry in its next main function.' },
+    { from: 'CanIf', to: 'Can/CanTrcv', call: 'Can_Write(<hardware object>, <NM PDU>)',
+      text: 'CanIf hands the frame to the CAN driver. The Door ECU sees the Comfort request and wakes; from now on CanNm repeats the NM PDU cyclically.' }
+  ])
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'When does PNC Comfort enter COMM_PNC_REQUESTED?',
+    options: ['In the next ComM main function', 'Inside the ComM_RequestComMode call', 'When CanSM reports full communication'],
+    answer: 0,
+    why: 'ComM_RequestComMode only stores the request; PNC state changes caused by it happen in the ComM main function.'
+  },
+  {
+    prompt: 'Which does ComM call first when BodyCan enters full communication?',
+    options: ['CanSM_RequestComMode, then Nm_NetworkRequest', 'Nm_NetworkRequest, then CanSM_RequestComMode', 'Com_IpduGroupStart, then CanSM_RequestComMode'],
+    answer: 0,
+    why: 'Entering COMM_FULL_COMMUNICATION requests the bus state manager; entering its sub-state COMM_FULL_COM_NETWORK_REQUESTED then requests the network from NM.'
+  },
+  {
+    prompt: 'Who starts the I-PDU groups of body CAN?',
+    options: ['BswM, by a rule on the mode', 'ComM, on entering full mode', 'CanSM, after setting CanIf online'],
+    answer: 0,
+    why: 'CanSM and ComM report the mode to BswM; a BswM rule runs the action that calls Com_IpduGroupStart.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

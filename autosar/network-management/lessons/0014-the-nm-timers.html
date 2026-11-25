@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The NM timers · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The NM timers</h1>
+<p class="lede">Four timers drive the <span class="term">CanNm</span> states: how often a node sends, how long it repeats, how long silence must last, and how long the bus calms down. With them you can predict when a bus falls asleep.</p>
+
+<p>Lesson 13 named the transitions; this lesson gives them their times. All nodes of one bus should use the same values for the last two timers, because these decide when everybody sleeps.</p>
+
+<h2>Four timers</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Timer</th><th>Started</th><th>When it runs out</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Message Cycle Time</span></td><td>while the node sends: in the <span class="term">Repeat Message State</span> and the <span class="term">Normal Operation State</span></td><td>the node sends one <span class="term">NM PDU</span> and starts the timer again</td></tr>
+<tr><td><span class="term">Repeat Message Time</span></td><td>on entering the Repeat Message State</td><td>the node leaves it: to the Normal Operation State if the network is requested, to the <span class="term">Ready Sleep State</span> if it is released</td></tr>
+<tr><td><span class="term">NM-Timeout Time</span></td><td>on entering <span class="term">Network Mode</span>; started again with every NM PDU the node sends or receives</td><td>in the Ready Sleep State: <span class="term">Prepare Bus-Sleep Mode</span>. In the other two states it is started again and a runtime error is reported, because the node should have seen NM PDUs</td></tr>
+<tr><td><span class="term">Wait Bus-Sleep Time</span></td><td>on entering Prepare Bus-Sleep Mode</td><td><span class="term">Bus-Sleep Mode</span></td></tr>
+</tbody>
+</table>
+</div>
+<p>The NM-Timeout Time is the heart of the algorithm. As long as any node sends, everybody's NM-Timeout Time keeps being restarted, and nobody leaves Network Mode. The Message Cycle Time must therefore be clearly shorter than the NM-Timeout Time, or a node that still needs the bus would let the others time out between two of its PDUs.</p>
+
+<h2>Predicting when the bus sleeps</h2>
+<p>Take the last NM PDU on the bus, sent by whichever node needed the bus longest. Every node in the Ready Sleep State restarts its NM-Timeout Time with that PDU. From then on:</p>
+<div class="card m-nm"><p class="tag">the rule</p><h3>bus sleep = last NM PDU + NM-Timeout Time + Wait Bus-Sleep Time</h3><p>If all nodes use the same two values, they reach Bus-Sleep Mode at about the same moment. Small differences come from clock drift, the cycle of the CanNm <span class="term">main function</span> and the time a PDU waits for transmission.</p></div>
+<p>A node that itself just woke stays awake at least for its Repeat Message Time, because it sends throughout the Repeat Message State. So the shortest stay of a node that woke, with nobody needing the bus, is about Repeat Message Time + NM-Timeout Time + Wait Bus-Sleep Time.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 680 200" role="img" aria-labelledby="f1t">
+<title id="f1t">Timing of going to sleep: the Brake ECU sends its last NM PDU; the gateway's NM-Timeout Time runs from there, then the Wait Bus-Sleep Time, then Bus-Sleep Mode.</title>
+<line x1="130" y1="180" x2="670" y2="180" class="d-axis"/>
+<text x="670" y="196" class="d-s d-r">time</text>
+<text x="10" y="36" class="d-t">Brake ECU sends</text>
+<text x="10" y="76" class="d-t">Gateway sends</text>
+<text x="10" y="126" class="d-tb">Gateway CanNm</text>
+<line x1="130" y1="32" x2="670" y2="32" class="d-tick"/>
+<line x1="130" y1="72" x2="670" y2="72" class="d-tick"/>
+<circle cx="150" cy="32" r="5" class="f-req"/><circle cx="210" cy="32" r="5" class="f-req"/><circle cx="270" cy="32" r="5" class="f-req"/>
+<circle cx="140" cy="72" r="5" class="f-ev"/>
+<rect x="130" y="108" width="140" height="30" class="d-note"/><text x="200" y="127" class="d-s d-c">Ready Sleep State</text>
+<rect x="270" y="108" width="150" height="30" class="d-note"/><text x="345" y="127" class="d-s d-c">NM-Timeout Time</text>
+<rect x="420" y="108" width="120" height="30" class="d-box"/><text x="480" y="122" class="d-s d-c">Prepare Bus-Sleep</text><text x="480" y="134" class="d-s d-c">Wait Bus-Sleep Time</text>
+<rect x="540" y="108" width="130" height="30" class="d-box"/><text x="605" y="127" class="d-s d-c">Bus-Sleep Mode</text>
+<line x1="270" y1="20" x2="270" y2="180" class="d-ln dash"/>
+<text x="276" y="18" class="d-s">last NM PDU</text>
+<line x1="420" y1="100" x2="420" y2="180" class="d-ln dash"/>
+<line x1="540" y1="100" x2="540" y2="180" class="d-ln dash"/>
+<text x="345" y="162" class="d-s d-c">restarted by every PDU</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The gateway has released the network and sits in the Ready Sleep State. Each NM PDU of the Brake ECU restarts its NM-Timeout Time. After the last one, the NM-Timeout Time runs out, then the Wait Bus-Sleep Time.</figcaption>
+</figure>
+
+<h2>Immediate transmissions</h2>
+<p>When an ECU actively requests the network while the bus sleeps or calms down, it wants the others to wake quickly. CanNm can then start with an <span class="term">immediate transmission</span> (a burst of a configured number of NM PDUs sent with a short cycle of their own, the first one at once). After the burst the node continues with the Message Cycle Time.</p>
+<p>This applies when the node's own network request brings it into the Repeat Message State, that is a request in Bus-Sleep Mode or Prepare Bus-Sleep Mode. A node that enters the Repeat Message State through a passive startup or a received NM PDU sends at the normal cycle, and its first NM PDU can be delayed by a configured offset, so that nodes waking at the same moment do not all send at once.</p>
+<p>One case is left open. The R25-11 protocol rule for immediate transmissions also names a <span class="term">Repeat Message Request</span> (the control bit that sends every node back into the Repeat Message State; lesson 16) as a trigger, while its rule for the offset names only the network request. The specification does not settle which of the two holds after a Repeat Message Request.</p>
+<div class="older">
+<p>Up to R24-11 the CanNm specification holds the rules for immediate transmissions and the offset itself and names one trigger only: the network request in Bus-Sleep Mode or Prepare Bus-Sleep Mode. R25-11 CanNm refers to the Network Management protocol specification for them.</p>
+</div>
+
+<h2>Try it</h2>
+<p>Change the timer values (in seconds) and watch the meters and the time line. A new value counts from the next start of that timer. The clock runs in real time; the values are small examples, real projects often use longer ones.</p>
+<div class="panel" id="sim"></div>
+<p>Things to try: wake the bus by the Brake ECU and measure how long the gateway stays awake. Request the network from sleep with 3 immediate transmissions, then with 0. Set the NM-Timeout Time shorter than the Message Cycle Time and release the user and let the Brake ECU keep the bus awake: the gateway now drops into Prepare Bus-Sleep Mode between two of the Brake ECU's PDUs.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Only the NM-Timeout Time and the Wait Bus-Sleep Time decide when a released node sleeps, and they count from the last NM PDU on the bus. The Repeat Message Time is a minimum stay for a node that just entered Network Mode. Immediate transmissions belong to an active request only.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Message Cycle Time</span></td><td>Period with which a node sends NM PDUs in the Repeat Message and Normal Operation States</td></tr>
+<tr><td><span class="term">Repeat Message Time</span></td><td>How long a node stays in the Repeat Message State</td></tr>
+<tr><td><span class="term">NM-Timeout Time</span></td><td>Restarted by every NM PDU sent or received; when it runs out in the Ready Sleep State, the node enters Prepare Bus-Sleep Mode</td></tr>
+<tr><td><span class="term">Wait Bus-Sleep Time</span></td><td>How long Prepare Bus-Sleep Mode lasts before Bus-Sleep Mode</td></tr>
+<tr><td><span class="term">immediate transmission</span></td><td>A burst of NM PDUs with a short cycle after an active network request from Bus-Sleep or Prepare Bus-Sleep Mode</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.2, 7.5.2, 7.7.1 and 10 (timing parameters); <a href="https://www.autosar.org/fileadmin/standards/R25-11/FO/AUTOSAR_FO_PRS_NetworkManagementProtocol.pdf">Specification of the AUTOSAR Network Management Protocol, R25-11</a>, chapters 5.3 and 5.4.1 (Ready Sleep Time, Prepare Bus-Sleep Mode, immediate transmissions and the cycle offset, to which CanNm refers).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/cansim.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+CanSim.create(document.getElementById('sim'), {
+  show: ['cannm', 'timeline', 'timers', 'log'],
+  lanes: ['self', 'node', 'cannm'],
+  editTimers: true,
+  timers: { immCount: 3 },
+  controls: ['user', 'node', 'burst', 'run'],
+  logModules: ['SWC', 'ComM', 'NmIf', 'CanNm', 'EcuM', 'Bus', 'CanTrcv', 'CanIf']
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The last NM PDU on the bus is at 10 s. NM-Timeout Time 2 s, Wait Bus-Sleep Time 1.5 s. When do released nodes sleep?',
+    options: ['At about 13.5 s', 'At about 12.0 s', 'At about 11.5 s'],
+    answer: 0,
+    why: 'Last NM PDU + NM-Timeout Time + Wait Bus-Sleep Time = 10 + 2 + 1.5 s.'
+  },
+  {
+    prompt: 'Which event restarts the NM-Timeout Time?',
+    options: ['Any NM PDU sent or received', 'Only a PDU of the own node', 'Only a network request'],
+    answer: 0,
+    why: 'Every NM PDU the node sends or receives in Network Mode restarts it. That is how one node keeps all others awake.'
+  },
+  {
+    prompt: 'When does CanNm send immediate transmissions?',
+    options: ['After an active request from sleep', 'After any received NM PDU', 'Before entering Bus-Sleep Mode'],
+    answer: 0,
+    why: 'A network request in Bus-Sleep or Prepare Bus-Sleep Mode starts the burst. A passive startup uses the normal cycle.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

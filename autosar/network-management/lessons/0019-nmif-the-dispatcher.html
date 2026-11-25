@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NmIf: between ComM and the bus NMs · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.simrow { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0 0 0.7rem; }
+main p code, main li code, #seq .step-text { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>NmIf: between ComM and the bus NMs</h1>
+<p class="lede"><span class="term">ComM</span> talks to one module about network management, whatever the bus: <span class="term">NmIf</span>. NmIf passes each request down to <span class="term">CanNm</span> or <span class="term">UdpNm</span>, and each change of their mode back up to ComM.</p>
+
+<p>The lessons before looked at CanNm on its own. Above it sits NmIf, one instance for all channels of the ECU. This lesson shows its base functionality: the part that every ECU with NM needs.</p>
+
+<h2>A layer that hides the bus</h2>
+<p>NmIf is a bus-independent adaptation layer. It converts the generic calls from ComM into calls of the bus-specific NM of that channel, and the callbacks of the bus-specific NMs into generic callbacks to ComM. ComM never calls CanNm or UdpNm itself; other modules are meant to reach network management only through NmIf too.</p>
+<p>Each NM channel of NmIf refers to one ComM channel and has a bus type. On the example ECU, network handle 0 (<code>BodyCan</code>) belongs to CanNm and network handle 2 (<code>Eth</code>) to UdpNm. The same network handle is used on every layer, so <code>Nm_NetworkRequest(0)</code> becomes <code>CanNm_NetworkRequest(0)</code>.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 230" role="img" aria-labelledby="f1t">
+<title id="f1t">ComM on top calls NmIf with three requests; NmIf calls CanNm for BodyCan and UdpNm for Eth. Four callbacks go from the bus NMs to NmIf and from NmIf to ComM.</title>
+<defs><marker id="f1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="200" y="6" width="240" height="34" class="m-comm"/><text x="320" y="28" class="d-tb d-c">ComM</text>
+<rect x="200" y="98" width="240" height="34" class="m-nm"/><text x="320" y="120" class="d-tb d-c">NmIf</text>
+<rect x="110" y="190" width="170" height="34" class="m-nm"/><text x="195" y="206" class="d-t d-c">CanNm</text><text x="195" y="219" class="d-s d-c">BodyCan · handle 0</text>
+<rect x="360" y="190" width="170" height="34" class="m-nm"/><text x="445" y="206" class="d-t d-c">UdpNm</text><text x="445" y="219" class="d-s d-c">Eth · handle 2</text>
+<line x1="260" y1="40" x2="260" y2="96" class="d-ln" marker-end="url(#f1a)"/>
+<text x="250" y="58" class="d-s d-r">Nm_NetworkRequest</text><text x="250" y="71" class="d-s d-r">Nm_NetworkRelease</text><text x="250" y="84" class="d-s d-r">Nm_PassiveStartUp</text>
+<line x1="380" y1="96" x2="380" y2="42" class="d-ln dash" marker-end="url(#f1a)"/>
+<text x="390" y="52" class="d-s">ComM_Nm_NetworkStartIndication</text><text x="390" y="64" class="d-s">ComM_Nm_NetworkMode</text><text x="390" y="76" class="d-s">ComM_Nm_PrepareBusSleepMode</text><text x="390" y="88" class="d-s">ComM_Nm_BusSleepMode</text>
+<line x1="240" y1="132" x2="200" y2="188" class="d-ln" marker-end="url(#f1a)"/><text x="196" y="160" class="d-s d-r">CanNm_NetworkRequest …</text>
+<line x1="400" y1="132" x2="440" y2="188" class="d-ln" marker-end="url(#f1a)"/><text x="444" y="160" class="d-s">UdpNm_NetworkRequest …</text>
+<line x1="300" y1="188" x2="300" y2="134" class="d-ln dash" marker-end="url(#f1a)"/><line x1="340" y1="188" x2="340" y2="134" class="d-ln dash" marker-end="url(#f1a)"/>
+<text x="320" y="176" class="d-s d-c">Nm_NetworkMode …</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Requests go down (solid), callbacks come up (dashed). Each one keeps the network handle of its channel.</figcaption>
+</figure>
+
+<h2>The calls of the base functionality</h2>
+<p>For its base functionality NmIf only forwards. ComM uses three requests, and four callbacks come back:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Call</th><th>Direction</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Nm_NetworkRequest</code></td><td>ComM → NmIf → CanNm/UdpNm</td><td>This ECU needs the bus: NM goes to (or stays in) Network Mode and sends NM PDUs.</td></tr>
+<tr><td><code class="term">Nm_NetworkRelease</code></td><td>ComM → NmIf → CanNm/UdpNm</td><td>This ECU no longer needs the bus: NM stops sending and sleeps with the others.</td></tr>
+<tr><td><code class="term">Nm_PassiveStartUp</code></td><td>ComM → NmIf → CanNm/UdpNm</td><td>Start Network Mode from Bus-Sleep or Prepare Bus-Sleep Mode without requesting the network, for example after a wakeup by another ECU.</td></tr>
+<tr><td><code class="term">Nm_NetworkStartIndication</code></td><td>CanNm/UdpNm → NmIf → ComM</td><td>An NM PDU arrived in Bus-Sleep Mode: other nodes are already in Network Mode. NM does not wake up on its own; ComM decides.</td></tr>
+<tr><td><code class="term">Nm_NetworkMode</code></td><td>CanNm/UdpNm → NmIf → ComM</td><td>NM has entered Network Mode.</td></tr>
+<tr><td><code class="term">Nm_PrepareBusSleepMode</code></td><td>CanNm/UdpNm → NmIf → ComM</td><td>NM has entered Prepare Bus-Sleep Mode.</td></tr>
+<tr><td><code class="term">Nm_BusSleepMode</code></td><td>CanNm/UdpNm → NmIf → ComM</td><td>NM has entered Bus-Sleep Mode; ComM switches the channel to <code class="term">COMM_NO_COMMUNICATION</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>NmIf forwards each callback under the ComM name: <code>Nm_BusSleepMode</code> becomes <code class="term">ComM_Nm_BusSleepMode</code>, and likewise <code class="term">ComM_Nm_NetworkStartIndication</code>, <code class="term">ComM_Nm_NetworkMode</code> and <code class="term">ComM_Nm_PrepareBusSleepMode</code>. The callbacks of NmIf may run in task or in interrupt context. On a channel in <span class="term">passive mode</span> NmIf refuses <code>Nm_NetworkRequest</code> and <code>Nm_NetworkRelease</code> with <code>E_NOT_OK</code>. For a bus without NM PDUs of its own (a local NM, for example on LIN) NmIf answers a request of ComM itself with <code>ComM_Nm_NetworkMode</code>.</p>
+
+<h2>Try it</h2>
+<p>Step through the calls for body CAN, then switch to Ethernet: the calls of ComM do not change, only the module below NmIf does. Then follow the other start, when another ECU wakes the bus.</p>
+<div class="panel no-print" id="seqp">
+<div class="simrow" id="vars"></div>
+<div id="seq"></div>
+</div>
+
+<h2>More than forwarding</h2>
+<p>NmIf also passes on the optional calls of the earlier lessons. ComM does not use them; they exist for extensions of the NM stack, and NmIf only forwards them when the bus NM supports them:</p>
+<ul>
+<li>Down: <code class="term">Nm_DisableCommunication</code> and <code>Nm_EnableCommunication</code> (called by BswM, lesson 17), user data, PDU data, <code class="term">Nm_RepeatMessageRequest</code> and node identifiers (lessons 15 and 16), the remote sleep check and the NM state.</li>
+<li>Up: <code class="term">Nm_CarWakeUpIndication</code> goes to a callout or to BswM, <code class="term">Nm_StateChangeNotification</code> goes to BswM (lesson 18). <code class="term">Nm_RemoteSleepIndication</code> stays inside NmIf.</li>
+</ul>
+<p>Two parts of NmIf do real work of their own. The <span class="term">NM coordinator</span> (a gateway function in NmIf that keeps several buses awake together and shuts them down together) uses the bus NMs to bring several networks to sleep at the same moment; part 7 of the course explains it. And for <span class="term">partial networking</span> NmIf receives the <span class="term">PNC bit vector</span>s of all channels, filters and aggregates them, and reports them to ComM (part 8).</p>
+
+<div class="older"><p>In 4.4.0 and R20-11 NmIf took no part in partial networking: CanNm and UdpNm evaluated the PNC bits themselves, and ComM read the result through COM signals (part 10). The PNC bit vector callbacks of NmIf appear in R21-11 as a draft. The base functionality of this lesson is the same in 4.4.0, R20-11 and R25-11.</p></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> NmIf adds no state of its own in the base functionality: every request and every callback goes straight through, with the same network handle. That is why ComM is the same for body CAN and Ethernet. A received NM PDU in Bus-Sleep Mode does not start NM; it is reported up, and ComM answers with <code>Nm_PassiveStartUp</code>.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Nm_NetworkRequest</code></td><td>NmIf API with which ComM requests the network; passed on to CanNm or UdpNm</td></tr>
+<tr><td><code class="term">Nm_NetworkRelease</code></td><td>NmIf API with which ComM releases the network</td></tr>
+<tr><td><code class="term">Nm_PassiveStartUp</code></td><td>NmIf API that starts Network Mode without requesting the network</td></tr>
+<tr><td><code class="term">CanNm_NetworkRequest</code></td><td>CanNm API that NmIf calls to request a CAN network</td></tr>
+<tr><td><code class="term">Nm_NetworkStartIndication</code></td><td>Callback: an NM PDU arrived in Bus-Sleep Mode; forwarded to ComM</td></tr>
+<tr><td><code class="term">Nm_NetworkMode</code></td><td>Callback: NM has entered Network Mode; forwarded to ComM</td></tr>
+<tr><td><code class="term">Nm_PrepareBusSleepMode</code></td><td>Callback: NM has entered Prepare Bus-Sleep Mode; forwarded to ComM</td></tr>
+<tr><td><code class="term">Nm_BusSleepMode</code></td><td>Callback: NM has entered Bus-Sleep Mode; forwarded to ComM</td></tr>
+<tr><td><code class="term">ComM_Nm_BusSleepMode</code></td><td>The ComM callback NmIf calls for Nm_BusSleepMode (likewise the other three)</td></tr>
+<tr><td><code class="term">Nm_DisableCommunication</code></td><td>NmIf API that disables the sending of NM PDUs on a channel</td></tr>
+<tr><td><span class="term">NM coordinator</span></td><td>NmIf function on a gateway that keeps several buses awake and shuts them down together</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapters 5.1, 7.1, 7.5.1, 7.6, 8.3 and 8.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapter 7 (passive startup after a network start indication).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  function story(bus, start) {
+    const n = bus === 'can' ? 'CanNm' : 'UdpNm';
+    const h = bus === 'can' ? 0 : 2;
+    const ch = bus === 'can' ? 'BodyCan' : 'Eth';
+    const rx = bus === 'can' ? 'CanNm_RxIndication (CanIf receive)' : 'UdpNm_SoAdIfRxIndication (SoAd receive)';
+    const head = start === 'active'
+      ? [
+        { ctx: 'ComM main function (task)', from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(' + h + ')', text: 'A ComM user needs ' + ch + '. ComM enters COMM_FULL_COM_NETWORK_REQUESTED and requests the network for network handle ' + h + '.' },
+        { from: 'NmIf', to: n, call: n + '_NetworkRequest(' + h + ')', text: 'Channel ' + h + ' is a ' + (bus === 'can' ? 'CAN' : 'UDP') + ' NM channel, so NmIf calls ' + n + ' with the same handle.' },
+        { from: n, to: 'ComM', call: 'E_OK', ret: true, text: 'The request is accepted (it is asynchronous); the return value goes back through NmIf to ComM.' },
+        { ctx: n + ' main function (task)', from: n, note: 'Bus-Sleep → Repeat Message', text: n + ' changes its state within its next main function: Network Mode, Repeat Message State, and it starts sending NM PDUs.' }
+      ]
+      : [
+        { ctx: rx, from: n, note: 'NM PDU received in Bus-Sleep', text: 'Another ECU has woken ' + ch + '. ' + n + ' receives an NM PDU while it is in Bus-Sleep Mode and does not change its state on its own.' },
+        { from: n, to: 'NmIf', call: 'Nm_NetworkStartIndication(' + h + ')', text: n + ' reports the network start to NmIf.' },
+        { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkStartIndication(' + h + ')', text: 'NmIf forwards it to ComM. ComM decides whether the ECU joins (lessons 36 and 48 show the whole wakeup).' },
+        { ctx: 'ComM main function (task)', from: 'ComM', to: 'NmIf', call: 'Nm_PassiveStartUp(' + h + ')', text: 'ComM enters COMM_FULL_COM_NETWORK_REQUESTED after the network start indication and asks for a passive startup: Network Mode without requesting the network.' },
+        { from: 'NmIf', to: n, call: n + '_PassiveStartUp(' + h + ')', text: 'NmIf forwards the passive startup to ' + n + '.' },
+        { ctx: n + ' main function (task)', from: n, note: 'Bus-Sleep → Repeat Message', text: n + ' enters Network Mode in Repeat Message State. Its network state is still released.' }
+      ];
+    return head.concat([
+      { from: n, to: 'NmIf', call: 'Nm_NetworkMode(' + h + ')', text: 'On entering Network Mode ' + n + ' calls Nm_NetworkMode.' },
+      { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkMode(' + h + ')', text: 'NmIf forwards it to ComM under the ComM name.' },
+      { ctx: 'ComM main function (task)', from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRelease(' + h + ')', text: 'Later no user needs ' + ch + ' any more: ComM enters COMM_FULL_COM_READY_SLEEP and releases the network.' },
+      { from: 'NmIf', to: n, call: n + '_NetworkRelease(' + h + ')', text: n + ' goes to Ready Sleep State (or stays there) and sends no more NM PDUs.' },
+      { ctx: n + ' main function (task)', from: n, note: 'NM-Timeout ran out in Ready Sleep', text: 'No other node sends any more. The NM-Timeout Time runs out: Prepare Bus-Sleep Mode.' },
+      { from: n, to: 'NmIf', call: 'Nm_PrepareBusSleepMode(' + h + ')', text: n + ' reports Prepare Bus-Sleep Mode.' },
+      { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_PrepareBusSleepMode(' + h + ')', text: 'ComM switches ' + ch + ' to COMM_SILENT_COMMUNICATION.' },
+      { ctx: n + ' main function (task)', from: n, note: 'Wait Bus-Sleep Time over', text: 'After the Wait Bus-Sleep Time ' + n + ' enters Bus-Sleep Mode.' },
+      { from: n, to: 'NmIf', call: 'Nm_BusSleepMode(' + h + ')', text: n + ' reports Bus-Sleep Mode.' },
+      { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_BusSleepMode(' + h + ')', text: 'ComM switches ' + ch + ' to COMM_NO_COMMUNICATION.' }
+    ]);
+  }
+  let bus = 'can', start = 'active';
+  const seq = Sequence.create(document.getElementById('seq'), { lanes: ['ComM', 'NmIf', 'CanNm', 'UdpNm'], focus: ['NmIf'], steps: story(bus, start) });
+  const vars = document.getElementById('vars');
+  const opts = [
+    { k: 'bus', v: 'can', t: 'BodyCan (CanNm)' }, { k: 'bus', v: 'eth', t: 'Eth (UdpNm)' },
+    { k: 'start', v: 'active', t: 'ComM requests' }, { k: 'start', v: 'passive', t: 'another ECU wakes the bus' }
+  ];
+  const btns = opts.map((o) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = o.t;
+    b.addEventListener('click', () => {
+      if (o.k === 'bus') bus = o.v; else start = o.v;
+      seq.set({ steps: story(bus, start) });
+      paint();
+    });
+    vars.appendChild(b);
+    return b;
+  });
+  function paint() { btns.forEach((b, i) => b.setAttribute('aria-pressed', String((opts[i].k === 'bus' ? bus : start) === opts[i].v))); }
+  paint();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'ComM calls Nm_NetworkRequest(2) on the example ECU. What does NmIf call?',
+    options: ['UdpNm_NetworkRequest(2)', 'CanNm_NetworkRequest(2)', 'ComM_Nm_NetworkMode(2)'],
+    answer: 0,
+    why: 'Network handle 2 is the Eth channel, whose bus NM is UdpNm. NmIf keeps the handle and calls the bus-specific function.'
+  },
+  {
+    prompt: 'An NM PDU arrives while CanNm is in Bus-Sleep Mode. What happens first?',
+    options: ['NmIf reports a network start to ComM', 'CanNm enters Network Mode on its own', 'NmIf calls CanNm_PassiveStartUp itself'],
+    answer: 0,
+    why: 'CanNm calls Nm_NetworkStartIndication, NmIf forwards it as ComM_Nm_NetworkStartIndication, and ComM decides; it then calls Nm_PassiveStartUp.'
+  },
+  {
+    prompt: 'Which NmIf callback is not forwarded to ComM?',
+    options: ['Nm_RemoteSleepIndication', 'Nm_PrepareBusSleepMode', 'Nm_NetworkStartIndication'],
+    answer: 0,
+    why: 'Remote sleep indications are only needed inside NmIf, by the NM coordinator. The mode callbacks all go to ComM.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

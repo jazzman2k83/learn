@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>At a glance · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+table.glance td:first-child { width: 28%; } table.glance code { overflow-wrap: anywhere; }
+table.glance td:last-child { white-space: nowrap; }
+.flow .box.m-comm { border-top: 3px solid var(--m-comm); } .flow .box.m-nm { border-top: 3px solid var(--m-nm); }
+.flow .box.m-sm { border-top: 3px solid var(--m-sm); } .flow .box.m-ecum { border-top: 3px solid var(--m-ecum); }
+.flow .box.m-app { border-top: 3px solid var(--m-app); }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">Network Management</p>
+<h1>At a glance</h1>
+<p class="lede">Every module and feature of the course on one page, in a line or two, grouped like the parts of the course. The number is the lesson that explains it.</p>
+
+<div class="flow">
+  <div class="box m-app"><strong>SWC users</strong>ask for full or no communication</div>
+  <div class="arrow">→</div>
+  <div class="box m-comm"><strong>ComM</strong>one state machine per channel and per PNC</div>
+  <div class="arrow">→</div>
+  <div class="box m-nm"><strong>NmIf, CanNm, UdpNm</strong>agree with the other ECUs when to sleep</div>
+  <div class="arrow">→</div>
+  <div class="box m-sm"><strong>CanSM, EthSM</strong>switch the hardware</div>
+  <div class="box m-ecum"><strong>EcuM, BswM</strong>start, wake and stop the ECU</div>
+</div>
+
+<h2>The big picture</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Network management</span> and <span class="term">mode management</span></td><td>The ECUs of a bus wake together, stay awake while anyone needs the bus, and reach <span class="term">bus sleep</span> together; inside the ECU, modes decide what runs.</td><td><a href="../lessons/0001-what-network-and-mode-management-is-for.html">1</a></td></tr>
+<tr><td>The modules and their layers</td><td><span class="term">ComM</span>, <span class="term">BswM</span> and <span class="term">EcuM</span> in the middle; <span class="term">NmIf</span>, the bus NMs and the <span class="term">bus state manager</span>s below them; CanIf, EthIf and the drivers at the bottom.</td><td><a href="../lessons/0002-the-modules-and-their-layers.html">2</a></td></tr>
+<tr><td>The example ECU</td><td>A body <span class="term">gateway</span> on body CAN (partial networking, PNCs Comfort and Lighting), chassis CAN and Ethernet; one SWC with three ComM users.</td><td><a href="../lessons/0003-the-example-ecu.html">3</a></td></tr>
+<tr><td>One request from top to bottom</td><td><code class="term">ComM_RequestComMode</code> of UserComfort sets off ComM, CanSM, NmIf, CanNm and BswM until the I-PDUs flow.</td><td><a href="../lessons/0004-one-request-from-top-to-bottom.html">4</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>ComM</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">ComM user</span>s and <span class="term">channel</span>s</td><td>Users request <code class="term">COMM_FULL_COMMUNICATION</code> or <code class="term">COMM_NO_COMMUNICATION</code>; each is mapped to channels or PNCs; the highest request per channel wins.</td><td><a href="../lessons/0005-comm-users-and-channels.html">5</a></td></tr>
+<tr><td>The channel state machine</td><td>Three <span class="term">communication mode</span>s as main states; sub-states such as <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> and <code class="term">COMM_FULL_COM_READY_SLEEP</code>.</td><td><a href="../lessons/0006-the-comm-channel-state-machine.html">6</a></td></tr>
+<tr><td>Network requested and ready sleep</td><td>ComM only decides whether this ECU still needs the bus; when the bus sleeps is decided with the other ECUs, by NM.</td><td><a href="../lessons/0007-network-requested-and-ready-sleep.html">7</a></td></tr>
+<tr><td><span class="term">NM variant</span>s</td><td><span class="term">FULL</span>, <span class="term">PASSIVE</span>, <span class="term">LIGHT</span>, <span class="term">NONE</span>, <code class="term">SLAVE_ACTIVE</code>, <code class="term">SLAVE_PASSIVE</code>: how a channel goes to sleep after the last release.</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a></td></tr>
+<tr><td><span class="term">Communication allowed</span></td><td>BswM must allow communication on a channel before ComM switches it on; then BswM starts its <span class="term">I-PDU group</span>s.</td><td><a href="../lessons/0009-communication-allowed-and-bswm.html">9</a></td></tr>
+<tr><td>Dcm keeps the channel awake</td><td><code class="term">ComM_DCM_ActiveDiagnostic</code> holds the channel during a diagnostic session; Dcm is not a ComM user.</td><td><a href="../lessons/0010-dcm-keeps-the-channel-awake.html">10</a></td></tr>
+<tr><td><span class="term">Communication inhibition</span></td><td><span class="term">Wake up inhibition</span> and <span class="term">limit to COMM_NO_COMMUNICATION</span> override the users' requests.</td><td><a href="../lessons/0011-communication-inhibition.html">11</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Network management</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>The coordination algorithm</td><td>A node that needs the bus keeps sending <span class="term">NM PDU</span>s; when nobody sends any more, all nodes sleep.</td><td><a href="../lessons/0012-the-coordination-algorithm.html">12</a></td></tr>
+<tr><td>The CanNm states</td><td><span class="term">Network Mode</span> (<span class="term">Repeat Message State</span>, <span class="term">Normal Operation State</span>, <span class="term">Ready Sleep State</span>), <span class="term">Prepare Bus-Sleep Mode</span>, <span class="term">Bus-Sleep Mode</span>.</td><td><a href="../lessons/0013-the-cannm-states.html">13</a></td></tr>
+<tr><td>The NM timers</td><td><span class="term">Message Cycle Time</span>, <span class="term">Repeat Message Time</span>, <span class="term">NM-Timeout Time</span>, <span class="term">Wait Bus-Sleep Time</span>; see the <a href="nm-timers.html">NM timers</a> sheet.</td><td><a href="../lessons/0014-the-nm-timers.html">14</a></td></tr>
+<tr><td>The NM PDU</td><td><span class="term">Source Node Identifier</span>, <span class="term">Control Bit Vector</span>, <span class="term">PNC bit vector</span> and <span class="term">user data</span>.</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a></td></tr>
+<tr><td><span class="term">Repeat Message Request</span> and <span class="term">node detection</span></td><td>One bit makes every node send again for a while, so each one can be seen.</td><td><a href="../lessons/0016-repeat-message-request-and-node-detection.html">16</a></td></tr>
+<tr><td><span class="term">Passive mode</span>, <span class="term">communication control</span>, <span class="term">bus load reduction</span></td><td>A node that never sends; sending stopped on request of a tester; many nodes that send less.</td><td><a href="../lessons/0017-passive-mode-communication-control-bus-load-reduction.html">17</a></td></tr>
+<tr><td><span class="term">Remote Sleep Indication</span>, <span class="term">car wakeup</span>, user data</td><td>All others are ready to sleep; wake the whole car; application bytes in the NM PDU.</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a></td></tr>
+<tr><td>NmIf</td><td>Between ComM and the bus NMs: passes requests down (<code class="term">Nm_NetworkRequest</code>) and mode changes up.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a></td></tr>
+<tr><td>UdpNm</td><td>The same algorithm on Ethernet; the NM PDU is the payload of a UDP packet, through SoAd.</td><td><a href="../lessons/0020-udpnm-nm-on-ethernet.html">20</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Bus state managers</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>CanSM</td><td>One state machine per CAN network switches <span class="term">CAN controller</span>, transceiver and <span class="term">PDU mode</span>, and reports the reached mode to ComM and BswM.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a></td></tr>
+<tr><td><span class="term">Bus-off recovery</span></td><td>CanSM restarts a controller after <span class="term">bus-off</span>, first quickly, then slowly, and reports it.</td><td><a href="../lessons/0022-cansm-bus-off-recovery.html">22</a></td></tr>
+<tr><td>EthSM</td><td>From <code class="term">ETHSM_STATE_OFFLINE</code> to <code class="term">ETHSM_STATE_ONLINE</code>: controller, then <span class="term">link state</span>, then IP.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr><td>Above EthSM</td><td>TcpIp, SoAd, Sd and UdpNm start once IP works.</td><td><a href="../lessons/0024-above-ethsm-when-the-link-comes-up.html">24</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>EcuM and BswM</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>The EcuM phases</td><td><span class="term">STARTUP phase</span>, <span class="term">UP phase</span>, <span class="term">SHUTDOWN phase</span>, <span class="term">SLEEP phase</span>, <span class="term">OFF phase</span>; BswM decides in between.</td><td><a href="../lessons/0025-the-ecum-phases.html">25</a></td></tr>
+<tr><td>Startup</td><td><code class="term">EcuM_Init</code> and <code class="term">EcuM_StartupTwo</code> start a few drivers, the OS and BswM; the rest starts under BswM's rules.</td><td><a href="../lessons/0026-startup.html">26</a></td></tr>
+<tr><td>BswM</td><td><span class="term">Mode request</span>s and indications, <span class="term">mode arbitration</span> by rules, <span class="term">action list</span>s that call the next step.</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a></td></tr>
+<tr><td>RUN and POST_RUN</td><td>An <span class="term">EcuM user</span> places a <span class="term">RUN request</span> or <span class="term">POST_RUN request</span>; EcuM reports the sum, BswM acts.</td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a></td></tr>
+<tr><td><span class="term">Shutdown target</span>s</td><td>OFF, RESET or SLEEP, chosen before <code class="term">EcuM_GoDownHaltPoll</code>.</td><td><a href="../lessons/0029-shutdown-targets.html">29</a></td></tr>
+<tr><td><span class="term">Sleep mode</span>s</td><td><span class="term">HALT</span> or <span class="term">POLL</span>: the call returns when the ECU is awake again.</td><td><a href="../lessons/0030-sleep-halt-and-poll.html">30</a></td></tr>
+<tr><td>The <span class="term">alarm clock</span></td><td>EcuM wakes the ECU at a set time.</td><td><a href="../lessons/0031-the-alarm-clock.html">31</a></td></tr>
+<tr><td>Multi-core and the bootloader</td><td>A <span class="term">master core</span> leads the <span class="term">slave core</span>s; a <span class="term">boot target</span> for the next reset.</td><td><a href="../lessons/0032-multi-core-and-the-bootloader.html">32</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Wakeup</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Wakeup source</span>s</td><td>One bit each; states none, <span class="term">pending</span>, <span class="term">validated</span>, <span class="term">expired</span>; reported to BswM.</td><td><a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a></td></tr>
+<tr><td><span class="term">Wakeup validation</span></td><td>EcuM switches the source on and asks until the wakeup is confirmed or the <span class="term">validation timeout</span> runs out.</td><td><a href="../lessons/0034-wakeup-validation.html">34</a></td></tr>
+<tr><td>CAN wakeup end to end</td><td>CanTrcv → <code class="term">EcuM_SetWakeupEvent</code> → validation through CanIf → <code class="term">ComM_EcuM_WakeUpIndication</code>.</td><td><a href="../lessons/0035-can-wakeup-end-to-end.html">35</a></td></tr>
+<tr><td><span class="term">Passive wakeup</span> and <span class="term">active wakeup</span></td><td>Woken by another ECU (<code class="term">Nm_PassiveStartUp</code>) or by its own need (<code class="term">Nm_NetworkRequest</code>).</td><td><a href="../lessons/0036-passive-and-active-startup.html">36</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>NM coordinator</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">NM coordinator</span></td><td>A gateway keeps all buses of its <span class="term">NM coordination cluster</span> awake while any one is needed.</td><td><a href="../lessons/0037-coordinating-several-buses.html">37</a></td></tr>
+<tr><td><span class="term">Coordinated shutdown</span></td><td><span class="term">Shutdown timer</span>s hold each bus a little longer, so that all reach Bus-Sleep Mode at the same moment.</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a></td></tr>
+<tr><td><span class="term">Nested sub-bus</span>es</td><td>A gateway below waits for the <span class="term">NM Coordinator Sleep Ready Bit</span>; a started shutdown can be aborted.</td><td><a href="../lessons/0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Partial networking</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Partial networking</span></td><td>ECUs grouped by function in <span class="term">PNC</span>s; only the PNCs somebody needs stay awake.</td><td><a href="../lessons/0040-why-partial-networking.html">40</a></td></tr>
+<tr><td><span class="term">PNC state machine</span></td><td>One per PNC in ComM: requested here, needed only by others, about to go, off.</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a></td></tr>
+<tr><td>EIRA and ERA</td><td>NmIf filters the received PNC bits into the <span class="term">EIRA</span> and the <span class="term">ERA</span>; a bit drops after the PNC reset time.</td><td><a href="../lessons/0042-eira-and-era.html">42</a></td></tr>
+<tr><td><span class="term">Selective wakeup</span></td><td>The CAN transceiver wakes the ECU only for a <span class="term">wakeup frame</span> that requests one of its PNCs.</td><td><a href="../lessons/0043-selective-wakeup-in-the-transceiver.html">43</a></td></tr>
+<tr><td><span class="term">PNC gateway</span></td><td>Turns a PNC request received on one bus into its own request on the other buses.</td><td><a href="../lessons/0044-the-pnc-gateway.html">44</a></td></tr>
+<tr><td><span class="term">Synchronized PNC shutdown</span></td><td>The top of a gateway hierarchy announces the end of a PNC, so that all ECUs leave it together.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr><td><span class="term">PN learning</span></td><td>The gateway asks the ECUs which PNCs they belong to and extends its PNC-to-channel mapping at run time.</td><td><a href="../lessons/0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The flows end to end</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Flow</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Power on to full communication</td><td>Reset, EcuM startup, BswM allows communication, UserComfort's request down to the first NM PDU.</td><td><a href="../lessons/0047-power-on-to-full-communication.html">47</a></td></tr>
+<tr><td>Woken by another ECU</td><td>The Door ECU requests PNC Comfort; the gateway wakes, validates, starts body CAN passively.</td><td><a href="../lessons/0048-woken-by-another-ecu.html">48</a></td></tr>
+<tr><td>Going to sleep</td><td>The last user releases; the NM coordinator shuts the three buses down together; BswM sends the ECU to sleep.</td><td><a href="../lessons/0049-going-to-sleep.html">49</a></td></tr>
+<tr><td>A PNC request across the gateway</td><td>A request for Comfort ends up in the PNC bit vector on body CAN, on Ethernet, or both.</td><td><a href="../lessons/0050-a-pnc-request-across-the-gateway.html">50</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The older way</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">EcuM Fixed</span></td><td>4.3.1 and older: one fixed EcuM state machine that decides by itself when to shut down.</td><td><a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr><td>EcuM Fixed and EcuM Flex</td><td>The same ECU both ways: the RUN requests look alike, who acts on them differs.</td><td><a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td>PNC through COM signals</td><td>Up to R20-11: CanNm and UdpNm compute EIRA and ERA; ComM reads them as COM signals (<code class="term">ComMPncComSignal</code>).</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr><td>Reading an older PNC configuration</td><td>How the same PNCs look in a configuration of that time.</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Configuration, bits and state machines</h2>
+<div class="table-wrap">
+<table class="data glance">
+<thead><tr><th>Topic</th><th>In short</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Configuration map: ComM and NM</td><td>Where each ComM, NmIf, CanNm and UdpNm setting lives, how often, and which lesson explains it.</td><td><a href="../lessons/0055-configuration-map-comm-and-nm.html">55</a></td></tr>
+<tr><td>Configuration map: CanSM, EthSM and EcuM</td><td>The same for the bus state managers and EcuM.</td><td><a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+<tr><td>The NM PDU bit by bit</td><td>Every byte and bit of the NM PDU.</td><td><a href="../lessons/0057-the-nm-pdu-bit-by-bit.html">57</a></td></tr>
+<tr><td>The full state machines</td><td>Every transition of the ComM and CanSM state machines.</td><td><a href="../lessons/0058-the-full-state-machines.html">58</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Sheets</h2>
+<ul>
+<li><a href="interfaces.html">Interfaces</a>: who calls whom, module by module.</li>
+<li><a href="nm-timers.html">NM timers</a>: every timer, with a calculator.</li>
+<li><a href="flexray-and-lin.html">FlexRay and LIN</a>: how the other buses fit the same picture.</li>
+<li><a href="words.html">Glossary</a>: every term of the course.</li>
+</ul>
+
+<p class="source">Source: the lessons of this course, written for the AUTOSAR R25-11 specifications of ComM, NmIf, CanNm, UdpNm, CanSM, EthSM, EcuM, BswM, CanIf, CanTrcv and Dcm, and the <a href="https://www.autosar.org/fileadmin/standards/R25-11/FO/AUTOSAR_FO_PRS_NetworkManagementProtocol.pdf">Network Management Protocol, R25-11</a>.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dcm keeps the channel awake · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.choose { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.9rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Dcm keeps the channel awake</h1>
+<p class="lede">A tester talking to the ECU must not lose the bus in the middle of a diagnostic session. <span class="term">Dcm</span> therefore tells <span class="term">ComM</span> directly when diagnostics on a channel is active, without being a ComM user.</p>
+
+<p>This lesson shows the interface between Dcm and ComM in both directions, and when Dcm counts diagnostics as active.</p>
+
+<h2>Dcm is not a ComM user</h2>
+<p>A <span class="term">ComM user</span> requests a mode through <code class="term">ComM_RequestComMode</code> and is mapped to channels or PNCs in the configuration. Dcm has an interface of its own instead, with one call for each direction of its state:</p>
+<div class="cards">
+  <div class="card m-dcm"><p class="tag">Dcm to ComM</p><h3><code>ComM_DCM_ActiveDiagnostic</code></h3><p>Dcm calls <code class="term">ComM_DCM_ActiveDiagnostic</code> (the report that diagnostics on a channel has become active) with the channel concerned, and again with every request it receives while diagnostics stays active.</p></div>
+  <div class="card m-dcm"><p class="tag">Dcm to ComM</p><h3><code>ComM_DCM_InactiveDiagnostic</code></h3><p>Dcm calls <code class="term">ComM_DCM_InactiveDiagnostic</code> (the report that diagnostics on a channel has ended) when it needs that channel no longer; ComM may then release it.</p></div>
+</div>
+<p>On a channel with the <span class="term">NM variant</span> <code class="term">FULL</code>, <code class="term">LIGHT</code> or <code class="term">NONE</code>, ComM treats active diagnostics exactly like a request for full communication on that channel: it wakes the channel, and it keeps the channel in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> as long as diagnostics is active, even when no user requests it. On a <code>FULL</code> channel ComM also requests the network from NM, so the whole bus stays awake. On <code class="term">PASSIVE</code> and the slave variants the indication is not treated as a request. If diagnostics needs several channels, Dcm reports each of them.</p>
+
+<h2>When Dcm counts diagnostics as active</h2>
+<p>Dcm keeps a diagnostic state per network:</p>
+<ul>
+<li><strong>active</strong> as soon as a diagnostic request is received on that network, or the session is changed to any session other than the <span class="term">default session</span> (the diagnostic session an ECU is in when no tester has changed it);</li>
+<li><strong>inactive</strong> when the current request is finished, no request of another diagnostic protocol is being processed on that network, and Dcm is in the default session. A request counts as finished when its final response has been sent, or when the response was suppressed.</li>
+</ul>
+<p>So a single request in the default session keeps the channel only until its response has been sent. A session change to, for example, an extended session keeps it for the whole session. When the tester stops talking, the session timeout of Dcm (S3Server) brings Dcm back to the default session, and Dcm reports inactive diagnostics on all networks.</p>
+<p>An application can tell Dcm that diagnostics shall not keep the ECU awake (<code>Dcm_SetActiveDiagnostic</code> with FALSE). Dcm then does not call <code>ComM_DCM_ActiveDiagnostic</code> any more. After a jump back from the bootloader, Dcm calls <code>ComM_DCM_ActiveDiagnostic</code> at once during its initialization, so that it can answer the tester.</p>
+
+<h2>ComM tells Dcm the mode</h2>
+<p>In the other direction ComM tells Dcm about every change of the channel's mode, with three callbacks:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Callback</th><th>What Dcm does</th></tr></thead>
+<tbody>
+<tr><td><code class="term">Dcm_ComM_FullComModeEntered</code></td><td>Switches reception and transmission on, including periodic and event-triggered responses</td></tr>
+<tr><td><code class="term">Dcm_ComM_SilentComModeEntered</code></td><td>Switches all transmission off; reception stays on</td></tr>
+<tr><td><code class="term">Dcm_ComM_NoComModeEntered</code></td><td>Switches reception and transmission off; Dcm sends nothing more</td></tr>
+</tbody>
+</table>
+</div>
+<p>Dcm waits for <code>Dcm_ComM_FullComModeEntered</code> before it sends a response, but no longer than the response time it owes the tester.</p>
+<p>Active diagnostics also has priority over <span class="term">communication inhibition</span> (ComM functions that stop requests from waking or keeping a channel; lesson 11): while a diagnostic session is active, inhibition is suspended, so that the ECU cannot fall asleep under the tester.</p>
+
+<h2>Try it</h2>
+<p>A tester talks to the body gateway on <code>BodyCan</code>. No ComM user needs the channel: it is in <code>COMM_FULL_COM_READY_SLEEP</code>. Pick a case and step through it.</p>
+<div class="panel no-print">
+<div class="choose" role="group" aria-label="Case">
+<button type="button" data-case="one" aria-pressed="true">One request, default session</button>
+<button type="button" data-case="ext" aria-pressed="false">Extended session</button>
+</div>
+<div id="dseq"></div>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Dcm keeps the channel through its own two calls, not as a ComM user. "Active" means a request is being processed or a non-default session is open; a session keeps the channel much longer than one request. ComM releases the channel only when no user and no active diagnostics needs it.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">ComM_DCM_ActiveDiagnostic</code></td><td>Called by Dcm when diagnostics on a channel becomes active, and with every request while it stays active</td></tr>
+<tr><td><code class="term">ComM_DCM_InactiveDiagnostic</code></td><td>Called by Dcm when diagnostics on a channel ends</td></tr>
+<tr><td><span class="term">default session</span></td><td>The diagnostic session an ECU is in when no tester has changed it</td></tr>
+<tr><td><code class="term">Dcm_ComM_FullComModeEntered</code></td><td>ComM tells Dcm that a channel is in full communication</td></tr>
+<tr><td><code class="term">Dcm_ComM_SilentComModeEntered</code></td><td>ComM tells Dcm that a channel is in silent communication</td></tr>
+<tr><td><code class="term">Dcm_ComM_NoComModeEntered</code></td><td>ComM tells Dcm that a channel is in no communication</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_DiagnosticCommunicationManager.pdf">Specification of Diagnostic Communication Manager, R25-11</a>, section 7.2.4.16 (communication mode handling); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.2 and 7.4.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const LANES = ['Tester', 'Dcm', 'ComM', 'NmIf'];
+  const start = [
+    { from: 'Tester', to: 'Dcm', call: 'diagnostic request', text: 'A request from the tester arrives on BodyCan. Dcm goes into the active diagnostic state for this network.' },
+    { from: 'Dcm', to: 'ComM', call: 'ComM_DCM_ActiveDiagnostic(BodyCan)', text: 'Dcm reports active diagnostics on BodyCan to ComM.' },
+    { from: 'ComM', note: 'READY_SLEEP → NETWORK_REQUESTED', text: 'BodyCan is a FULL channel, so ComM treats this like a request for full communication: back to COMM_FULL_COM_NETWORK_REQUESTED.' },
+    { from: 'ComM', to: 'NmIf', call: 'request the network', text: 'On entering COMM_FULL_COM_NETWORK_REQUESTED ComM requests the network from NmIf, so the gateway keeps the bus awake again.' }
+  ];
+  const STORIES = {
+    one: start.concat([
+      { from: 'Dcm', to: 'Tester', call: 'response', ret: true, text: 'Dcm sends the response. The request is finished, and Dcm is still in the default session.' },
+      { from: 'Dcm', to: 'ComM', call: 'ComM_DCM_InactiveDiagnostic(BodyCan)', text: 'Nothing is being processed and the session is the default one: Dcm reports inactive diagnostics.' },
+      { from: 'ComM', note: 'NETWORK_REQUESTED → READY_SLEEP', text: 'No user and no diagnostics needs BodyCan any more: COMM_FULL_COM_READY_SLEEP.' },
+      { from: 'ComM', to: 'NmIf', call: 'release the network', text: 'ComM releases the network. NM lets the bus sleep once the other ECUs are done too.' }
+    ]),
+    ext: start.concat([
+      { from: 'Dcm', to: 'Tester', call: 'response: extended session', ret: true, text: 'The request was a change to the extended session. Dcm answers and stays in the active diagnostic state: a non-default session is open.' },
+      { from: 'Tester', to: 'Dcm', call: 'further requests', text: 'Further requests follow. With every one, Dcm calls ComM_DCM_ActiveDiagnostic again; the channel stays requested between them.' },
+      { from: 'Dcm', note: 'S3Server timeout: default session', text: 'The tester stops talking. The session timer of Dcm runs out and Dcm returns to the default session.' },
+      { from: 'Dcm', to: 'ComM', call: 'ComM_DCM_InactiveDiagnostic(BodyCan)', text: 'Back in the default session with nothing to process, Dcm reports inactive diagnostics on all networks.' },
+      { from: 'ComM', note: 'NETWORK_REQUESTED → READY_SLEEP', text: 'COMM_FULL_COM_READY_SLEEP: ComM releases the network, and BodyCan can go to sleep with the other ECUs.' }
+    ])
+  };
+  const seq = Sequence.create(document.getElementById('dseq'), { lanes: LANES, focus: ['Dcm', 'ComM'], steps: STORIES.one });
+  const btns = Array.from(document.querySelectorAll('[data-case]'));
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    seq.set({ steps: STORIES[b.dataset.case] });
+  }));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'How does Dcm keep a channel awake?',
+    options: ['With its own calls to ComM', 'As a ComM user of that channel', 'By sending NM PDUs on the bus'],
+    answer: 0,
+    why: 'Dcm is not a ComM user. It calls ComM_DCM_ActiveDiagnostic and ComM_DCM_InactiveDiagnostic for the channel.'
+  },
+  {
+    prompt: 'Dcm is in an extended session and no request is being processed. Which diagnostic state does Dcm report?',
+    options: ['Active, because of the session', 'Inactive, nothing is processed', 'None until the next request'],
+    answer: 0,
+    why: 'In any non-default session the diagnostic state stays active. It becomes inactive only in the default session with nothing to process.'
+  },
+  {
+    prompt: 'On which channel is ComM_DCM_ActiveDiagnostic not treated as a request for full communication?',
+    options: ['On a PASSIVE channel', 'On a FULL channel', 'On a LIGHT channel'],
+    answer: 0,
+    why: 'ComM treats it as a request only for the NM variants FULL, LIGHT and NONE.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What network and mode management is for · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.ecus { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 0 0 0.9rem; }
+@media (max-width: 34rem) { .ecus { grid-template-columns: 1fr; } }
+.ecus button { width: 100%; text-align: left; padding: 0.55rem 0.7rem; line-height: 1.35; }
+.ecus button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.ecus button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); }
+.busbar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; font-family: var(--sans); font-size: 0.85rem; }
+.busbar .lamp { width: 0.9rem; height: 0.9rem; border-radius: 50%; border: 2px solid var(--d-line); background: var(--paper); }
+.busbar .lamp.awake { background: var(--good); border-color: var(--good); }
+.busbar .lamp.going { background: var(--warn-soft); border-color: var(--warn); }
+.busbar .meter { flex: 1 1 10rem; height: 0.5rem; background: var(--sig-soft); position: relative; min-width: 8rem; }
+.busbar .meter i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--warn); width: 0; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>What network and mode management is for</h1>
+<p class="lede">A parked car must use almost no current, yet any ECU may need to talk at any moment. The buses must wake up together, stay awake while anyone still needs them, and fall asleep together.</p>
+
+<p>This lesson shows the problem that the whole course is about, and the three questions an <span class="term">ECU</span> (electronic control unit: one control unit with its microcontroller and software) has to answer about its communication.</p>
+
+<h2>A night in a parked car</h2>
+<p>A vehicle has dozens of ECUs. Most of them are connected to a <span class="term">bus</span> (a communication medium several ECUs share, such as a CAN bus or an Ethernet network). While the car is parked, the battery has to last for weeks, so almost every ECU and every bus has to be switched off. A bus in which no ECU communicates any more and whose hardware is in a low-power mode is in <span class="term">bus sleep</span>.</p>
+<p>Then the driver pulls the door handle. The door ECU needs to tell the light ECU to switch on the interior light, so the body bus must come back. That event is a <span class="term">wakeup</span> (whatever ends a sleep: a message on the bus, a pin, a timer). After the driver has left, each ECU finishes its work at a different moment. The bus may only go to sleep once the last one is done.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 200" role="img" aria-labelledby="f1t">
+<title id="f1t">A time line over one evening. The bus sleeps; the door ECU wakes it when the door opens; the door, light and gateway ECUs need the bus for different lengths of time; the bus stays awake until the last one is done and a short wait has passed, then sleeps again.</title>
+<line x1="110" y1="180" x2="630" y2="180" class="d-axis"/>
+<text x="630" y="196" class="d-s d-r">time</text>
+<text x="10" y="48" class="d-t">Door ECU</text>
+<text x="10" y="80" class="d-t">Light ECU</text>
+<text x="10" y="112" class="d-t">Gateway</text>
+<text x="10" y="152" class="d-tb">Body bus</text>
+<rect x="190" y="38" width="120" height="16" class="m-app"/>
+<rect x="196" y="70" width="230" height="16" class="m-app"/>
+<rect x="200" y="102" width="170" height="16" class="m-app"/>
+<rect x="110" y="140" width="80" height="20" class="d-box"/><text x="150" y="154" class="d-s d-c">asleep</text>
+<rect x="190" y="140" width="236" height="20" class="d-ok"/><text x="308" y="154" class="d-s d-c">awake: someone needs it</text>
+<rect x="426" y="140" width="60" height="20" class="d-note"/><text x="456" y="154" class="d-s d-c">wait</text>
+<rect x="486" y="140" width="144" height="20" class="d-box"/><text x="558" y="154" class="d-s d-c">asleep</text>
+<line x1="190" y1="20" x2="190" y2="180" class="d-ln dash"/>
+<text x="190" y="16" class="d-s d-c">door opened: wakeup</text>
+<line x1="426" y1="30" x2="426" y2="180" class="d-ln dash"/>
+<text x="426" y="26" class="d-s d-c">last ECU done</text>
+<text x="250" y="50" class="d-s d-c">needs the bus</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Look at the bottom row. The bus wakes with the first ECU that needs it, and it sleeps only after the <em>last</em> one is done, plus a short wait in which every ECU can finish what it was doing.</figcaption>
+</figure>
+<p>Two easy answers do not work. If every bus simply stayed awake, the battery would be empty after a few days. If every ECU went to sleep on its own whenever it was done, the others would lose their partner in the middle of a conversation and report communication errors. The ECUs have to agree.</p>
+
+<h2>Try it</h2>
+<p>Switch the ECUs' needs on and off and watch the bus. Times are slowed down.</p>
+<div class="panel no-print" id="sim">
+<div class="ecus">
+<button type="button" aria-pressed="false" data-ecu="0">Door ECU<small>does not need the bus</small></button>
+<button type="button" aria-pressed="false" data-ecu="1">Light ECU<small>does not need the bus</small></button>
+<button type="button" aria-pressed="false" data-ecu="2">Gateway<small>does not need the bus</small></button>
+</div>
+<div class="busbar"><span class="lamp" id="lamp"></span><strong>Body bus:</strong> <span id="state">asleep</span><span class="meter" aria-hidden="true"><i id="meter"></i></span></div>
+<p class="readout" id="why">Nobody needs the bus, so it sleeps.</p>
+</div>
+
+<h2>Three questions, three kinds of module</h2>
+<p>Each ECU has to answer three questions all the time. In the AUTOSAR <span class="term">BSW</span> (basic software: the standardized modules below the RTE) a different kind of module answers each one.</p>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">inside this ECU</p><h3>Does anyone here need the bus?</h3><p><span class="term">ComM</span> (Communication Manager) collects the requests for communication inside the ECU and switches each bus on or off for this ECU. An <span class="term">SWC</span> (software component: application software above the RTE) asks it through the <span class="term">RTE</span> (Runtime Environment, which connects the SWCs to the basic software).</p></div>
+  <div class="card m-nm"><p class="tag">between the ECUs</p><h3>May the bus sleep?</h3><p><span class="term">Network management</span> (the coordination between the ECUs of one bus about when it may sleep) runs on every ECU. While an ECU needs the bus it keeps announcing that on the bus; when nobody announces it any more, all of them sleep together.</p></div>
+  <div class="card m-ecum"><p class="tag">the ECU itself</p><h3>Should the ECU run, sleep or switch off?</h3><p><span class="term">Mode management</span> (deciding which mode the ECU and its communication are in, and switching the modules accordingly) is done by <span class="term">EcuM</span> (ECU State Manager: startup, wakeup, shutdown and sleep) and <span class="term">BswM</span> (BSW Mode Manager: configured rules that decide what happens when).</p></div>
+</div>
+<p>The rest of the course takes these modules one at a time. Lesson 2 places all of them in the layers of the basic software, and lesson 4 follows one request through all of them.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The bus does not sleep when one ECU is done, but when the last one is, and then only after a short wait. Requesting communication inside one ECU (ComM) and agreeing with the other ECUs (network management) are two different jobs, done by different modules.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">ECU</span></td><td>Electronic control unit: one control unit with its microcontroller and software</td></tr>
+<tr><td><span class="term">bus</span></td><td>A communication medium several ECUs share, such as a CAN bus or an Ethernet network</td></tr>
+<tr><td><span class="term">bus sleep</span></td><td>No ECU communicates on the bus; its hardware is in a low-power mode</td></tr>
+<tr><td><span class="term">wakeup</span></td><td>The event that ends a sleep: a message on the bus, a pin, a timer</td></tr>
+<tr><td><span class="term">BSW</span></td><td>Basic software: the standardized modules below the RTE</td></tr>
+<tr><td><span class="term">ComM</span></td><td>Communication Manager: collects communication requests inside the ECU and switches each bus on or off</td></tr>
+<tr><td><span class="term">SWC</span></td><td>Software component: application software above the RTE</td></tr>
+<tr><td><span class="term">RTE</span></td><td>Runtime Environment: connects the SWCs to each other and to the basic software</td></tr>
+<tr><td><span class="term">network management</span></td><td>The coordination between the ECUs of one bus about when it may sleep</td></tr>
+<tr><td><span class="term">mode management</span></td><td>Deciding which mode the ECU and its communication are in, and switching the modules</td></tr>
+<tr><td><span class="term">EcuM</span></td><td>ECU State Manager: startup, wakeup, shutdown and sleep of the ECU</td></tr>
+<tr><td><span class="term">BswM</span></td><td>BSW Mode Manager: configured rules that decide what the basic software does when</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R25-11</a> (mode management and communication services); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapter 1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const WAIT = 3000; // ms, scaled: the "short wait" before the bus sleeps
+  const names = ['Door ECU', 'Light ECU', 'Gateway'];
+  const need = [false, false, false];
+  const btns = Array.from(document.querySelectorAll('#sim [data-ecu]'));
+  const lamp = document.getElementById('lamp');
+  const state = document.getElementById('state');
+  const why = document.getElementById('why');
+  const meter = document.getElementById('meter');
+  let bus = 'asleep';
+  let since = 0;
+  let raf = 0;
+
+  function render() {
+    btns.forEach((b, i) => {
+      b.setAttribute('aria-pressed', String(need[i]));
+      b.querySelector('small').textContent = need[i] ? 'needs the bus' : 'does not need the bus';
+    });
+    lamp.className = 'lamp' + (bus === 'awake' ? ' awake' : bus === 'waiting' ? ' going' : '');
+    state.textContent = bus === 'awake' ? 'awake' : bus === 'waiting' ? 'awake, nobody needs it: waiting' : 'asleep';
+    if (bus !== 'waiting') meter.style.width = '0';
+  }
+  function tick() {
+    const left = WAIT - (performance.now() - since);
+    if (bus !== 'waiting') return;
+    if (left <= 0) {
+      bus = 'asleep';
+      why.textContent = 'The wait is over and still nobody needs the bus: all ECUs fall asleep together.';
+      render();
+      return;
+    }
+    meter.style.width = (100 * (1 - left / WAIT)) + '%';
+    raf = requestAnimationFrame(tick);
+  }
+  btns.forEach((b, i) => b.addEventListener('click', () => {
+    need[i] = !need[i];
+    const who = need.map((n, k) => n ? names[k] : null).filter(Boolean);
+    cancelAnimationFrame(raf);
+    if (who.length) {
+      const woke = bus === 'asleep';
+      bus = 'awake';
+      why.textContent = (woke ? names[i] + ' wakes the bus. ' : '') + 'Awake because ' + who.join(' and ') + (who.length > 1 ? ' need' : ' needs') + ' it.';
+    } else if (bus === 'awake') {
+      bus = 'waiting';
+      since = performance.now();
+      why.textContent = 'The last ECU is done. The bus stays awake a little longer, so every ECU can finish, then it sleeps.';
+      raf = requestAnimationFrame(tick);
+    }
+    render();
+  }));
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Three ECUs share a bus. When may the bus go to sleep?',
+    options: ['When the last ECU no longer needs it', 'When the first ECU no longer needs it', 'When the gateway ECU says it is done'],
+    answer: 0,
+    why: 'The bus stays awake as long as any ECU still needs it, and sleeps only after the last one is done, plus a short wait.'
+  },
+  {
+    prompt: 'Why may an ECU not simply switch its bus off when it is done?',
+    options: ['The other ECUs would lose their partner', 'Its own messages would then be repeated', 'Its battery current would go up instead'],
+    answer: 0,
+    why: 'The other ECUs may still be talking to it; they would see communication errors. The ECUs have to agree.'
+  },
+  {
+    prompt: 'Which job belongs to network management?',
+    options: ['Agreeing with the other ECUs when to sleep', 'Collecting the requests inside one ECU', 'Running the startup of the ECU itself'],
+    answer: 0,
+    why: 'Network management is the coordination between the ECUs of one bus. Collecting the requests inside one ECU is ComM; startup is EcuM.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

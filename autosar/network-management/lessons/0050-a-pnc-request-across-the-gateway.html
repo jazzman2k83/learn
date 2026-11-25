@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A PNC request across the gateway · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.variants { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.8rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>A PNC request across the gateway</h1>
+<p class="lede">PNC Comfort lives on body CAN and Ethernet. A request for it, made by <code>UserComfort</code> inside the gateway or by the Head unit on Ethernet, ends up as a bit in the <span class="term">PNC bit vector</span> of the gateway's NM PDUs, on one bus or on both.</p>
+
+<p>This flow follows one PNC request through <span class="term">ComM</span>, <span class="term">NmIf</span>, <span class="term">CanNm</span> and <span class="term">UdpNm</span>, in the R25-11 way: PNC bits travel between ComM and the bus NMs through NmIf, in the <span class="term">IRA</span>, the <span class="term">ERA</span> and the <span class="term">EIRA</span>. Every call, its caller and its order are taken from the R25-11 specifications; where they leave a choice to the integrator, the step says so.</p>
+
+<h2>The starting point</h2>
+<p>The gateway runs, and all three channels are in <code class="term">COMM_FULL_COMMUNICATION</code>. <code>UserLighting</code> requests PNC Lighting, so PNC 17 is in <code class="term">COMM_PNC_REQUESTED</code> and the gateway's NM PDUs on body CAN carry 0x02 in byte 2, the one byte of the PNC bit vector (Comfort = bit 0, Lighting = bit 1, <a href="0003-the-example-ecu.html">lesson 3</a>). PNC Comfort is in <code class="term">COMM_PNC_NO_COMMUNICATION</code>. The gateway function of ComM is on, and body CAN and Ethernet are both <span class="term">active PNC gateway</span> channels: the gateway is the <span class="term">top-level PNC coordinator</span> of Comfort and Lighting (<a href="0044-the-pnc-gateway.html">lesson 44</a>).</p>
+
+<h2>Try it</h2>
+<p>Choose where the request comes from and step through. The bands show the context: the runnable of the SWC, the main functions of ComM, CanNm and UdpNm, the reception callbacks and NmIf's updates. The lanes of ComM and NmIf are drawn highlighted.</p>
+<div class="variants no-print" role="group" aria-label="Where the request comes from">
+<button type="button" aria-pressed="true" data-v="local">UserComfort requests</button>
+<button type="button" aria-pressed="false" data-v="head">The Head unit requests</button>
+</div>
+<div class="panel" id="seq"></div>
+
+<h2>Two ways in, the same way out</h2>
+<div class="cards">
+  <div class="card m-app"><p class="tag">inside · lessons 5, 41</p><h3>A local user</h3><p><code class="term">ComM_RequestComMode</code> of <code>UserComfort</code> moves PNC Comfort to <code class="term">COMM_PNC_REQUESTED</code> in the next ComM main function. ComM sets the Comfort bit in the IRA of both channels and passes each with <code class="term">Nm_UpdateIRA</code>.</p></div>
+  <div class="card m-nm"><p class="tag">outside · lessons 42, 44</p><h3>A request on Ethernet</h3><p>The Head unit's NM PDU arrives in UdpNm, which hands the bits to NmIf. NmIf updates the ERA of <code>Eth</code> and the EIRA and tells ComM with <code class="term">ComM_Nm_UpdateERA</code> and <code class="term">ComM_Nm_UpdateEIRA</code>. The ERA bit makes the gateway request Comfort itself.</p></div>
+  <div class="card m-nm"><p class="tag">out · lessons 15, 20</p><h3>Into the NM PDUs</h3><p>Each time CanNm or UdpNm is about to send, it fetches the IRA of its channel from NmIf with <code>Nm_PncBitVectorTxIndication</code> and copies it to byte 2. That is all it takes for the Door ECU or the Head unit to see the request.</p></div>
+</div>
+
+<h2>Why the Head unit's request is not sent back to it</h2>
+<p>ComM decides per channel whether it sets the bit in that channel's IRA. For a local request it sets it on every channel of the PNC. For a request from another ECU, the gateway type of the channels decides: the bit goes out on all active channels, and on a passive channel only if the request came in on an active one. A request that comes in on a passive channel is therefore never mirrored back on it, which keeps two coordinators from holding each other's requests forever.</p>
+<p>In the example ECU <code>Eth</code> is an active channel (lesson 3), so the gateway also repeats the Head unit's bit on Ethernet. The diagram shows one <strong>variant</strong> at that step as well, which is not the example's configuration: if Ethernet were a <span class="term">passive PNC gateway</span> channel, with the Head unit coordinating above the gateway, the Head unit's request would reach body CAN only.</p>
+
+<h2>What the specification leaves to the integrator</h2>
+<ul>
+<li>Which I-PDU groups belong to a PNC, and the BswM rule that starts them on <code>BswM_ComM_CurrentPNCMode</code>.</li>
+<li>Whether ComM calls <code class="term">Nm_NetworkRequest</code> again for a PNC request on a channel that is already in full communication. ComM does it only if configured; with a matching CanNm setting the network request then starts <span class="term">immediate transmission</span> of NM PDUs instead of waiting for the next cycle.</li>
+<li>The PNC filter mask, the <span class="term">PNC reset timer</span> and the gateway type of each channel.</li>
+</ul>
+
+<div class="older">
+<p>This page shows the R25-11 path only. Up to R20-11 (and in 4.4.0) ComM did not call <code class="term">Nm_UpdateIRA</code>, and NmIf took no part: CanNm and UdpNm computed EIRA and ERA themselves, and ComM read them and sent its own PNC requests through COM signals (<a href="0053-pnc-through-com-signals.html">lesson 53</a>). The NmIf path came as draft in R21-11 and replaced the COM path in R22-11. In 4.4.0 and R20-11 CanNm also calls <code>CanIf_Transmit</code> directly; the LSduR between them exists from R24-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The bus NMs never decide anything about PNCs: they pass received bits up to NmIf and fetch the bits to send from NmIf. ComM handles the PNC request in the main function of each channel it affects. A local request goes out on both buses; a request from the Head unit is mirrored onto body CAN, and back onto Ethernet because Ethernet is an active channel in the example; in the passive variant it would not be.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7.1.2 to 7.1.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 7.4.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapter 7.11; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>, chapter 7 (partial networking).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+const nb = (n) => ' '.repeat(Math.ceil(n));
+const pad = (steps) => steps.map((s) => s.note ? Object.assign({}, s, { note: s.note + nb((s.note.match(/[A-Z_]/g) || []).length * 0.35) })
+  : Object.assign({}, s, { call: s.call + nb(s.call.length * 0.06) }));
+
+const sendCan = [
+  { ctx: 'CanNm_MainFunction', from: 'CanNm', to: 'NmIf', call: 'Nm_PncBitVectorTxIndication(BodyCan, <buffer>)',
+    text: 'The Message Cycle Timer of body CAN expires. Before sending, CanNm fetches the PNC bit vector of its channel.' },
+  { from: 'NmIf', note: 'copies IRA 0x03 · stores PNC 16 and 17 as requested in the EIRA',
+    text: 'NmIf copies the stored IRA into the buffer and, for the bits that pass the filter mask, marks the PNCs as requested in the EIRA; their reset timers restart (<a href="0042-eira-and-era.html">lesson 42</a>).' },
+  { from: 'CanNm', to: 'CanIf', call: 'LSduR_CanNmTransmit → CanIf_Transmit(NM PDU 0x10, byte 2 = 0x03)',
+    text: 'CanNm copies the vector to byte 2 and sends the NM PDU of node 0x10 through the LSduR to CanIf. The Door ECU sees PNC 16 requested.' }
+];
+
+const local = [
+  { ctx: 'BodyControl runnable (task)', from: 'SWC', to: 'ComM', call: 'ComM_RequestComMode(UserComfort, COMM_FULL_COMMUNICATION)',
+    text: 'The SWC requests the Comfort functions through its port <code>UR_UserComfort</code> and the RTE (drawn as one call). ComM stores the request and returns E_OK (<a href="0004-one-request-from-top-to-bottom.html">lesson 4</a>).' },
+  { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', note: 'PNC Comfort: COMM_PNC_NO_COMMUNICATION → COMM_PNC_REQUESTED',
+    text: 'PNC state changes caused by a user request happen in a ComM main function, PNC actions before channel actions (<a href="0041-the-comm-pnc-state-machine.html">lesson 41</a>).' },
+  { from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentPNCMode(Comfort, COMM_PNC_REQUESTED)',
+    text: 'The PNC state change goes to BswM.' },
+  { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(BodyCan, IRA = 0x03)',
+    text: 'Body CAN is an active channel: ComM sets the Comfort bit in its IRA. With the Lighting bit already set, the IRA of body CAN is 0x03.' },
+  { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(Eth, IRA = 0x01)',
+    text: 'A local user requests the PNC, so ComM sets the bit on Ethernet as well, active or passive. Lighting does not use Ethernet, so the IRA of <code>Eth</code> is 0x01. The specification does not say in which channel\'s main function this call for the other channel runs; it is drawn here with the rest.' },
+  { from: 'ComM', note: 'full communication requested for BodyCan and Eth (both already in it)',
+    text: 'Entering COMM_PNC_REQUESTED also requests full communication for the PNC\'s channels. Both are already there, so the channel state machines do not change.' },
+  { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(BodyCan)  (only if configured)',
+    text: 'If ComM is configured to request the network for PNC requests, it calls Nm_NetworkRequest again, even in full communication; the same for <code>Eth</code>. Otherwise this step is left out.' },
+  { ctx: 'BswM rule evaluation', from: 'BswM', to: 'COM', call: 'Com_IpduGroupStart(<I-PDU groups of PNC Comfort>, <initialize>)',
+    text: 'An integrator rule on the PNC mode starts the Comfort I-PDU groups.' }
+].concat(sendCan, [
+  { ctx: 'NmIf: EIRA changed', from: 'NmIf', to: 'ComM', call: 'ComM_Nm_UpdateEIRA(EIRA = 0x03)',
+    text: 'The EIRA bit of PNC 16 has changed to 1, so NmIf forwards the new EIRA. PNC Comfort is already in COMM_PNC_REQUESTED, which an EIRA bit does not change.' },
+  { ctx: 'UdpNm_MainFunction', from: 'UdpNm', to: 'NmIf', call: 'Nm_PncBitVectorTxIndication(Eth, <buffer>)',
+    text: 'On Ethernet the same happens in UdpNm\'s main function: it fetches the IRA of <code>Eth</code>, 0x01 ...' },
+  { from: 'UdpNm', to: 'SoAd', call: 'SoAd_IfTransmit(NM PDU, byte 2 = 0x01)',
+    text: '... and sends its NM PDU through SoAd (<a href="0020-udpnm-nm-on-ethernet.html">lesson 20</a>). The Head unit sees PNC 16 requested.' }
+]);
+
+const head = [
+  { ctx: 'SoAd: NM PDU received', from: 'SoAd', to: 'UdpNm', call: 'UdpNm_SoAdIfRxIndication(NM PDU of the Head unit, byte 2 = 0x01)',
+    text: 'The Head unit requests PNC Comfort in its NM PDU. SoAd hands the received PDU to UdpNm.' },
+  { from: 'UdpNm', to: 'NmIf', call: 'Nm_PncBitVectorRxIndication(Eth, 0x01, &relevant)',
+    text: 'The Partial Network Information Bit is set, so UdpNm extracts byte 2 and passes it to NmIf.' },
+  { from: 'NmIf', note: 'filter mask passes PNC 16: ERA of Eth and EIRA set, reset timers restart',
+    text: 'PNC 16 is in the filter mask of <code>Eth</code>, so NmIf stores it as requested in the ERA of Ethernet and in the EIRA (<a href="0042-eira-and-era.html">lesson 42</a>) and sets the relevant flag to TRUE.' },
+  { ctx: 'NmIf: ERA and EIRA changed', from: 'NmIf', to: 'ComM', call: 'ComM_Nm_UpdateERA(Eth, ERA = 0x01)',
+    text: 'NmIf forwards each change to ComM: the ERA of Ethernet ...' },
+  { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_UpdateEIRA(EIRA = 0x03)',
+    text: '... and the EIRA, which now holds Comfort and Lighting.' },
+  { ctx: 'ComM_MainFunction_Eth', from: 'ComM', note: 'ERA before EIRA: PNC Comfort → COMM_PNC_REQUESTED',
+    text: 'Requests are handled in the main functions of the channels they affect, the ERA before the EIRA. The gateway function is on and both channels of Comfort have a gateway type, so the ERA bit puts PNC Comfort into COMM_PNC_REQUESTED.' },
+  { from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentPNCMode(Comfort, COMM_PNC_REQUESTED)',
+    text: 'The PNC state change goes to BswM, which starts the Comfort I-PDU groups as in the other case.' },
+  { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(BodyCan, IRA = 0x03)',
+    text: 'Entering COMM_PNC_REQUESTED, ComM sets the bit in the IRA of every active channel: body CAN. This is the mirroring: the Head unit\'s request becomes the gateway\'s own request on body CAN.' },
+  { from: 'ComM', note: 'Eth ACTIVE (example): Nm_UpdateIRA(Eth, 0x01) · variant Eth PASSIVE: IRA stays 0x00',
+    text: 'For Ethernet the gateway type decides. In the example it is an active channel, so it gets the bit too and the gateway repeats the request on Ethernet. In the variant with Ethernet as a passive channel it would not: a request from a passive channel is not sent back on it.' },
+  { from: 'ComM', note: 'full communication requested for BodyCan and Eth (both already in it)',
+    text: 'The PNC requests full communication for its channels, which they already have.' }
+].concat(sendCan, [
+  { from: 'CanNm', note: 'body CAN: PNC 16 = 1 in the NM PDUs of node 0x10',
+    text: 'The Door ECU now sees PNC 16 in the gateway\'s NM PDUs and keeps its Comfort functions running. When the Head unit stops requesting Comfort and the reset timer of the ERA runs out, ComM releases the bit on body CAN again.' }
+]);
+
+const seq = Sequence.create(document.getElementById('seq'), {
+  lanes: ['SWC', 'ComM', 'BswM', 'COM', 'NmIf', 'CanNm', 'CanIf', 'UdpNm', 'SoAd'],
+  focus: ['ComM', 'NmIf'],
+  steps: pad(local)
+});
+document.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  seq.set({ steps: pad(b.dataset.v === 'head' ? head : local) });
+}));
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'How does the Comfort bit get into the gateway\'s NM PDU on body CAN?',
+    options: ['CanNm fetches the IRA from NmIf', 'ComM writes it into a COM signal', 'CanNm reads it from the EIRA'],
+    answer: 0,
+    why: 'Before each transmission CanNm calls Nm_PncBitVectorTxIndication; NmIf copies the IRA that ComM gave it with Nm_UpdateIRA.'
+  },
+  {
+    prompt: 'The Head unit requests Comfort. Why does the gateway request it on body CAN?',
+    options: ['The ERA bit puts the PNC into REQUESTED', 'The EIRA bit counts as a local request', 'UdpNm forwards the bit to CanNm'],
+    answer: 0,
+    why: 'On a PNC gateway an ERA bit on a gateway channel puts the PNC into COMM_PNC_REQUESTED, and ComM then sets the bit in the IRA of the active channels.'
+  },
+  {
+    prompt: 'In the variant where Eth is a passive channel: is the Head unit\'s request mirrored back on Ethernet?',
+    options: ['No, only onto the active channels', 'Yes, onto every channel of the PNC', 'Only after the PNC reset timer'],
+    answer: 0,
+    why: 'A request received on a passive channel is set in the IRA of the active channels only; mirroring it back would create a loop of phantom requests.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

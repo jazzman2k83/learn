@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Startup: from reset to BswM · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Startup: from reset to BswM</h1>
+<p class="lede">The <span class="term">STARTUP phase</span> does as little as possible: a few drivers, the choice of configuration, the OS, the scheduler and <span class="term">BswM</span>. Everything else, the whole communication stack included, starts later under BswM's rules.</p>
+
+<h2>Before EcuM: the startup code</h2>
+<p>After a reset the microcontroller runs its startup code: a stack is set up, the C variables are initialized, and the code can run. <span class="term">EcuM</span> assumes this minimal initialization has happened before the startup code calls <code class="term">EcuM_Init</code> (the first EcuM function after reset: initializes the drivers of the init lists and starts the OS). There is no OS yet and no task.</p>
+
+<h2>StartPreOS: inside EcuM_Init</h2>
+<p><code>EcuM_Init</code> runs the <span class="term">StartPreOS Sequence</span> (the part of startup in <code>EcuM_Init</code>, before the OS runs). It should be short, and interrupts should not be used in it; if they must, only interrupts that need no OS (category I).</p>
+<ol>
+<li><strong>Interrupt priorities</strong> (optional callout), on ECUs where they are programmable.</li>
+<li><strong>Init block 0</strong>: the callout <code>EcuM_AL_DriverInitZero</code> initializes the drivers of <span class="term">driver init list</span> (the configured list of drivers EcuM initializes, in order) zero. These may not use the post-build configuration, because it has not been chosen yet. The recommended content: the Default Error Tracer first, the pre-initialization of DEM, and the drivers needed to read the post-build configuration data.</li>
+<li><strong>Selecting the post-build configuration</strong>: the callout <code>EcuM_DeterminePbConfiguration</code> returns a pointer to the <span class="term">post-build configuration</span> (the configuration data of EcuM and all other BSW modules that is chosen at startup, not compiled in) to use. EcuM checks that it is consistent with the code; if not, it calls its error hook.</li>
+<li><strong>Init block I</strong>: <code>EcuM_AL_DriverInitOne</code> initializes driver init list one, now with the post-build configuration: typically MCU, port, timer, watchdog, ADC, ICU and PWM drivers.</li>
+<li><strong>Reset reason</strong>: EcuM asks the MCU driver why the ECU started and maps the answer to a <span class="term">wakeup source</span> (the source of a wakeup, such as <code>ECUM_WKSOURCE_POWER</code>), which it validates later in UP.</li>
+<li><strong>Default shutdown target</strong>: EcuM selects the configured default, so that a target exists from the start.</li>
+<li><strong>Loop detection</strong> (optional callout), then <strong>StartOS</strong>. <code>EcuM_Init</code> never returns.</li>
+</ol>
+
+<h2>StartPostOS: EcuM_StartupTwo</h2>
+<p>With <code>StartOS</code>, EcuM gives up control. To get it back, the integrator configures an OS task that starts automatically and calls <code class="term">EcuM_StartupTwo</code> (the EcuM function run first in an OS task after the OS has started) as its first action. It runs the <span class="term">StartPostOS Sequence</span> (the part of startup after the OS has started): start the BSW Scheduler (<span class="term">SchM</span>, the BSW Scheduler that calls the main functions and provides the critical sections), initialize BswM, initialize SchM and start the scheduler timing, so the periodic events for BSW and SWCs begin. Then STARTUP is over, and the <span class="term">UP phase</span> begins.</p>
+
+<h2>BswM continues</h2>
+<p>From here on, BswM's action lists do the rest, in the order the integrator configures. One typical action calls an EcuM function generated from a third driver init list, for the BSW initialized by BswM. Others start NvM and read its data; the integrator is responsible for initializing COM, DEM and FIM at the end of that read. Further actions initialize the communication stack (<span class="term">ComM</span>, <span class="term">CanSM</span>, <span class="term">EthSM</span> and the rest) and start the RTE, which starts the SWCs. The specification recommends initializing drivers in UP wherever possible, to keep STARTUP short.</p>
+
+<h2>Try it: the startup sequence</h2>
+<p>Step through the calls. The grey bands show the execution context: first plain startup code without an OS, then the OS task that calls <code>EcuM_StartupTwo</code>, then BswM.</p>
+<div class="panel no-print" id="seq"></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Init list zero runs before the post-build configuration is known, so it may only contain modules that do not need it. <code>EcuM_Init</code> never returns: EcuM gets control back only through the OS task that calls <code>EcuM_StartupTwo</code>. No communication module is started in STARTUP; ComM, CanSM and EthSM start in UP under BswM.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">EcuM_Init</code></td><td>The first EcuM function after reset: initializes the drivers of the init lists and starts the OS</td></tr>
+<tr><td><span class="term">StartPreOS Sequence</span></td><td>The part of startup in <code>EcuM_Init</code>, before the OS runs</td></tr>
+<tr><td><span class="term">driver init list</span></td><td>The configured list of drivers EcuM initializes, in order, at startup (lists zero and one) or after a wakeup</td></tr>
+<tr><td><span class="term">post-build configuration</span></td><td>Configuration data of EcuM and the BSW modules that is chosen at startup rather than compiled in</td></tr>
+<tr><td><code class="term">EcuM_StartupTwo</code></td><td>The EcuM function run first in an OS task after the OS has started: starts SchM and initializes BswM</td></tr>
+<tr><td><span class="term">StartPostOS Sequence</span></td><td>The part of startup in <code>EcuM_StartupTwo</code>, after the OS has started</td></tr>
+<tr><td><span class="term">SchM</span></td><td>BSW Scheduler: calls the main functions and provides the critical sections of the BSW</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, sections 7.1.2, 7.3 (STARTUP phase), 8.3.2.2 and 8.3.2.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Sequence.create(document.getElementById('seq'), {
+  lanes: ['Startup code', 'EcuM', 'Integration', 'Mcu', 'Os', 'SchM', 'BswM'],
+  focus: ['EcuM'],
+  steps: [
+    { ctx: 'after reset: startup code, no OS', from: 'Startup code', to: 'EcuM', call: 'EcuM_Init()', text: 'The startup code has set up the stack and the C variables and calls <code>EcuM_Init</code>. There is no OS and no task.' },
+    { from: 'EcuM', to: 'Integration', call: 'EcuM_AL_DriverInitZero()', text: 'Init block 0: the drivers of init list zero, for example the Default Error Tracer and the drivers needed to read the post-build data. They may not depend on the post-build configuration.' },
+    { from: 'EcuM', to: 'Integration', call: 'EcuM_DeterminePbConfiguration()', text: 'The integration code chooses the post-build configuration.' },
+    { from: 'Integration', to: 'EcuM', call: 'EcuM_ConfigType *', ret: true, text: 'It returns a pointer to the configuration of EcuM and all other BSW modules.' },
+    { from: 'EcuM', note: 'check configuration consistency', text: 'EcuM checks that the configuration fits the code; if not, it calls <code>EcuM_ErrorHook</code>.' },
+    { from: 'EcuM', to: 'Integration', call: 'EcuM_AL_DriverInitOne()', text: 'Init block I: init list one, for example the MCU, port, timer and watchdog drivers, now with the post-build configuration.' },
+    { from: 'EcuM', to: 'Mcu', call: 'Mcu_GetResetReason()', text: 'EcuM reads the reset reason and maps it to a wakeup source, for example <code>ECUM_WKSOURCE_POWER</code>. It is validated later in UP.' },
+    { from: 'EcuM', note: 'select the default shutdown target', text: 'EcuM selects the configured default shutdown target.' },
+    { from: 'EcuM', to: 'Os', call: 'StartOS(ECUM_DEFAULT_APP_MODE)', text: 'EcuM starts the OS. <code>EcuM_Init</code> does not return; EcuM has given up control.' },
+    { ctx: 'OS task, started automatically', from: 'Os', to: 'EcuM', call: 'EcuM_StartupTwo()', text: 'An OS task configured by the integrator starts automatically and calls <code>EcuM_StartupTwo</code> first.' },
+    { from: 'EcuM', to: 'SchM', call: 'SchM_Start()', text: 'StartPostOS: start the BSW Scheduler.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_Init(ConfigPtr)', text: 'Initialize BswM with its part of the post-build configuration.' },
+    { from: 'EcuM', to: 'SchM', call: 'SchM_Init(ConfigPtr)', text: 'Initialize the BSW Scheduler: the critical sections used by the BSW modules.' },
+    { from: 'EcuM', to: 'SchM', call: 'SchM_StartTiming()', text: 'Start the periodic events for BSW and SWCs. STARTUP is over; the UP phase begins.' },
+    { ctx: 'BswM main function, UP phase', from: 'SchM', to: 'BswM', call: 'BswM_MainFunction()', text: 'The scheduler now calls the main functions, BswM\'s among them, and BswM evaluates its rules.' },
+    { from: 'BswM', to: 'EcuM', call: 'EcuM_AL_DriverInitBswM_<list>()', text: 'A BswM action calls the EcuM function generated from the init list for BSW initialized by BswM.' },
+    { from: 'BswM', note: 'NvM, COM, ComM, CanSM, EthSM ..., Rte_Start()', text: 'Further actions initialize NvM, COM and the communication stack, and start the RTE with the SWCs, in the order the integrator configures.' }
+  ]
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Why may init list zero not contain modules that use post-build data?',
+    options: ['The configuration is chosen only after it', 'The OS has to be running for those modules', 'BswM initializes all such modules itself'],
+    answer: 0,
+    why: 'EcuM_DeterminePbConfiguration runs after init block 0. Only from init block I on is the post-build configuration known.'
+  },
+  {
+    prompt: 'How does EcuM get control back after StartOS?',
+    options: ['An OS task calls EcuM_StartupTwo', 'EcuM_Init returns once the OS runs', 'BswM calls EcuM when it is ready'],
+    answer: 0,
+    why: 'EcuM_Init never returns. The integrator configures an automatically started OS task whose first action is EcuM_StartupTwo.'
+  },
+  {
+    prompt: 'Who starts ComM, CanSM and EthSM on the example ECU?',
+    options: ['BswM action lists in the UP phase', 'EcuM in the StartPreOS sequence', 'The startup code before EcuM_Init'],
+    answer: 0,
+    why: 'STARTUP only starts what mode management needs. The communication stack is initialized by BswM in UP.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

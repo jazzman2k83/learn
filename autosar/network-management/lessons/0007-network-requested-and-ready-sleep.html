@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network requested and ready sleep · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Network requested and ready sleep</h1>
+<p class="lede">Inside <code class="term">COMM_FULL_COMMUNICATION</code>, <span class="term">ComM</span> only decides whether this ECU still needs the bus. Whether the bus stays awake is decided together with the other ECUs, by <span class="term">network management</span>.</p>
+
+<p>Lesson 6 introduced the two sub-states of full communication. This lesson looks at the line between them: what keeps a <span class="term">channel</span> in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code>, what happens in <code class="term">COMM_FULL_COM_READY_SLEEP</code>, and why the bus can stay awake long after the last <span class="term">ComM user</span> has let go.</p>
+
+<h2>What keeps a channel in network requested</h2>
+<p>The channel stays in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> as long as at least one of these holds:</p>
+<div class="cards">
+  <div class="card m-app"><p class="tag">a ComM user</p><h3>A user requests full communication</h3><p>On the example ECU, <code>UserChassis</code> of the SWC <code>BodyControl</code> requests <code>ChassisCan</code>. Several users of one channel are combined: the highest request wins.</p></div>
+  <div class="card m-dcm"><p class="tag">diagnostics</p><h3>Dcm reports active diagnostics</h3><p><span class="term">Dcm</span> is not a ComM user. It tells ComM with <code class="term">ComM_DCM_ActiveDiagnostic</code> (Dcm's report that a diagnostic session needs the channel; lesson 10) that a tester is talking to the ECU.</p></div>
+  <div class="card m-comm"><p class="tag">only without network management</p><h3>A minimum time has not passed</h3><p>On a channel where ComM does not use network management, ComM keeps the channel requested for a configured minimum time after it was entered.</p></div>
+</div>
+<p>On entering this sub-state, ComM asks network management to keep the bus awake for this ECU. Nothing else in ComM does that: a request of a user only reaches the bus through this sub-state.</p>
+
+<h2>Ready sleep: released, but still awake</h2>
+<p>When none of the reasons holds any more, the channel moves to <code class="term">COMM_FULL_COM_READY_SLEEP</code> and ComM releases the network. This does <em>not</em> switch anything off. The channel stays in <code class="term">COMM_FULL_COMMUNICATION</code>: the ECU keeps sending and receiving, and the users still see full communication.</p>
+<p>From now on network management decides. It keeps the bus awake while any other ECU still needs it, then lets all of them go to sleep together after a short wait. Only then does ComM follow: <code class="term">COMM_SILENT_COMMUNICATION</code> when the bus prepares to sleep, <code class="term">COMM_NO_COMMUNICATION</code> when it sleeps.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 700 230" role="img" aria-labelledby="f1t">
+<title id="f1t">A time line for ChassisCan. UserChassis requests the channel for a while, the Brake ECU needs the bus for longer. ComM is in NETWORK_REQUESTED while the user requests, then in READY_SLEEP until the Brake ECU is done and a short wait has passed, then SILENT, then NO_COMMUNICATION.</title>
+<line x1="150" y1="210" x2="690" y2="210" class="d-axis"/>
+<text x="690" y="226" class="d-s d-r">time</text>
+<text x="10" y="36" class="d-t">UserChassis</text>
+<text x="10" y="70" class="d-t">Brake ECU</text>
+<text x="10" y="132" class="d-tb">ComM, ChassisCan</text>
+<text x="10" y="186" class="d-tb">Bus</text>
+<rect x="170" y="24" width="160" height="18" class="m-app"/><text x="250" y="37" class="d-s d-c">requests</text>
+<rect x="190" y="58" width="210" height="18" class="m-app"/><text x="295" y="71" class="d-s d-c">needs the bus</text>
+<rect x="150" y="104" width="20" height="40" class="d-box"/>
+<rect x="170" y="104" width="160" height="40" class="d-ok"/>
+<text x="250" y="120" class="d-m d-c">COMM_FULL_COM_</text><text x="250" y="134" class="d-m d-c">NETWORK_REQUESTED</text>
+<rect x="330" y="104" width="150" height="40" class="d-note"/>
+<text x="405" y="120" class="d-m d-c">COMM_FULL_COM_</text><text x="405" y="134" class="d-m d-c">READY_SLEEP</text>
+<rect x="480" y="104" width="100" height="40" class="d-box"/>
+<text x="530" y="120" class="d-m d-c">COMM_SILENT_</text><text x="530" y="134" class="d-m d-c">COMMUNICATION</text>
+<rect x="580" y="104" width="110" height="40" class="d-box"/>
+<text x="635" y="120" class="d-m d-c">COMM_NO_</text><text x="635" y="134" class="d-m d-c">COMMUNICATION</text>
+<rect x="150" y="174" width="20" height="18" class="d-box"/>
+<rect x="170" y="174" width="310" height="18" class="d-ok"/><text x="325" y="187" class="d-s d-c">awake: network management keeps it awake</text>
+<rect x="480" y="174" width="100" height="18" class="d-note"/>
+<rect x="580" y="174" width="110" height="18" class="d-box"/><text x="635" y="187" class="d-s d-c">asleep</text>
+<line x1="330" y1="16" x2="330" y2="210" class="d-ln dash"/>
+<text x="334" y="14" class="d-s">ComM releases the network</text>
+<line x1="400" y1="50" x2="400" y2="104" class="d-ln dash"/>
+<text x="404" y="96" class="d-s">last ECU done</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The user lets go long before the bus sleeps. ComM sits in <code>COMM_FULL_COM_READY_SLEEP</code> while the Brake ECU still needs the bus and during the short wait after it. The silent phase (<code>COMM_SILENT_COMMUNICATION</code>) and the bus's calm-down phase are the same stretch of time.</figcaption>
+</figure>
+
+<h2>Coming back</h2>
+<p>A new request while the bus is still awake is cheap. In <code class="term">COMM_FULL_COM_READY_SLEEP</code>, a user request (or active diagnostics) brings the channel straight back to <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code>, and ComM requests the network again; the bus never went down. In <code class="term">COMM_SILENT_COMMUNICATION</code>, a user request leads back into full communication and network requested as well.</p>
+<p>A request can also come too late. If the other ECUs have already agreed to sleep, network management reports that the bus sleeps, and the channel drops to <code class="term">COMM_NO_COMMUNICATION</code> even from full communication. The still pending request then starts the channel again from there, as a new wakeup of the bus.</p>
+
+<h2>The minimum full-communication time</h2>
+<p>Right after a wakeup or a power-on, the ECU may need a moment before its applications send their first requests. If the channel fell back to sleep in that moment, it would toggle between no and full communication. Two mechanisms prevent this:</p>
+<ul>
+<li>On a channel with network management, network management itself keeps the bus awake for a minimum time after it starts (lesson 13 shows the state that does this). ComM needs no timer of its own there.</li>
+<li>On a channel where ComM does not use network management (lesson 8 shows these variants), ComM starts a timer when it enters <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> and keeps the channel there until the timer has expired, even without any request.</li>
+</ul>
+
+<h2>Try it</h2>
+<p>The channel starts awake, requested by <code>UserChassis</code>. Switch the Brake ECU on, then release the channel, and watch how long ComM stays in ready sleep. Timings are small example values on a real-time clock.</p>
+<div class="panel" id="sim"></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> ComM answers one question only: does this ECU still need the bus? The answer moves the channel between <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> and <code class="term">COMM_FULL_COM_READY_SLEEP</code>. When the bus really sleeps is decided by network management, together with the other ECUs. Ready sleep is still full communication for the users.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7.2.4.1 and 7.2.4.2 (sub-states of COMM_FULL_COMMUNICATION) and 7.2.2.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/cansim.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+CanSim.create(document.getElementById('sim'), {
+  start: 'awake',
+  show: ['comm', 'timeline', 'log'],
+  lanes: ['self', 'node', 'comm'],
+  controls: ['user', 'node', 'run'],
+  labels: { node: 'Brake ECU needs the bus' },
+  logModules: ['SWC', 'ComM', 'NmIf', 'CanSM', 'EcuM', 'BswM', 'Bus', 'CanTrcv']
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What does ComM do when the channel enters COMM_FULL_COM_READY_SLEEP?',
+    options: ['It releases the network', 'It stops all transmission', 'It reports no communication'],
+    answer: 0,
+    why: 'ComM releases the network and keeps communicating. The users still see <code>COMM_FULL_COMMUNICATION</code>.'
+  },
+  {
+    prompt: 'The user releases the channel. Another ECU still needs the bus. Who keeps the bus awake?',
+    options: ['Network management, with the others', 'ComM, until its users come back', 'The CAN State Manager, by itself'],
+    answer: 0,
+    why: 'ComM only says that this ECU no longer needs the bus. Network management keeps the bus awake as long as any ECU of the bus needs it.'
+  },
+  {
+    prompt: 'Why does a channel without network management need a minimum time in network requested?',
+    options: ['To avoid toggling right after start', 'To let the transceiver warm up', 'To wait for every user to confirm'],
+    answer: 0,
+    why: 'Right after a wakeup the applications may not have requested yet. The minimum time keeps the channel from dropping back at once. With network management, NM gives this guarantee.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The modules and their layers · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+#map .mod rect { stroke-width: 1.4; }
+#map .mod.sel rect { stroke-width: 3; }
+#map .mod.near rect { stroke-width: 2.4; stroke-dasharray: 5 3; }
+#map.picked .mod:not(.sel):not(.near) { opacity: 0.6; }
+#map .link { stroke: var(--accent); stroke-width: 2; fill: none; }
+.modbtns { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.8rem; }
+.modbtns button { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+#job h3 { margin: 0 0 0.2rem; font-family: var(--sans); font-size: 0.95rem; }
+#job p { margin: 0.2rem 0; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The modules and their layers</h1>
+<p class="lede">Network and mode management is not one module but a dozen. Each sits in a fixed layer of the <span class="term">BSW</span> and talks only to a few neighbours: the <span class="term">SWC</span> and the <span class="term">RTE</span> on top, <span class="term">ComM</span>, <span class="term">BswM</span> and <span class="term">EcuM</span> in the middle, the buses at the bottom.</p>
+
+<p>This lesson is a map. It names every module of the course, puts each one in its layer and shows who talks to whom. The details of each module follow in their own parts of the course.</p>
+
+<h2>Three kinds of job, three groups of module</h2>
+<p>The AUTOSAR layered architecture puts the basic software in layers: the Services Layer at the top, below it the ECU Abstraction Layer, and at the bottom the Microcontroller Abstraction Layer with the drivers. The modules of this course fall into three groups.</p>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">System Services</p><h3>ComM, BswM, EcuM</h3><p>The managers. <span class="term">ComM</span> collects the requests for communication, <span class="term">BswM</span> runs the configured rules that switch the other modules, <span class="term">EcuM</span> starts the ECU, handles wakeups and shuts it down.</p></div>
+  <div class="card m-nm"><p class="tag">Communication Services</p><h3>NmIf, CanNm, UdpNm, CanSM, EthSM</h3><p>The workers per bus. The <span class="term">NmIf</span> (Network Management Interface: passes the requests of ComM to the NM of each bus) dispatches to <span class="term">CanNm</span> (CAN Network Management: sends and receives the NM messages on one CAN network) or <span class="term">UdpNm</span> (UDP Network Management: the same for Ethernet). A <span class="term">bus state manager</span> (the module that switches the hardware of one bus for ComM) exists per bus type: <span class="term">CanSM</span> (CAN State Manager) and <span class="term">EthSM</span> (Ethernet State Manager).</p></div>
+  <div class="card m-if"><p class="tag">ECU Abstraction and drivers</p><h3>CanIf, EthIf and the drivers</h3><p><span class="term">CanIf</span> (CAN Interface: hands frames and mode requests to the CAN driver and transceiver) and <span class="term">EthIf</span> (Ethernet Interface: the same for Ethernet) hide the hardware. Below them the <span class="term">Can driver</span> (controls the CAN controller in the microcontroller), the <span class="term">CanTrcv</span> (CAN Transceiver Driver: the chip between the controller and the bus wires), the <span class="term">Eth driver</span> (controls the Ethernet controller) and the <span class="term">EthTrcv</span> (Ethernet Transceiver Driver: the PHY chip at the cable).</p></div>
+</div>
+<p>Around them sit the modules that carry the application data, known from the COM course: <span class="term">COM</span> (puts signals into I-PDUs), the <span class="term">PduR</span> (PDU Router: forwards each <span class="term">I-PDU</span>, a block of data such as a group of signals, to the right bus interface), and on Ethernet <span class="term">SoAd</span> (Socket Adaptor: maps PDUs to sockets) and <span class="term">TcpIp</span> (the TCP/IP stack). <span class="term">Dcm</span> (Diagnostic Communication Manager: answers a tester's diagnostic requests) also lives in the Communication Services. Network and mode management does not send this data itself, but it decides when it may flow: <span class="term">BswM</span> starts and stops each <span class="term">I-PDU group</span> (a set of I-PDUs that COM starts and stops together).</p>
+
+<h2>The map</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg id="map" viewBox="0 0 760 530" role="img" aria-labelledby="mapt">
+<title id="mapt">The modules of the course in their layers. Top: the SWC BodyControl, then the RTE. Services Layer: ComM, BswM and EcuM on the left; COM, Dcm, NmIf, PduR, CanNm, UdpNm, SoAd, TcpIp, CanSM and EthSM on the right. ECU Abstraction Layer: L-SDU Router, CanTrcv, EthTrcv, EthIf and CanIf. Microcontroller Abstraction Layer: Eth and Can drivers. At the bottom the buses: Ethernet, body CAN and chassis CAN.</title>
+<rect x="10" y="98" width="740" height="180" class="d-frame"/><text x="18" y="94" class="d-s">Services Layer</text>
+<rect x="15" y="108" width="185" height="164" class="d-area"/><text x="22" y="120" class="d-s">System Services</text>
+<text x="218" y="120" class="d-s">Communication Services</text>
+<rect x="10" y="296" width="740" height="104" class="d-frame"/><text x="18" y="292" class="d-s">ECU Abstraction Layer</text>
+<rect x="10" y="420" width="740" height="52" class="d-frame"/><text x="18" y="416" class="d-s">Microcontroller Abstraction Layer (drivers)</text>
+<g id="links"></g>
+<g id="mods"></g>
+</svg>
+</div>
+<div class="legend">
+<span><span class="box m-app"></span> SWC</span><span><span class="box m-rte"></span> RTE, ComM</span><span><span class="box m-bswm"></span> BswM</span><span><span class="box m-ecum"></span> EcuM</span><span><span class="box m-nm"></span> NmIf, CanNm, UdpNm</span><span><span class="box m-sm"></span> CanSM, EthSM</span><span><span class="box m-if"></span> CanIf, EthIf, LSduR</span><span><span class="box m-drv"></span> drivers, transceivers, bus</span><span><span class="box m-dcm"></span> Dcm</span><span><span class="box m-com"></span> COM, PduR, SoAd, TcpIp</span>
+</div>
+<figcaption><b>Figure 1.</b> Every module of the course in its layer. Choose a module below the figure: its neighbours are outlined and connected to it. Requests for communication run from top to bottom; indications of the reached mode run back up.</figcaption>
+</figure>
+
+<h2>Try it</h2>
+<p>Choose a module to see its job and the modules it talks to directly.</p>
+<div class="panel no-print">
+<div class="modbtns" id="btns"></div>
+<div id="job" aria-live="polite"></div>
+</div>
+
+<h2>Who talks to whom</h2>
+<p>Follow a request for communication through the map; lesson 4 does it call by call.</p>
+<ul>
+<li>The <span class="term">SWC</span> asks <span class="term">ComM</span> through a port of the <span class="term">RTE</span>. It never calls the bus modules.</li>
+<li><span class="term">ComM</span> passes the request down two paths per bus: to the <span class="term">bus state manager</span> (<span class="term">CanSM</span> or <span class="term">EthSM</span>), which switches the hardware on, and to the <span class="term">NmIf</span>, which starts network management on that bus through <span class="term">CanNm</span> or <span class="term">UdpNm</span>. Both report back to ComM when their part is done.</li>
+<li><span class="term">CanSM</span> switches the transceiver and the controller through <span class="term">CanIf</span>. <span class="term">EthSM</span> does the same through <span class="term">EthIf</span> and also brings <span class="term">TcpIp</span> online.</li>
+<li><span class="term">CanNm</span> sends its NM messages through the <span class="term">LSduR</span> (L-SDU Router: hands PDUs between the upper modules and CanIf) and <span class="term">CanIf</span>. <span class="term">UdpNm</span> sends them as UDP messages through <span class="term">SoAd</span> and <span class="term">TcpIp</span>.</li>
+<li><span class="term">BswM</span> hears the modes from ComM and the bus state managers, and by its rules sets communication allowed in ComM and starts or stops the I-PDU groups in <span class="term">COM</span>.</li>
+<li><span class="term">EcuM</span> receives the wakeups from <span class="term">CanIf</span> and the transceivers and passes a validated wakeup to <span class="term">ComM</span> and <span class="term">BswM</span>.</li>
+<li><span class="term">Dcm</span> tells <span class="term">ComM</span> while diagnostics is active on a channel, and ComM tells Dcm which mode the channel is in.</li>
+</ul>
+
+<div class="older">
+<p>The <span class="term">LSduR</span> between CanIf and the modules above it is new. Up to R20-11 (and in 4.4.0) <span class="term">CanNm</span> and the <span class="term">PduR</span> call <code>CanIf_Transmit</code> directly; the CanNm specification uses the L-SDU Router from R24-11, the CanIf specification from R25-11. The control path of <span class="term">CanSM</span> to CanIf is unchanged.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> ComM never touches the hardware: it hands every request to a bus state manager and to NmIf. NmIf is one module for all buses; CanNm, CanSM and CanIf exist once per bus type and handle each network of that type. The modules that carry application data (COM, PduR) are not part of network management, but BswM switches them.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">NmIf</span></td><td>Network Management Interface: passes the requests of ComM to the NM of each bus and its indications back</td></tr>
+<tr><td><span class="term">CanNm</span></td><td>CAN Network Management: sends and receives NM messages on one CAN network</td></tr>
+<tr><td><span class="term">UdpNm</span></td><td>UDP Network Management: the same algorithm on Ethernet, with UDP messages</td></tr>
+<tr><td><span class="term">bus state manager</span></td><td>The module that switches the hardware of one bus for ComM: CanSM, EthSM</td></tr>
+<tr><td><span class="term">CanSM</span></td><td>CAN State Manager: switches CAN controllers and transceivers on and off</td></tr>
+<tr><td><span class="term">EthSM</span></td><td>Ethernet State Manager: switches an Ethernet network on and off</td></tr>
+<tr><td><span class="term">CanIf</span></td><td>CAN Interface: hands frames and mode requests to the CAN driver and transceiver</td></tr>
+<tr><td><span class="term">EthIf</span></td><td>Ethernet Interface: hands frames and mode requests to the Ethernet driver and transceiver</td></tr>
+<tr><td><span class="term">LSduR</span></td><td>L-SDU Router: hands PDUs between the upper modules (PduR, CanNm) and CanIf</td></tr>
+<tr><td><span class="term">Can driver</span></td><td>Controls the CAN controller in the microcontroller</td></tr>
+<tr><td><span class="term">CanTrcv</span></td><td>CAN Transceiver Driver: controls the chip between the CAN controller and the bus wires</td></tr>
+<tr><td><span class="term">Eth driver</span></td><td>Ethernet Driver: controls the Ethernet controller in the microcontroller</td></tr>
+<tr><td><span class="term">EthTrcv</span></td><td>Ethernet Transceiver Driver: controls the PHY chip at the cable</td></tr>
+<tr><td><span class="term">TcpIp</span></td><td>The TCP/IP stack: IP, UDP, TCP and the sockets</td></tr>
+<tr><td><span class="term">SoAd</span></td><td>Socket Adaptor: maps PDUs to sockets of TcpIp</td></tr>
+<tr><td><span class="term">Dcm</span></td><td>Diagnostic Communication Manager: answers a tester's diagnostic requests</td></tr>
+<tr><td><span class="term">COM</span></td><td>Puts signals into I-PDUs and takes them out again</td></tr>
+<tr><td><span class="term">PduR</span></td><td>PDU Router: forwards I-PDUs between the upper modules and the bus interfaces</td></tr>
+<tr><td><span class="term">I-PDU</span></td><td>A block of data, such as a group of signals, handed between COM, PduR and the bus interfaces</td></tr>
+<tr><td><span class="term">I-PDU group</span></td><td>A set of I-PDUs that COM starts and stops together</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_EXP_LayeredSoftwareArchitecture.pdf">Layered Software Architecture, R25-11</a> (System Services, Communication Stack CAN and TCP/IP); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 5 and 8.6; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapter 5; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">Specification of CAN Interface, R25-11</a>.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  // id: [x, y, w, h, colour class, label, small line, job, neighbours]
+  const M = {
+    SWC:    [25, 12, 710, 34, 'm-app', 'SWC BodyControl', 'application', 'Application software. It asks ComM for communication through RTE ports and is told the reached mode.', ['RTE']],
+    RTE:    [25, 56, 710, 28, 'm-rte', 'RTE', '', 'Runtime Environment: connects the SWC to the ports of ComM, BswM and EcuM, and its signals to COM.', ['SWC', 'ComM', 'BswM', 'EcuM', 'COM']],
+    ComM:   [25, 128, 160, 40, 'm-comm', 'ComM', 'Communication Manager', 'Collects the requests of its users per channel and requests the matching mode from the bus state manager and from NmIf.', ['RTE', 'BswM', 'EcuM', 'Dcm', 'NmIf', 'CanSM', 'EthSM']],
+    BswM:   [25, 178, 160, 40, 'm-bswm', 'BswM', 'BSW Mode Manager', 'Evaluates configured rules over the modes it is told, and runs actions: communication allowed in ComM, I-PDU groups in COM, shutdown in EcuM.', ['RTE', 'ComM', 'EcuM', 'COM', 'CanSM', 'EthSM']],
+    EcuM:   [25, 228, 160, 40, 'm-ecum', 'EcuM', 'ECU State Manager', 'Starts the ECU, receives wakeup events, validates them and passes them on, and carries out shutdown and sleep.', ['RTE', 'ComM', 'BswM', 'CanIf', 'CanTrcv']],
+    COM:    [218, 128, 110, 40, 'm-com', 'COM', 'signals in I-PDUs', 'Packs signals into I-PDUs. BswM starts and stops its I-PDU groups.', ['RTE', 'BswM', 'PduR']],
+    Dcm:    [338, 128, 110, 40, 'm-dcm', 'Dcm', 'diagnostics', 'Answers diagnostic requests. While diagnostics is active it tells ComM, which keeps the channel awake.', ['ComM', 'PduR']],
+    NmIf:   [458, 128, 277, 40, 'm-nm', 'NmIf', 'NM Interface: one module for all buses', 'Dispatches the network requests of ComM to the NM of each bus, and their indications back to ComM. On a gateway it also coordinates several buses.', ['ComM', 'CanNm', 'UdpNm']],
+    PduR:   [218, 178, 230, 40, 'm-com', 'PduR', 'PDU Router', 'Forwards I-PDUs between COM or Dcm and the bus interfaces.', ['COM', 'Dcm', 'LSduR', 'SoAd']],
+    CanNm:  [458, 178, 133, 40, 'm-nm', 'CanNm', 'NM on CAN', 'Runs the NM state machine of one CAN network and sends and receives its NM messages.', ['NmIf', 'LSduR', 'CanSM']],
+    UdpNm:  [601, 178, 134, 40, 'm-nm', 'UdpNm', 'NM on Ethernet', 'The same algorithm as CanNm, with the NM messages carried in UDP.', ['NmIf', 'SoAd']],
+    SoAd:   [218, 228, 110, 40, 'm-com', 'SoAd', 'Socket Adaptor', 'Maps PDUs to UDP or TCP sockets of TcpIp; UdpNm sends through it.', ['PduR', 'UdpNm', 'TcpIp']],
+    TcpIp:  [338, 228, 110, 40, 'm-com', 'TcpIp', 'TCP/IP stack', 'IP, UDP and TCP. EthSM switches it online and offline.', ['SoAd', 'EthSM', 'EthIf']],
+    CanSM:  [458, 228, 133, 40, 'm-sm', 'CanSM', 'CAN State Manager', 'Turns a ComM mode into transceiver and controller modes of one CAN network, and reports the reached mode to ComM and BswM.', ['ComM', 'BswM', 'CanIf', 'CanNm']],
+    EthSM:  [601, 228, 134, 40, 'm-sm', 'EthSM', 'Ethernet State Manager', 'Turns a ComM mode into controller, transceiver and TcpIp states of one Ethernet network.', ['ComM', 'BswM', 'TcpIp', 'EthIf']],
+    LSduR:  [458, 306, 277, 34, 'm-if', 'LSduR', 'L-SDU Router', 'Hands PDUs between PduR or CanNm and CanIf.', ['PduR', 'CanNm', 'CanIf']],
+    CanTrcv:[25, 352, 85, 40, 'm-drv', 'CanTrcv', 'CAN transceiver', 'Switches the CAN transceiver chip (normal, standby, sleep) and detects wakeups on the bus.', ['CanIf', 'EcuM', 'busB', 'busC']],
+    EthTrcv:[118, 352, 85, 40, 'm-drv', 'EthTrcv', 'PHY', 'Switches the Ethernet transceiver (PHY) and reports its link state.', ['EthIf', 'busE']],
+    EthIf:  [218, 352, 230, 40, 'm-if', 'EthIf', 'Ethernet Interface', 'Hands Ethernet frames between TcpIp and the driver, and controller and transceiver modes from EthSM.', ['TcpIp', 'EthSM', 'Eth', 'EthTrcv']],
+    CanIf:  [458, 352, 277, 40, 'm-if', 'CanIf', 'CAN Interface', 'Hands CAN frames to the CAN driver, mode requests from CanSM to controller and transceiver, and wakeups to EcuM.', ['LSduR', 'CanSM', 'EcuM', 'Can', 'CanTrcv']],
+    Eth:    [218, 430, 230, 34, 'm-drv', 'Eth', 'Ethernet driver', 'Controls the Ethernet controller in the microcontroller.', ['EthIf', 'busE']],
+    Can:    [458, 430, 277, 34, 'm-drv', 'Can', 'CAN driver', 'Controls the CAN controllers (started, stopped, sleep) and sends and receives frames.', ['CanIf', 'busB', 'busC']],
+    busE:   [218, 490, 230, 26, 'm-drv', 'Ethernet', '', 'The Ethernet network, with UdpNm.', ['Eth', 'EthTrcv']],
+    busB:   [458, 490, 133, 26, 'm-drv', 'body CAN', '', 'A CAN network with CanNm.', ['Can', 'CanTrcv']],
+    busC:   [601, 490, 134, 26, 'm-drv', 'chassis CAN', '', 'A second CAN network; the same CanNm, CanSM and CanIf serve it.', ['Can', 'CanTrcv']]
+  };
+  const svg = document.getElementById('map');
+  const mods = document.getElementById('mods');
+  const links = document.getElementById('links');
+  const el = {};
+  const mk = (t, a, txt) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (txt) e.textContent = txt; return e; };
+  Object.keys(M).forEach((id) => {
+    const [x, y, w, h, cls, lab, sub] = M[id];
+    const g = mk('g', { class: 'mod' });
+    g.appendChild(mk('rect', { x, y, width: w, height: h, class: cls }));
+    g.appendChild(mk('text', { x: x + w / 2, y: sub ? y + h / 2 - 2 : y + h / 2 + 4, class: 'd-tb d-c' }, lab));
+    if (sub) g.appendChild(mk('text', { x: x + w / 2, y: y + h / 2 + 12, class: 'd-s d-c' }, sub));
+    mods.appendChild(g);
+    el[id] = g;
+  });
+  const centre = (id) => [M[id][0] + M[id][2] / 2, M[id][1] + M[id][3] / 2];
+  const btns = document.getElementById('btns');
+  const job = document.getElementById('job');
+  const names = (id) => M[id][5].replace('SWC BodyControl', 'SWC');
+  function pick(id) {
+    svg.classList.add('picked');
+    links.replaceChildren();
+    Object.keys(el).forEach((k) => el[k].classList.remove('sel', 'near'));
+    el[id].classList.add('sel');
+    const [cx, cy] = centre(id);
+    M[id][8].forEach((n) => {
+      el[n].classList.add('near');
+      const [nx, ny] = centre(n);
+      links.appendChild(mk('line', { x1: cx, y1: cy, x2: nx, y2: ny, class: 'link' }));
+    });
+    job.innerHTML = '<h3>' + M[id][5] + '</h3><p>' + M[id][7] + '</p><p class="readout">talks to: ' + M[id][8].map(names).join(', ') + '</p>';
+    btns.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  }
+  Object.keys(M).filter((id) => !id.startsWith('bus')).forEach((id) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.id = id;
+    b.textContent = names(id);
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => pick(id));
+    btns.appendChild(b);
+  });
+  pick('ComM');
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Through which two modules does ComM switch on a CAN network?',
+    options: ['CanSM for the hardware, NmIf for NM', 'CanIf for the hardware, COM for NM', 'BswM for the hardware, EcuM for NM'],
+    answer: 0,
+    why: 'ComM requests the mode from the bus state manager (CanSM), which switches transceiver and controller, and requests the network from NmIf, which starts CanNm.'
+  },
+  {
+    prompt: 'In which layer group are ComM, BswM and EcuM?',
+    options: ['System Services of the Services Layer', 'Communication Hardware Abstraction', 'Microcontroller Abstraction Layer'],
+    answer: 0,
+    why: 'The layered architecture places ComM, BswM and EcuM in the System Services. NmIf, CanNm, CanSM, COM and Dcm are Communication Services.'
+  },
+  {
+    prompt: 'Which module starts and stops the I-PDU groups of COM?',
+    options: ['BswM, by its configured rules', 'ComM, for every requested user', 'CanSM, after the controller started'],
+    answer: 0,
+    why: 'BswM hears the modes of ComM and the bus state managers and runs the actions that start or stop I-PDU groups.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

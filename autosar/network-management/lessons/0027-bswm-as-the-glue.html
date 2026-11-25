@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BswM as the glue · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.rin { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.6rem 1rem; margin: 0 0 0.8rem; font-family: var(--sans); font-size: 0.78rem; }
+.rin label { display: flex; flex-direction: column; gap: 0.2rem; }
+.rin select { font-family: var(--mono); font-size: 0.74rem; max-width: 100%; }
+.rules { display: grid; gap: 0.5rem; margin: 0.6rem 0; }
+.rule { border: 1px solid var(--rule); border-left: 6px solid var(--m-bswm); background: var(--paper); padding: 0.45rem 0.7rem; font-family: var(--sans); font-size: 0.8rem; }
+.rule code { overflow-wrap: anywhere; }
+.rule .res { float: right; margin-left: 0.5rem; }
+.rule .expr { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; overflow-wrap: anywhere; }
+.rule.ran { box-shadow: inset 0 0 0 2px var(--m-bswm); }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>BswM as the glue</h1>
+<p class="lede">The modules of this course do not call each other for every decision. They report their states to <span class="term">BswM</span>, and BswM's configured rules call the next step: allow communication, start I-PDU groups, put the ECU to sleep.</p>
+
+<h2>What goes in</h2>
+<p>BswM's inputs are a <span class="term">mode request</span> (an input to BswM, typically from an SWC or Dcm, asking for a mode) or a <span class="term">mode indication</span> (an input to BswM from a BSW module reporting its current state). BswM treats both the same way. The modules of this course give it these:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>From</th><th>Reports</th><th>Call</th></tr></thead>
+<tbody>
+<tr><td><span class="term">EcuM</span></td><td>the state of each <span class="term">wakeup source</span> (a source of wakeups such as <code>ECUM_WKSOURCE_BODYCAN</code>); the result of the RUN requests</td><td><code>BswM_EcuM_CurrentWakeup</code>, <code>BswM_EcuM_RequestedState</code></td></tr>
+<tr><td><span class="term">ComM</span></td><td>the communication mode of each channel, the mode of each <span class="term">PNC</span></td><td><code>BswM_ComM_CurrentMode</code>, <code>BswM_ComM_CurrentPNCMode</code></td></tr>
+<tr><td><span class="term">NmIf</span></td><td>a state change of the NM of a channel</td><td><code>BswM_Nm_StateChangeNotification</code></td></tr>
+<tr><td><span class="term">CanSM</span>, <span class="term">EthSM</span></td><td>their own states, such as a bus-off or an EthSM sub-state</td><td><code>BswM_CanSM_CurrentState</code>, <code>BswM_EthSM_CurrentState</code></td></tr>
+<tr><td>SWCs and other requesters</td><td>requested modes</td><td>RTE ports, <code>BswM_RequestMode</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Each input is configured as immediate or deferred. An immediate one is evaluated at once, in the context of the caller; a deferred one waits for BswM's <span class="term">main function</span>.</p>
+
+<h2>Rules and action lists</h2>
+<p>A rule is a configured <span class="term">mode arbitration</span> (BswM's evaluation of a rule: a logical expression over the current requests and indications, true or false). The expression combines conditions such as "the mode of <code>ChassisCan</code> equals <span class="term">COMM_FULL_COMMUNICATION</span>" with AND, OR, XOR, NOT and NAND. Rules may not use the results of other rules.</p>
+<p>For each rule, BswM can run an <span class="term">action list</span> (the ordered actions BswM runs for a rule result) when it is true and another when it is false. A list is either triggered, running only when the result changes, or conditional, running every time the rule gives that result. An action list may contain actions, other action lists and further rules. BswM does not wait for the result of its actions: the modules report their new states back as indications, and those feed the next rules.</p>
+
+<h2>Typical actions</h2>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">ComM</p><h3>Allow communication</h3><p><code class="term">ComM_CommunicationAllowed</code> for a channel (lesson 9), and <code class="term">ComM_RequestComMode</code> for a ComM user that the configuration gives to BswM: BswM itself can keep a channel requested.</p></div>
+  <div class="card m-com"><p class="tag">COM</p><h3>Switch I-PDU groups</h3><p>Start and stop <span class="term">I-PDU groups</span> in COM (<code>Com_IpduGroupStart</code>, <code>Com_IpduGroupStop</code>) when a channel enters or leaves full communication; similar actions switch deadline monitoring.</p></div>
+  <div class="card m-ecum"><p class="tag">EcuM</p><h3>Shut down or sleep</h3><p><code class="term">EcuM_SelectShutdownTarget</code> (selects where the next shutdown leads: off, reset or a sleep mode), then <code class="term">EcuM_GoDownHaltPoll</code> (carries out the selected shutdown target).</p></div>
+  <div class="card m-bswm"><p class="tag">startup</p><h3>Initialize the rest</h3><p>An EcuM driver init list for the BSW initialized by BswM, <code>Rte_Start</code>, and user callouts for anything else (lesson 26).</p></div>
+</div>
+<p>BswM can do much more, for example control Service Discovery or switch Ethernet switch port groups; this course uses it only as the glue between the modules shown here.</p>
+
+<h2>Try it: three rules of the example ECU</h2>
+<p>Change the inputs and watch which action lists run. Every change is evaluated at once (as for immediate inputs); <strong>Run BswM main function</strong> evaluates all rules again, as for deferred inputs. All three action lists are triggered by default; switch the second rule to conditional to see the difference.</p>
+<div class="panel no-print" id="rb">
+<div class="rin">
+<label>ECUM_WKSOURCE_POWER <select data-in="pwr"><option>ECUM_WKSTATUS_NONE</option><option>ECUM_WKSTATUS_PENDING</option><option>ECUM_WKSTATUS_VALIDATED</option><option>ECUM_WKSTATUS_EXPIRED</option></select></label>
+<label>ECUM_WKSOURCE_BODYCAN <select data-in="bc"><option>ECUM_WKSTATUS_NONE</option><option>ECUM_WKSTATUS_PENDING</option><option>ECUM_WKSTATUS_VALIDATED</option><option>ECUM_WKSTATUS_EXPIRED</option></select></label>
+<label>RUN requests (EcuM) <select data-in="run"><option>ECUM_RUNSTATUS_REQUESTED</option><option>ECUM_RUNSTATUS_RELEASED</option></select></label>
+<label>ComM mode BodyCan <select data-in="m0"><option>COMM_NO_COMMUNICATION</option><option>COMM_SILENT_COMMUNICATION</option><option>COMM_FULL_COMMUNICATION</option></select></label>
+<label>ComM mode ChassisCan <select data-in="m1"><option>COMM_NO_COMMUNICATION</option><option>COMM_SILENT_COMMUNICATION</option><option>COMM_FULL_COMMUNICATION</option></select></label>
+<label>ComM mode Eth <select data-in="m2"><option>COMM_NO_COMMUNICATION</option><option>COMM_SILENT_COMMUNICATION</option><option>COMM_FULL_COMMUNICATION</option></select></label>
+</div>
+<div class="rules" id="rules"></div>
+<div class="controls"><button type="button" id="mf">Run BswM main function</button><label class="inline"><input type="checkbox" id="cond"> Rule 2 lists: conditional</label></div>
+<ul class="log" id="rlog" aria-live="polite"></ul>
+</div>
+
+<div class="older">
+<p>The NM state change notification to BswM (<code>BswM_Nm_StateChangeNotification</code>) exists since R20-11; in 4.4.0 BswM gets no input from NmIf. The other inputs and actions of this lesson are the same in 4.4.0 and R20-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> No module of this course calls <code>ComM_CommunicationAllowed</code> or <code>EcuM_GoDownHaltPoll</code> by itself: a BswM rule does, on the states the modules report. A triggered list runs once per change of the result; a conditional one runs at every evaluation with that result. Going to sleep is just a rule: all channels in no communication and no RUN request left.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">mode request</span></td><td>An input to BswM that asks for a mode, typically from an SWC or Dcm</td></tr>
+<tr><td><span class="term">mode indication</span></td><td>An input to BswM from a BSW module that reports its current state</td></tr>
+<tr><td><span class="term">mode arbitration</span></td><td>BswM's evaluation of its rules: logical expressions over the current requests and indications</td></tr>
+<tr><td><span class="term">action list</span></td><td>The ordered actions BswM runs when a rule is true, or false</td></tr>
+<tr><td><code class="term">EcuM_SelectShutdownTarget</code></td><td>EcuM function that selects where the next shutdown leads: off, reset or a sleep mode</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of Basic Software Mode Manager, R25-11</a>, sections 7.1 (mode arbitration), 7.2 (mode control), 8 and 10 (available actions); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, sections 7.4, 7.5 and 7.10.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const v = { pwr: 'ECUM_WKSTATUS_NONE', bc: 'ECUM_WKSTATUS_NONE', run: 'ECUM_RUNSTATUS_REQUESTED', m0: 'COMM_NO_COMMUNICATION', m1: 'COMM_NO_COMMUNICATION', m2: 'COMM_NO_COMMUNICATION' };
+  const NO = 'COMM_NO_COMMUNICATION';
+  const rules = [
+    { name: 'Rule 1 · WakeupValidated',
+      expr: 'ECUM_WKSOURCE_POWER == ECUM_WKSTATUS_VALIDATED OR ECUM_WKSOURCE_BODYCAN == ECUM_WKSTATUS_VALIDATED',
+      f: () => v.pwr === 'ECUM_WKSTATUS_VALIDATED' || v.bc === 'ECUM_WKSTATUS_VALIDATED',
+      t: ['ComM_CommunicationAllowed(BodyCan, TRUE)', 'ComM_CommunicationAllowed(ChassisCan, TRUE)', 'ComM_CommunicationAllowed(Eth, TRUE)'],
+      fl: [] },
+    { name: 'Rule 2 · ChassisCanFullCom',
+      expr: 'ComM mode ChassisCan == COMM_FULL_COMMUNICATION',
+      f: () => v.m1 === 'COMM_FULL_COMMUNICATION',
+      t: ['Com_IpduGroupStart(I-PDU groups of ChassisCan)'],
+      fl: ['Com_IpduGroupStop(I-PDU groups of ChassisCan)'] },
+    { name: 'Rule 3 · GoSleep',
+      expr: 'RUN requests == ECUM_RUNSTATUS_RELEASED AND BodyCan == COMM_NO_COMMUNICATION AND ChassisCan == COMM_NO_COMMUNICATION AND Eth == COMM_NO_COMMUNICATION',
+      f: () => v.run === 'ECUM_RUNSTATUS_RELEASED' && v.m0 === NO && v.m1 === NO && v.m2 === NO,
+      t: ['EcuM_SelectShutdownTarget(ECUM_SHUTDOWN_TARGET_SLEEP, sleep mode)', 'EcuM_GoDownHaltPoll(user)'],
+      fl: [] }
+  ];
+  const box = document.getElementById('rules');
+  const logEl = document.getElementById('rlog');
+  const cond = document.getElementById('cond');
+  rules.forEach((r) => {
+    r.prev = false;
+    r.el = document.createElement('div');
+    r.el.className = 'rule';
+    r.el.innerHTML = '<span class="res state-pill off">FALSE</span><strong></strong><span class="expr"></span>';
+    r.el.querySelector('strong').textContent = r.name;
+    r.el.querySelector('.expr').textContent = r.expr;
+    box.appendChild(r.el);
+  });
+  function log(text) { const li = document.createElement('li'); li.textContent = text; logEl.prepend(li); while (logEl.children.length > 14) logEl.lastChild.remove(); }
+  function evaluate(why) {
+    let any = false;
+    rules.forEach((r, i) => {
+      const res = r.f();
+      const conditional = i === 1 && cond.checked;
+      const pill = r.el.querySelector('.res');
+      pill.textContent = res ? 'TRUE' : 'FALSE';
+      pill.className = 'res state-pill ' + (res ? 'on' : 'off');
+      const list = res ? r.t : r.fl;
+      const run = (conditional || res !== r.prev) && list.length;
+      r.el.classList.toggle('ran', !!run);
+      if (run) {
+        any = true;
+        log(r.name + ' ' + (res ? 'TRUE' : 'FALSE') + ' (' + (conditional ? 'conditional' : 'triggered') + '): ' + list.join('; '));
+      }
+      r.prev = res;
+    });
+    if (!any) log(why + ': no action list runs.');
+  }
+  document.querySelectorAll('#rb [data-in]').forEach((s) => s.addEventListener('change', () => { v[s.dataset.in] = s.value; evaluate(s.dataset.in === 'run' ? 'RUN requests changed' : 'Input changed'); }));
+  document.getElementById('mf').addEventListener('click', () => evaluate('BswM main function'));
+  cond.addEventListener('change', () => log('Rule 2 action lists are now ' + (cond.checked ? 'conditional' : 'triggered') + '.'));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A rule has a triggered true action list. When does it run?',
+    options: ['When the result changes from false to true', 'At every evaluation that gives true', 'Once after BswM_Init, and never again'],
+    answer: 0,
+    why: 'Triggered lists run only on a change of the rule result. Conditional lists run at every evaluation with that result.'
+  },
+  {
+    prompt: 'How does BswM learn that CanSM has recovered from a bus-off?',
+    options: ['CanSM reports its state as an indication', 'BswM reads the return value of an action', 'ComM forwards the DEM event to BswM'],
+    answer: 0,
+    why: 'BswM does not evaluate the results of its actions; the state managers report their states, here with BswM_CanSM_CurrentState.'
+  },
+  {
+    prompt: 'Which call actually starts the sleep of the example ECU?',
+    options: ['EcuM_GoDownHaltPoll from a BswM action', 'ComM_CommunicationAllowed with FALSE', 'EcuM_Init with the sleep target set'],
+    answer: 0,
+    why: 'A BswM rule selects the shutdown target SLEEP with EcuM_SelectShutdownTarget and then calls EcuM_GoDownHaltPoll; EcuM carries it out.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

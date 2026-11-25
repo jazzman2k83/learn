@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passive mode, communication control, bus load reduction · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.simrow { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0 0 0.7rem; font-family: var(--sans); font-size: 0.85rem; }
+.simrow label { display: flex; align-items: center; gap: 0.4rem; }
+.keys { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-family: var(--sans); font-size: 0.75rem; color: var(--muted); margin: 0.5rem 0 0; }
+.keys i { display: inline-block; width: 1.4rem; height: 0.7rem; vertical-align: middle; margin-right: 0.3rem; border: 1px solid; }
+.keys .no { background: var(--k-res-soft); border-color: var(--k-res); }
+.keys .rm { background: var(--k-ev-soft); border-color: var(--k-ev); }
+.keys .rs { background: var(--sig-soft); border-color: var(--rule); }
+.keys .pb { background: var(--k-err-soft); border-color: var(--k-err); }
+.keys .dot { width: 0.7rem; border-radius: 50%; background: var(--k-req); border-color: var(--k-req); }
+#st { font-family: var(--mono); font-size: 0.78rem; margin: 0.6rem 0 0; padding-left: 1.1rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Passive mode, communication control, bus load reduction</h1>
+<p class="lede">Three optional features change when a node sends its <span class="term">NM PDU</span>s: one node never sends, one stops sending for a while on request, and many nodes together send fewer.</p>
+
+<p>The algorithm of lessons 12 to 14 assumes that every node sends NM PDUs while it needs the bus. These three features change that rule, each for a different reason. All of them are configured per node; none changes the states themselves.</p>
+
+<h2>Passive mode</h2>
+<p>In <span class="term">passive mode</span> (an NM configuration in which the node receives NM PDUs but never sends one) a node follows the bus without influencing it. It is woken when the others wake the bus, stays in <span class="term">Network Mode</span> while their NM PDUs arrive, and goes to sleep with them. It can never keep the bus awake, and it cannot request the network: <span class="term">NmIf</span> refuses a network request on such a channel. ComM's <span class="term">NM variant</span> <code class="term">PASSIVE</code> (lesson 8) is the ComM side of a channel whose NM runs in passive mode.</p>
+<p>Because a passive node never sends, everything that depends on its own NM PDUs is left out: <span class="term">node detection</span>, the detection of remote sleep (lesson 18) and bus synchronization for the coordinator. Passive mode is either on or off for all NM channels of one ECU.</p>
+
+<h2>Communication control</h2>
+<p><span class="term">Communication control</span> (switching off the sending of NM PDUs on a channel for a while without leaving Network Mode) exists for diagnostics. A tester sends the diagnostic service CommunicationControl to the ECU. <span class="term">Dcm</span> reports the new communication mode to <span class="term">BswM</span>, and a BswM rule calls NmIf, which passes the call to the NM of that channel:</p>
+<figure class="fig">
+<div class="scroll">
+<svg viewBox="0 0 640 96" role="img" aria-labelledby="f1t">
+<title id="f1t">The call chain of communication control: tester, Dcm, BswM, NmIf, CanNm, each passing the request on to the next.</title>
+<defs><marker id="f1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="4" y="30" width="92" height="36" class="d-box"/><text x="50" y="52" class="d-t d-c">Tester</text>
+<rect x="136" y="30" width="92" height="36" class="m-dcm"/><text x="182" y="52" class="d-t d-c">Dcm</text>
+<rect x="268" y="30" width="92" height="36" class="m-bswm"/><text x="314" y="52" class="d-t d-c">BswM</text>
+<rect x="400" y="30" width="92" height="36" class="m-nm"/><text x="446" y="52" class="d-t d-c">NmIf</text>
+<rect x="532" y="30" width="92" height="36" class="m-nm"/><text x="578" y="52" class="d-t d-c">CanNm</text>
+<line x1="96" y1="48" x2="134" y2="48" class="d-ln" marker-end="url(#f1a)"/><text x="115" y="22" class="d-s d-c">service 0x28</text>
+<line x1="228" y1="48" x2="266" y2="48" class="d-ln" marker-end="url(#f1a)"/><text x="247" y="86" class="d-s d-c">mode</text>
+<line x1="360" y1="48" x2="398" y2="48" class="d-ln" marker-end="url(#f1a)"/><text x="379" y="22" class="d-s d-c">rule action</text>
+<line x1="492" y1="48" x2="530" y2="48" class="d-ln" marker-end="url(#f1a)"/><text x="511" y="86" class="d-s d-c">forwarded</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Communication control comes from a tester. ComM is not involved: BswM calls <code>Nm_DisableCommunication</code> or <code>Nm_EnableCommunication</code>, and NmIf forwards the call to CanNm or UdpNm.</figcaption>
+</figure>
+<p>While sending is disabled, CanNm stops its message cycle, so no NM PDUs leave the node. It also stops its <span class="term">NM-Timeout Timer</span> and the detection of remote sleep, and a received NM PDU no longer restarts the timer. The node therefore stays in Network Mode, silent, whatever the other nodes do. When sending is enabled again, the first NM PDU goes out within the next main function and the NM-Timeout Time starts again.</p>
+<p>Communication control does not change the length of <span class="term">Repeat Message State</span>, and it is only accepted in Network Mode. Dcm switches communication back on by itself when the diagnostic session ends or changes to one that does not support the service.</p>
+
+<h2>Bus load reduction</h2>
+<p>Every node of a bus uses the same <span class="term">Message Cycle Time</span>. Without help, ten nodes in <span class="term">Normal Operation State</span> put ten NM PDUs on the bus per cycle. A node-specific cycle offset only spreads them out; it does not reduce them. <span class="term">Bus load reduction</span> (an optional mechanism that keeps at most two nodes sending NM PDUs in Normal Operation State) uses two rules:</p>
+<ul>
+<li>After sending an NM PDU, a node waits one Message Cycle Time until its next one.</li>
+<li>After receiving an NM PDU, a node restarts its wait with its own reduced time, a node-specific value greater than half the Message Cycle Time and less than a whole one.</li>
+</ul>
+<p>The node with the smallest reduced time always comes first after a received PDU, so only the two nodes with the smallest reduced times keep sending, in turn. If one of them stops, the node with the next smallest reduced time takes its place. A node that is alone sends one NM PDU per Message Cycle Time. Bus load reduction is only active in Normal Operation State; entering Repeat Message State switches it off, so that every node is seen there.</p>
+
+<h2>Try it</h2>
+<p>Three nodes of body CAN with a Message Cycle Time of 1 s; reduced times: gateway 0.6 s, Door ECU 0.7 s, Light ECU 0.8 s; Repeat Message Time 2 s, NM-Timeout Time 2.5 s. Times are scaled up so that you can follow them. Press Start, then switch the features while the clock runs.</p>
+<div class="panel no-print" id="sim">
+<div class="simrow">
+<label><input type="checkbox" id="blr" checked> bus load reduction</label>
+<label><input type="checkbox" id="pas"> Light ECU in passive mode</label>
+</div>
+<div class="simrow" id="needs"></div>
+<div id="tl"></div>
+<p class="keys"><span><i class="dot"></i>NM PDU sent</span><span><i class="rm"></i>Repeat Message</span><span><i class="no"></i>Normal Operation</span><span><i class="rs"></i>Ready Sleep</span><span><i class="pb"></i>Prepare Bus-Sleep</span></p>
+<ul id="st" aria-live="polite"></ul>
+<p class="readout" id="why">All three nodes need body CAN. Press Start.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> With bus load reduction on, the Light ECU stays silent although it needs the bus: the NM PDUs of the others keep restarting its NM-Timeout Time, which is all it needs. Disable the gateway's NM PDUs and the Light ECU starts sending in its place. A passive Light ECU never sends, even when it would be its turn. And a gateway with communication control active does not fall asleep with the others, because its NM-Timeout Time is stopped.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">passive mode</span></td><td>NM configuration in which the node receives NM PDUs but never sends one</td></tr>
+<tr><td><span class="term">communication control</span></td><td>Switching off the sending of NM PDUs on a channel for a while without leaving Network Mode</td></tr>
+<tr><td><span class="term">bus load reduction</span></td><td>Optional mechanism that keeps at most two nodes sending NM PDUs in Normal Operation State</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.7.1, 7.8, 7.9.3 and 7.9.6; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 8.3.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of BSW Mode Manager, R25-11</a>, chapter 5.15; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_DiagnosticCommunicationManager.pdf">Specification of Diagnostic Communication Manager, R25-11</a>, chapter 7.4.2.9.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const CYCLE = 1, RMT = 2, TIMEOUT = 2.5, WBS = 1.5, DUR = 20;
+  const NAMES = ['Gateway', 'Door ECU', 'Light ECU'];
+  const IDS = ['g', 'd', 'l'];
+  const REDUCED = [0.6, 0.7, 0.8];
+  const OFFSET = [0.1, 0.4, 0.7];
+  const STATE = { NO: 'Normal Operation', RMS: 'Repeat Message', RS: 'Ready Sleep', PBS: 'Prepare Bus-Sleep', BSM: 'Bus-Sleep' };
+  const SPAN = { NO: 'f-res', RMS: 'f-ev', RS: 'f-mute', PBS: 'f-err' };
+  const blr = document.getElementById('blr');
+  const pas = document.getElementById('pas');
+  const why = document.getElementById('why');
+  const st = document.getElementById('st');
+  let nodes = [];
+  let comm = true; // gateway NM PDU transmission ability
+
+  function fresh() {
+    comm = true;
+    nodes = NAMES.map((n, i) => ({ state: 'NO', since: 0, req: !(i === 2 && pas.checked), msg: OFFSET[i], to: TIMEOUT, rm: 0, wbs: 0 }));
+    if (pas.checked) { nodes[2].state = 'RS'; nodes[2].msg = null; }
+  }
+  const sends = (i) => !(i === 2 && pas.checked) && (i !== 0 || comm);
+
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: NAMES.map((n, i) => ({ id: IDS[i], label: n })),
+    duration: DUR, axis: 2,
+    onTick: (prev, now) => { for (let t = prev; t < now - 1e-9; t += 0.01) step(Math.min(0.01, now - t), Math.min(now, t + 0.01)); if (tl.finished()) closeAll(now); render(); },
+    onReset: () => { fresh(); runBtn.textContent = 'Start'; why.textContent = 'All three nodes need body CAN. Press Start.'; render(); }
+  });
+
+  function go(i, s, t) {
+    const n = nodes[i];
+    if (n.state === s) return;
+    if (SPAN[n.state] && t > n.since) tl.span(IDS[i], n.since, t, SPAN[n.state], STATE[n.state]);
+    n.state = s; n.since = t;
+  }
+  function closeAll(t) { nodes.forEach((n, i) => { if (SPAN[n.state] && t > n.since) tl.span(IDS[i], n.since, t, SPAN[n.state], STATE[n.state]); n.since = t; }); }
+
+  function send(i, t) {
+    tl.markAt(IDS[i], t, '', 'k-req');
+    const n = nodes[i];
+    n.msg = CYCLE;
+    n.to = TIMEOUT;
+    nodes.forEach((r, k) => {
+      if (k === i) return;
+      if (r.state === 'NO' || r.state === 'RMS' || r.state === 'RS') {
+        if (k !== 0 || comm) r.to = TIMEOUT;
+        if (blr.checked && r.state === 'NO' && sends(k) && r.msg !== null) r.msg = REDUCED[k];
+      } else if (r.state === 'PBS') {
+        go(k, 'RMS', t); r.rm = RMT; r.to = TIMEOUT; r.msg = OFFSET[k];
+        why.textContent = NAMES[k] + ' receives an NM PDU in Prepare Bus-Sleep Mode and goes back to Network Mode, into Repeat Message State.';
+      }
+    });
+  }
+
+  function step(dt, t) {
+    nodes.forEach((n, i) => {
+      if (n.state === 'NO' || n.state === 'RMS' || n.state === 'RS') {
+        if (i !== 0 || comm) {
+          n.to -= dt;
+          if (n.to <= 0) {
+            if (n.state === 'RS') { go(i, 'PBS', t); n.msg = null; n.wbs = WBS; why.textContent = 'The NM-Timeout Time of the ' + NAMES[i] + ' ran out in Ready Sleep State: Prepare Bus-Sleep Mode.'; return; }
+            n.to = TIMEOUT;
+          }
+        }
+        if (n.state === 'RMS') {
+          n.rm -= dt;
+          if (n.rm <= 0) {
+            if (n.req) { go(i, 'NO', t); } else { go(i, 'RS', t); n.msg = null; }
+          }
+        }
+        if ((n.state === 'NO' || n.state === 'RMS') && sends(i) && n.msg !== null) {
+          n.msg -= dt;
+          if (n.msg <= 0) send(i, t);
+        }
+      } else if (n.state === 'PBS') {
+        n.wbs -= dt;
+        if (n.wbs <= 0) { go(i, 'BSM', t); why.textContent = 'After the Wait Bus-Sleep Time the ' + NAMES[i] + ' is in Bus-Sleep Mode.'; }
+      }
+    });
+  }
+
+  // Controls: one button per node for its network request, one for the gateway's communication control.
+  const needs = document.getElementById('needs');
+  const reqBtns = NAMES.map((name, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      const n = nodes[i];
+      const t = tl.now();
+      n.req = !n.req;
+      if (n.req) {
+        if (n.state === 'RS') { go(i, 'NO', t); n.msg = 0; why.textContent = NAMES[i] + ' requests the network in Ready Sleep State: Normal Operation State, sending starts at once.'; }
+        else if (n.state === 'PBS' || n.state === 'BSM') { go(i, 'RMS', t); n.rm = RMT; n.to = TIMEOUT; n.msg = 0.05; why.textContent = NAMES[i] + ' requests the network: back to Network Mode, Repeat Message State first.'; }
+        else why.textContent = NAMES[i] + ' requests the network.';
+      } else {
+        if (n.state === 'NO') { go(i, 'RS', t); n.msg = null; why.textContent = NAMES[i] + ' releases the network: Ready Sleep State, it stops sending but stays awake while others send.'; }
+        else why.textContent = NAMES[i] + ' releases the network.';
+      }
+      render();
+    });
+    needs.appendChild(b);
+    return b;
+  });
+  const ccBtn = document.createElement('button');
+  ccBtn.type = 'button';
+  ccBtn.addEventListener('click', () => {
+    const n = nodes[0];
+    const t = tl.now();
+    if (comm) {
+      if (!(n.state === 'NO' || n.state === 'RMS' || n.state === 'RS')) { why.textContent = 'Refused: communication control is only accepted in Network Mode.'; return; }
+      comm = false;
+      why.textContent = 'Gateway: NM PDU transmission disabled. Its message cycle and its NM-Timeout Time stop; it stays in Network Mode.';
+    } else {
+      if (!(n.state === 'NO' || n.state === 'RMS' || n.state === 'RS')) { why.textContent = 'Refused: communication control is only accepted in Network Mode.'; return; }
+      comm = true; n.to = TIMEOUT;
+      if (n.state === 'NO' || n.state === 'RMS') n.msg = 0.02;
+      why.textContent = 'Gateway: NM PDU transmission enabled again. The first NM PDU goes out within the next main function; the NM-Timeout Time restarts.';
+    }
+    render();
+  });
+  needs.appendChild(ccBtn);
+
+  function render() {
+    reqBtns.forEach((b, i) => {
+      const passive = i === 2 && pas.checked;
+      b.disabled = passive;
+      b.setAttribute('aria-pressed', String(nodes[i].req));
+      b.textContent = NAMES[i] + (passive ? ': passive, cannot request' : nodes[i].req ? ': network requested' : ': network released');
+    });
+    ccBtn.setAttribute('aria-pressed', String(!comm));
+    ccBtn.textContent = comm ? 'Gateway: disable NM PDUs (communication control)' : 'Gateway: enable NM PDUs again';
+    st.innerHTML = nodes.map((n, i) => '<li>' + NAMES[i] + ': ' + STATE[n.state] +
+      (n.state === 'PBS' || n.state === 'BSM' ? '' : ' · NM-Timeout ' + ((i === 0 && !comm) ? 'stopped' : n.to.toFixed(1) + ' s')) +
+      (i === 0 && !comm ? ' · NM PDUs disabled' : '') + (i === 2 && pas.checked ? ' · passive' : '') + '</li>').join('');
+  }
+
+  const runBtn = Timeline.button('Start', () => {
+    if (tl.running()) { tl.stop(); runBtn.textContent = 'Continue'; }
+    else if (!tl.finished()) { tl.start(); runBtn.textContent = 'Pause'; }
+  }, true);
+  tl.buttons.appendChild(runBtn);
+  pas.addEventListener('change', () => { tl.reset(); });
+  blr.addEventListener('change', () => { why.textContent = blr.checked ? 'Bus load reduction on: a received NM PDU restarts the wait with the node\'s reduced time.' : 'Bus load reduction off: every sending node waits a full Message Cycle Time after its own NM PDU.'; });
+  fresh();
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A node is configured in passive mode. What can it do?',
+    options: ['Stay awake while others send NM PDUs', 'Keep the bus awake with its NM PDUs', 'Request the network through NmIf'],
+    answer: 0,
+    why: 'A passive node only receives. It is kept awake by the others and sleeps with them, but it can neither send nor request the network.'
+  },
+  {
+    prompt: 'Which module calls NmIf to disable NM PDUs during a diagnostic session?',
+    options: ['BswM, on the mode reported by Dcm', 'ComM, on the request of its users', 'Dcm, directly with the CAN driver'],
+    answer: 0,
+    why: 'Dcm reports the communication mode of the CommunicationControl service to BswM; a BswM action calls Nm_DisableCommunication.'
+  },
+  {
+    prompt: 'Five nodes in Normal Operation use bus load reduction. How many of them send?',
+    options: ['The two with the smallest reduced time', 'Only the one with the largest node ID', 'All five, but with a longer cycle time'],
+    answer: 0,
+    why: 'A received NM PDU restarts every node\'s wait with its reduced time, so the two with the smallest reduced times always come first and alternate.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

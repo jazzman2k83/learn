@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EIRA and ERA · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.drive { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .drive { grid-template-columns: 1fr; } }
+.drive button { width: 100%; text-align: left; padding: 0.5rem 0.7rem; line-height: 1.35; }
+.drive button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.drive button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+.drive button[aria-pressed="true"] small { color: var(--ink); }
+table.arr { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 0.8rem; margin: 0.4rem 0 0.6rem; background: var(--paper); }
+table.arr th, table.arr td { border: 1px solid var(--rule); padding: 0.3rem 0.45rem; text-align: left; vertical-align: middle; }
+table.arr th { background: var(--head); font-weight: 600; }
+table.arr td.cell { width: 36%; }
+table.arr .bit { display: inline-block; min-width: 1.4rem; text-align: center; font-family: var(--mono); font-weight: 700; border: 1px solid var(--rule); background: var(--panel); margin-right: 0.4rem; }
+table.arr .bit.on { background: var(--good-soft); border-color: var(--good); }
+table.arr .bar { display: inline-block; vertical-align: middle; width: calc(100% - 2.4rem); min-width: 3rem; height: 0.45rem; background: var(--sig-soft); position: relative; }
+table.arr .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--warn); }
+.logs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+@media (max-width: 34rem) { .logs { grid-template-columns: 1fr; } }
+.logs h3 { margin: 0.4rem 0 0; font-size: 0.8rem; }
+.logs .log { max-height: 10rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>EIRA and ERA</h1>
+<p class="lede">The PNC bits that arrive in <span class="term">NM PDU</span>s are not handed to ComM one by one. <span class="term">NmIf</span> filters them, collects them into two kinds of bit vector, and lets each bit drop back to 0 only when nobody has repeated it for a while.</p>
+
+<p>Lesson 41 used the EIRA bit of a PNC as the trigger that moves the <span class="term">PNC state machine</span>. This lesson shows where that bit comes from: the filter, the two arrays, the timers behind each bit, and the two calls to ComM.</p>
+
+<h2>Only the relevant bits count</h2>
+<p>When <span class="term">CanNm</span> or <span class="term">UdpNm</span> receives an NM PDU with the <span class="term">Partial Network Information Bit</span> set, it takes the <span class="term">PNC bit vector</span> out of the PDU and passes it to NmIf with <code class="term">Nm_PncBitVectorRxIndication</code> (the bus NM hands NmIf the PNC bit vector of a received NM PDU and learns whether it held a relevant request). NmIf first applies the <span class="term">PNC filter mask</span> (per NM channel, one mask byte per byte of the PNC bit vector: only the PNC bits set to 1 in the mask are relevant for this ECU). A received bit counts only where the mask has a 1.</p>
+<p>The gateway's masks follow from its PNCs: Comfort (bit 0) and Lighting (bit 1) both use body CAN, so the mask on <code>BodyCan</code> is 0x03; only Comfort uses Ethernet, so the mask on <code>Eth</code> is 0x01. A mask has to let through every PNC that is mapped to the channel; ComM does not check the received bits against its own channel mapping.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Channel</th><th>Received PNC byte</th><th>Mask</th><th>Relevant</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td><code>BodyCan</code></td><td>0x02 (Lighting)</td><td>0x03</td><td>0x02</td><td>relevant request: Lighting counts</td></tr>
+<tr><td><code>Eth</code></td><td>0x02 (Lighting)</td><td>0x01</td><td>0x00</td><td>nothing relevant</td></tr>
+<tr><td><code>Eth</code></td><td>0x03 (both)</td><td>0x01</td><td>0x01</td><td>relevant request: only Comfort counts</td></tr>
+</tbody>
+</table>
+</div>
+<p>NmIf tells the bus NM whether a relevant request was found. If not, CanNm drops the NM PDU from further handling: it does not restart the <span class="term">NM-Timeout Timer</span>, so traffic for other PNCs does not keep this ECU awake. Two exceptions keep every NM PDU relevant: the channel is configured to stay awake on all NM PDUs (useful for a gateway), or the transceiver has not yet confirmed that its partial networking works (lesson 43).</p>
+
+<h2>Two arrays</h2>
+<p>From the relevant bits NmIf builds two kinds of PNC bit vector. Each can be switched on by configuration on its own.</p>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">one for the whole ECU</p><h3>EIRA</h3><p>The <span class="term">EIRA</span> (External and Internal Request Array: one bit per PNC, 1 while any ECU on any channel, this one included, requests the PNC) combines all channels. A bit is set by a relevant bit received on any channel, and by a relevant bit this ECU sends itself. Every ECU with partial networking needs it: it drives the PNC state machine.</p></div>
+  <div class="card m-nm"><p class="tag">one per channel</p><h3>ERA</h3><p>The <span class="term">ERA</span> (External Request Array: one bit per PNC and channel, 1 while another ECU on that channel requests the PNC) holds only what was received, separately for each channel. Only a <span class="term">PNC gateway</span> (an ECU that forwards PNC requests from one channel to others, lesson 44) needs it, because it must know where a request came from.</p></div>
+</div>
+<p>The ECU's own requests reach the EIRA on the way out (they pass the same <span class="term">PNC filter mask</span>). ComM passes the <span class="term">IRA</span> of each channel with <code class="term">Nm_UpdateIRA</code>, and NmIf stores it unfiltered. Each time CanNm or UdpNm sends an NM PDU, it fetches the internal requests with <code class="term">Nm_PncBitVectorTxIndication</code> (the bus NM fetches the PNC bits this ECU requests on the channel, just before it sends an NM PDU) and copies them into the PDU. The bits of that vector that pass the channel's filter mask are stored in the EIRA as requested. They never enter an ERA: an ERA is external only.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f1t">
+<title id="f1t">Received NM PDUs on BodyCan and Eth pass the PNC filter mask of their channel, 0x03 and 0x01. Relevant bits go into the ERA of that channel and into the one EIRA. The IRA from ComM, sent in the gateway's own NM PDUs, goes into the EIRA only. NmIf reports changes to ComM with ComM_Nm_UpdateERA and ComM_Nm_UpdateEIRA.</title>
+<defs><marker id="ah42" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="8" y="18" width="150" height="46" class="m-drv"/>
+<text x="83" y="37" class="d-tb d-c">NM PDU received</text><text x="83" y="54" class="d-s d-c">BodyCan: Door, Light ECU</text>
+<rect x="8" y="92" width="150" height="46" class="m-drv"/>
+<text x="83" y="111" class="d-tb d-c">NM PDU received</text><text x="83" y="128" class="d-s d-c">Eth: Head unit</text>
+<rect x="8" y="176" width="150" height="56" class="m-comm"/>
+<text x="83" y="195" class="d-tb d-c">IRA from ComM</text><text x="83" y="210" class="d-s d-c">Nm_UpdateIRA, sent in the</text><text x="83" y="223" class="d-s d-c">gateway's own NM PDUs</text>
+<rect x="196" y="18" width="132" height="46" class="m-nm"/>
+<text x="262" y="37" class="d-tb d-c">PNC filter mask</text><text x="262" y="54" class="d-m d-c">BodyCan 0x03</text>
+<rect x="196" y="92" width="132" height="46" class="m-nm"/>
+<text x="262" y="111" class="d-tb d-c">PNC filter mask</text><text x="262" y="128" class="d-m d-c">Eth 0x01</text>
+<rect x="196" y="176" width="132" height="56" class="m-nm"/>
+<text x="262" y="195" class="d-tb d-c">PNC filter mask</text><text x="262" y="210" class="d-s d-c">of the channel the</text><text x="262" y="223" class="d-s d-c">NM PDU is sent on</text>
+<rect x="372" y="18" width="140" height="46" class="m-nm"/>
+<text x="442" y="37" class="d-tb d-c">ERA BodyCan</text><text x="442" y="54" class="d-s d-c">ComM_Nm_UpdateERA</text>
+<rect x="372" y="92" width="140" height="46" class="m-nm"/>
+<text x="442" y="111" class="d-tb d-c">ERA Eth</text><text x="442" y="128" class="d-s d-c">ComM_Nm_UpdateERA</text>
+<rect x="372" y="176" width="140" height="56" class="m-nm"/>
+<text x="442" y="197" class="d-tb d-c">EIRA</text><text x="442" y="212" class="d-s d-c">all channels, in and out</text><text x="442" y="225" class="d-s d-c">ComM_Nm_UpdateEIRA</text>
+<rect x="552" y="18" width="80" height="214" class="m-comm"/>
+<text x="592" y="122" class="d-tb d-c">ComM</text><text x="592" y="138" class="d-s d-c">PNC state</text><text x="592" y="151" class="d-s d-c">machines</text>
+<line x1="158" y1="41" x2="194" y2="41" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="158" y1="115" x2="194" y2="115" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="158" y1="204" x2="194" y2="204" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="328" y1="41" x2="370" y2="41" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="328" y1="115" x2="370" y2="115" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="328" y1="204" x2="370" y2="204" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="340" y1="50" x2="380" y2="178" class="d-ln dash" marker-end="url(#ah42)"/>
+<line x1="345" y1="124" x2="384" y2="178" class="d-ln dash" marker-end="url(#ah42)"/>
+<line x1="512" y1="41" x2="550" y2="41" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="512" y1="115" x2="550" y2="115" class="d-ln" marker-end="url(#ah42)"/>
+<line x1="512" y1="204" x2="550" y2="204" class="d-ln" marker-end="url(#ah42)"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The PNC aggregation in NmIf on the body gateway. Received bits go into the ERA of their channel and into the EIRA (dashed); the gateway's own bits go into the EIRA only. Both arrays pass the same filter masks first.</figcaption>
+</figure>
+
+<h2>The PNC reset timer</h2>
+<p>A PNC request is not a message that comes once: the requesting ECU repeats it in every NM PDU it sends. So NmIf does not need a "released" message. Each time a PNC bit is stored as requested, its <span class="term">PNC reset timer</span> (the time after which a request that no NM PDU has repeated counts as gone) is restarted with the configured PNC reset time. When the timer runs out without a new request, the bit goes back to 0, "PNC released".</p>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">EIRA</p><h3>One timer per PNC</h3><p>The EIRA is the same for all channels, so one timer per PNC is enough. A gateway with 6 channels and 8 PNCs needs 8 EIRA timers.</p></div>
+  <div class="card m-nm"><p class="tag">ERA</p><h3>One timer per PNC and channel</h3><p>The ERA must tell the channels apart, so the same gateway needs 48 ERA timers: a request must never be mirrored back to the bus it came from.</p></div>
+</div>
+<p>The reset time sits between two other times. It must be longer than the <span class="term">Message Cycle Time</span> of the bus NM; otherwise a bit requested by only one ECU would drop to 0 between two of its NM PDUs and the EIRA would toggle. It must be shorter than the <span class="term">NM-Timeout Time</span>, so that a bit does not outlive the network: when the timeout runs out the bus NM is already on its way to <span class="term">Prepare Bus-Sleep Mode</span>.</p>
+<p>The timers run in the NmIf <span class="term">main function</span>. Its order is fixed: first update the timers, then evaluate the PNC states, then act. The specification gives one possible way of doing it, in which the arrays hold a snapshot of the requests that arrived since the last main function:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Since the last main function</th><th>Reset timer</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td>PNC requested</td><td>stopped or elapsed</td><td>start the timer; the bit becomes 1: tell ComM</td></tr>
+<tr><td>PNC requested</td><td>running</td><td>restart the timer; nothing to tell</td></tr>
+<tr><td>not requested</td><td>running</td><td>nothing (the timer was already decremented)</td></tr>
+<tr><td>not requested</td><td>elapsed</td><td>stop the timer; the bit becomes 0: tell ComM</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Reporting to ComM</h2>
+<p>NmIf calls ComM only when a bit changes, in either direction:</p>
+<ul>
+<li><code class="term">ComM_Nm_UpdateEIRA</code>(EIRA): the whole EIRA as a PNC bit vector. ComM copies it into its own <span class="term">EIRA</span>; the <span class="term">PNC state machine</span>s react in the next ComM <span class="term">main function</span> (lesson 41).</li>
+<li><code class="term">ComM_Nm_UpdateERA</code>(channel, ERA): the ERA of one channel. ComM keeps one <span class="term">ERA</span> per channel and uses it only when it is a <span class="term">PNC gateway</span> and the channel has a gateway type (lesson 44).</li>
+</ul>
+<p>In each ComM main function of a channel with PNCs, the requests are handled in this order: ComM users mapped to PNCs of the channel, ComM users mapped to the channel, the ERA (on a PNC gateway), and last the EIRA.</p>
+
+<h2>Try it</h2>
+<p>The NM PDUs below arrive at the gateway on body CAN and Ethernet. Switch requests on and off and watch the filter, the arrays and their reset timers. Times are scaled: every ECU sends an NM PDU once per second while it requests something, the PNC reset time is 2.5 s, and the NmIf main function runs every 0.1 s. Here ComM only passes on the request of <code>UserComfort</code>; the gateway's forwarding comes in lesson 44.</p>
+<div class="panel no-print" id="sim">
+<div class="drive" id="drive"></div>
+<div class="table-wrap">
+<table class="arr">
+<thead><tr><th>Array</th><th>Comfort (PNC 16, bit 0)</th><th>Lighting (PNC 17, bit 1)</th></tr></thead>
+<tbody id="arrs"></tbody>
+</table>
+</div>
+<div class="logs">
+<div><h3>NM PDUs and the filter</h3><ul class="log" id="rx" aria-live="off"></ul></div>
+<div><h3>Calls to ComM</h3><ul class="log" id="calls" aria-live="polite"></ul></div>
+</div>
+</div>
+
+<div class="older">
+<p>Up to R20-11 NmIf took no part in this. CanNm and UdpNm each had their own filter mask, EIRA, ERA and reset timers, and passed changed EIRA and ERA values up as I-PDUs through the PduR to COM, where ComM read them as COM signals. R21-11 moved the aggregation into NmIf (as draft, with <code>Nm_UpdateIRA</code>, <code>ComM_Nm_UpdateEIRA</code> and <code>ComM_Nm_UpdateERA</code>), and R22-11 removed the COM path. Lesson 53 shows the older way. The rules themselves (filter, one EIRA timer per PNC, one ERA timer per PNC and channel) are the same.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> A PNC bit counts only where the filter mask of its channel has a 1. The EIRA includes the ECU's own requests, the ERA never does. Nothing says "released": a bit falls to 0 when its reset timer runs out, so the reset time must lie between the NM message cycle and the NM timeout. ComM hears only about changes.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">PNC filter mask</span></td><td>Per NM channel, the PNC bits that are relevant for this ECU; received bits outside it are ignored</td></tr>
+<tr><td><span class="term">EIRA</span></td><td>External and Internal Request Array: one bit per PNC, 1 while any ECU on any channel, this one included, requests the PNC</td></tr>
+<tr><td><span class="term">ERA</span></td><td>External Request Array: one bit per PNC and channel, 1 while another ECU on that channel requests the PNC; used by a PNC gateway</td></tr>
+<tr><td><span class="term">PNC reset timer</span></td><td>Restarted with every relevant request of a PNC; when it runs out, the bit goes back to 0. One per PNC for the EIRA, one per PNC and channel for the ERA</td></tr>
+<tr><td><code class="term">Nm_PncBitVectorRxIndication</code></td><td>The bus NM passes the PNC bit vector of a received NM PDU to NmIf and learns whether it held a relevant request</td></tr>
+<tr><td><code class="term">Nm_PncBitVectorTxIndication</code></td><td>The bus NM fetches this ECU's PNC requests from NmIf just before it sends an NM PDU</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.4.1 to 7.4.3 and 8.4.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.1.2, 7.1.3 and 7.1.6.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, section 7.11.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const CYCLE = 1.0, RESET = 2.5, TICK = 0.1;               // scaled seconds
+  const MASK = { BodyCan: 0x03, Eth: 0x01 };
+  const PNCS = [{ name: 'Comfort', bit: 0 }, { name: 'Lighting', bit: 1 }];
+  // requesters: who, channel, bits they request, phase of their NM cycle
+  const REQ = [
+    { id: 'door', label: 'Door ECU', sub: 'requests Comfort and Lighting', ch: 'BodyCan', bits: 0x03, phase: 0.0, nid: '0x21' },
+    { id: 'light', label: 'Light ECU', sub: 'requests Lighting', ch: 'BodyCan', bits: 0x02, phase: 0.3, nid: '0x22' },
+    { id: 'headC', label: 'Head unit', sub: 'requests Comfort', ch: 'Eth', bits: 0x01, phase: 0.6, nid: '' },
+    { id: 'headL', label: 'Head unit', sub: 'sets the Lighting bit too', ch: 'Eth', bits: 0x02, phase: 0.6, nid: '' },
+    { id: 'user', label: 'UserComfort', sub: 'gateway: ComM user requests Comfort', ch: 'both', bits: 0x01, phase: 0.15, nid: '' }
+  ];
+  const on = {};
+  const drive = document.getElementById('drive');
+  const btns = {};
+  REQ.forEach((r) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = r.label + '<small>' + r.sub + ': off</small>';
+    b.addEventListener('click', () => { on[r.id] = !on[r.id]; render(); });
+    drive.appendChild(b); btns[r.id] = b;
+  });
+  const ARRS = [{ key: 'EIRA', label: 'EIRA (whole ECU)' }, { key: 'BodyCan', label: 'ERA BodyCan' }, { key: 'Eth', label: 'ERA Eth' }];
+  const st = {};       // st[arr][bit] = { val, timer, state, snap }
+  const tbody = document.getElementById('arrs');
+  ARRS.forEach((a) => {
+    st[a.key] = PNCS.map(() => ({ val: 0, timer: 0, state: 'stopped', snap: false }));
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<th>' + a.label + '</th>' + PNCS.map((p, i) => '<td class="cell"><span class="bit" id="b-' + a.key + i + '">0</span><span class="bar" aria-hidden="true"><i id="t-' + a.key + i + '"></i></span></td>').join('');
+    tbody.appendChild(tr);
+  });
+  const rxLog = document.getElementById('rx'), callLog = document.getElementById('calls');
+  function log(el, text) {
+    const li = document.createElement('li'); li.textContent = text; el.prepend(li);
+    while (el.children.length > 40) el.removeChild(el.lastChild);
+  }
+  const hex = (v) => '0x' + v.toString(16).padStart(2, '0').toUpperCase();
+  let t = 0;
+  function vecOf(arr) { return st[arr].reduce((v, s, i) => v | (s.val << PNCS[i].bit), 0); }
+  function store(arr, bits) { PNCS.forEach((p, i) => { if (bits & (1 << p.bit)) st[arr][i].snap = true; }); }
+  function send(r, ch, bits) {
+    const rel = bits & MASK[ch];
+    if (r.id === 'user') {
+      log(rxLog, t.toFixed(1) + ' s  ' + ch + '  gateway sends ' + hex(bits) + ', mask ' + hex(MASK[ch]) + ' → ' + hex(rel) + ' into EIRA');
+      if (rel) store('EIRA', rel);
+      return;
+    }
+    const who = r.label + (r.nid ? ' ' + r.nid : '');
+    log(rxLog, t.toFixed(1) + ' s  ' + ch + '  ' + who + ' ' + hex(bits) + ' & ' + hex(MASK[ch]) + ' = ' + hex(rel) + (rel ? ' relevant' : ' nothing relevant, NM PDU dropped'));
+    if (rel) { store('EIRA', rel); store(ch, rel); }
+  }
+  function mainFunction() {
+    ARRS.forEach((a) => {
+      let changed = false;
+      st[a.key].forEach((s) => {
+        if (s.state === 'running') { s.timer -= TICK; if (s.timer <= 1e-9) { s.timer = 0; s.state = 'elapsed'; } }
+        if (s.snap) {
+          if (s.state !== 'running') { if (!s.val) changed = true; s.val = 1; }
+          s.state = 'running'; s.timer = RESET;
+        } else if (s.state === 'elapsed') { s.state = 'stopped'; if (s.val) changed = true; s.val = 0; }
+        s.snap = false;
+      });
+      if (changed) {
+        if (a.key === 'EIRA') log(callLog, t.toFixed(1) + ' s  ComM_Nm_UpdateEIRA(' + hex(vecOf('EIRA')) + ')');
+        else log(callLog, t.toFixed(1) + ' s  ComM_Nm_UpdateERA(' + a.key + ', ' + hex(vecOf(a.key)) + ')');
+      }
+    });
+  }
+  function step() {
+    const prev = t; t = Math.round((t + TICK) * 10) / 10;
+    REQ.forEach((r) => {
+      if (!on[r.id]) return;
+      if (Math.floor((t - r.phase) / CYCLE + 1e-9) > Math.floor((prev - r.phase) / CYCLE + 1e-9)) {
+        if (r.ch === 'both') { send(r, 'BodyCan', r.bits); send(r, 'Eth', r.bits); }
+        else {
+          // the Head unit sends one NM PDU with all its bits
+          if (r.id === 'headL' && on.headC) return;
+          const bits = r.id === 'headC' && on.headL ? 0x03 : r.bits;
+          send(r, r.ch, bits);
+        }
+      }
+    });
+    mainFunction();
+    render();
+  }
+  function render() {
+    REQ.forEach((r) => {
+      btns[r.id].setAttribute('aria-pressed', String(!!on[r.id]));
+      btns[r.id].querySelector('small').textContent = r.sub + (on[r.id] ? ': on' : ': off');
+    });
+    ARRS.forEach((a) => st[a.key].forEach((s, i) => {
+      const b = document.getElementById('b-' + a.key + i);
+      b.textContent = String(s.val); b.className = 'bit' + (s.val ? ' on' : '');
+      document.getElementById('t-' + a.key + i).style.width = (s.state === 'running' ? 100 * s.timer / RESET : 0) + '%';
+    }));
+  }
+  render();
+  setInterval(step, TICK * 1000);
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The Head unit sends an NM PDU on Ethernet with only the Lighting bit set. The gateway\'s mask on <code>Eth</code> is 0x01. What happens?',
+    options: ['Nothing is relevant; the NM PDU is dropped', 'Lighting is set in the EIRA and in ERA Eth', 'Lighting is set in the EIRA only, not ERA'],
+    answer: 0,
+    why: 'The filter mask lets only Comfort through on Ethernet. With no relevant bit, CanNm or UdpNm drops the NM PDU (unless the channel stays awake on all NM PDUs).'
+  },
+  {
+    prompt: 'The gateway itself requests Comfort through <code>UserComfort</code>. Which arrays get the Comfort bit?',
+    options: ['The EIRA only, when the NM PDU is sent', 'The EIRA and the ERA of both channels', 'The ERA of BodyCan and the ERA of Eth'],
+    answer: 0,
+    why: 'Own requests reach the EIRA when the bus NM fetches them with Nm_PncBitVectorTxIndication. An ERA holds only requests received from other ECUs.'
+  },
+  {
+    prompt: 'Why does a gateway need more ERA reset timers than EIRA reset timers?',
+    options: ['It must know on which channel each request came', 'ERA timers run faster than the EIRA timers do', 'Each ERA timer only covers a single NM PDU'],
+    answer: 0,
+    why: 'The EIRA is one array for the ECU, so one timer per PNC is enough. The ERA is per channel, so the gateway needs one timer per PNC and channel and never mirrors a request back to its source.'
+  },
+  {
+    prompt: 'The NM Message Cycle Time is 1 s. Which PNC reset time is a valid choice?',
+    options: ['Longer than 1 s, shorter than the NM timeout', 'Shorter than 1 s, so releases are seen fast', 'Longer than the NM-Timeout Time of the bus'],
+    answer: 0,
+    why: 'Shorter than the cycle would make a single requester\'s bit toggle. Longer than the NM timeout would keep the bit after the bus NM has left Network Mode.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

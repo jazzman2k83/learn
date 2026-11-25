@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUN and POST_RUN requests · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.users { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin: 0 0 0.9rem; }
+@media (max-width: 34rem) { .users { grid-template-columns: 1fr; } }
+.user { border: 1px solid var(--rule); border-left: 4px solid var(--m-app); background: var(--paper); padding: 0.55rem 0.7rem; font-family: var(--sans); font-size: 0.8rem; }
+.user h3 { margin: 0 0 0.4rem; font-size: 0.9rem; }
+.user .btns { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+.user .btns button { font-size: 0.72rem; padding: 0.25rem 0.45rem; }
+.modes { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; font-family: var(--sans); font-size: 0.8rem; margin: 0.3rem 0 0.6rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>RUN and POST_RUN requests</h1>
+<p class="lede">An <span class="term">SWC</span> that still has work to do must be able to say so before the ECU goes down. <span class="term">EcuM</span> collects these requests and reports what they add up to, and <span class="term">BswM</span> decides what happens next.</p>
+
+<p>This lesson shows who may place such requests, the four calls for them, what EcuM tells BswM, and why a request alone does not keep the ECU running.</p>
+
+<svg class="defs" aria-hidden="true"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs></svg>
+
+<h2>EcuM users</h2>
+<p>Only an <span class="term">EcuM user</span> (a configured identifier for an SWC or another entity that uses the interfaces of EcuM; each one has its own number of type <code>EcuM_UserType</code>) may place requests. An SWC reaches EcuM through an <span class="term">RTE</span> port of the service interface <code>EcuM_StateRequest</code>. The RTE adds the user number as a port-defined argument, so the SWC does not pass it itself and cannot speak for another user.</p>
+<p>In the example ECU, <code>BodyControl</code> is an EcuM user. To show how several requests add up, this page adds a second SWC, called <code>Logger</code> here, which writes some data to memory before the ECU goes down.</p>
+
+<h2>Four calls</h2>
+<p>A <span class="term">RUN request</span> (a request from an EcuM user that the ECU stays in its RUN mode) and a <span class="term">POST_RUN request</span> (a request for time after the last RUN request is gone, to finish work such as saving data or switching off peripherals) are placed and released with four calls:</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">keep running</p><h3><code class="term">EcuM_RequestRUN</code></h3><p>Places a RUN request for this user. <code class="term">EcuM_ReleaseRUN</code> (releases it again) ends it.</p></div>
+  <div class="card m-ecum"><p class="tag">time before going down</p><h3><code class="term">EcuM_RequestPOST_RUN</code></h3><p>Places a POST_RUN request. <code class="term">EcuM_ReleasePOST_RUN</code> (releases it again) ends it.</p></div>
+</div>
+<p>Requests do not nest: one user holds at most one RUN request and one POST_RUN request, tracked independently. A second request from the same user, or a release without a request, is a development error (<code>ECUM_E_MULTIPLE_RUN_REQUESTS</code>, <code>ECUM_E_MISMATCHED_RUN_RELEASE</code>). The order matters: a user that needs time in POST_RUN must request POST_RUN <em>before</em> it releases RUN. Otherwise nothing guarantees that it still gets to run its POST_RUN code.</p>
+
+<h2>What EcuM reports to BswM</h2>
+<p>With <span class="term">ECU Mode Handling</span> (the optional cooperation of EcuM and BswM about the modes RUN and POST_RUN) configured, EcuM checks the requests of all users in its <span class="term">main function</span> and reports the result with <code class="term">BswM_EcuM_RequestedState</code> (EcuM tells BswM which state its users request and whether that is requested or released). BswM receives it as a <span class="term">mode request</span>.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>When</th><th>EcuM calls</th></tr></thead>
+<tbody>
+<tr><td>The first RUN or POST_RUN request arrives</td><td><code>BswM_EcuM_RequestedState(ECUM_STATE_RUN, ECUM_RUNSTATUS_REQUESTED)</code></td></tr>
+<tr><td>The last RUN request is released</td><td><code>BswM_EcuM_RequestedState(ECUM_STATE_RUN, ECUM_RUNSTATUS_RELEASED)</code></td></tr>
+<tr><td>The last POST_RUN request is released</td><td><code>BswM_EcuM_RequestedState(ECUM_STATE_POST_RUN, ECUM_RUNSTATUS_RELEASED)</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>EcuM does not switch anything by itself. The rules of BswM's <span class="term">mode arbitration</span> decide, and an <span class="term">action list</span> tells EcuM the new state with <code class="term">EcuM_SetState</code> (BswM sets the EcuM state). EcuM then switches the ECU mode the SWCs see through the RTE: <code>STARTUP</code>, <code>RUN</code>, <code>POST_RUN</code>, <code>SLEEP</code> or <code>SHUTDOWN</code>. When the RTE has acknowledged the switch, EcuM confirms the state with <code class="term">BswM_EcuM_CurrentState</code> (EcuM tells BswM its current state).</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 230" role="img" aria-labelledby="f1t">
+<title id="f1t">The request loop. SWCs call EcuM through the RTE. EcuM reports the result to BswM with BswM_EcuM_RequestedState. BswM's rules call EcuM_SetState, and EcuM switches the ECU mode in the RTE. Only BswM calls EcuM_GoDownHaltPoll.</title>
+<rect x="20" y="20" width="160" height="56" class="m-app"/>
+<text x="100" y="44" class="d-tb d-c">BodyControl, Logger</text>
+<text x="100" y="62" class="d-s d-c">EcuM users (SWCs)</text>
+<rect x="20" y="150" width="160" height="40" class="m-rte"/>
+<text x="100" y="175" class="d-tb d-c">RTE</text>
+<rect x="250" y="150" width="140" height="40" class="m-ecum"/>
+<text x="320" y="175" class="d-tb d-c">EcuM</text>
+<rect x="470" y="150" width="150" height="40" class="m-bswm"/>
+<text x="545" y="175" class="d-tb d-c">BswM</text>
+<line x1="40" y1="76" x2="40" y2="148" class="d-ln" marker-end="url(#ar)"/>
+<text x="46" y="122" class="d-s">EcuM_RequestRUN</text>
+<path d="M180 170 L248 170" class="d-ln" marker-end="url(#ar)"/>
+<path d="M390 164 L468 164" class="d-ln" marker-end="url(#ar)"/>
+<text x="430" y="132" class="d-s d-c">BswM_EcuM_</text>
+<text x="430" y="144" class="d-s d-c">RequestedState</text>
+<path d="M468 182 L392 182" class="d-ln" marker-end="url(#ar)"/>
+<text x="430" y="200" class="d-s d-c">EcuM_SetState</text>
+<path d="M300 150 L300 100 L160 100 L160 148" class="d-ln dash" marker-end="url(#ar)"/>
+<text x="230" y="94" class="d-s d-c">mode switch: RUN, POST_RUN, …</text>
+<path d="M545 190 L545 215 L330 215 L330 192" class="d-ln" marker-end="url(#ar)"/>
+<text x="440" y="226" class="d-s d-c">EcuM_GoDownHaltPoll (lesson 29)</text>
+<text x="545" y="40" class="d-s d-c">rules decide</text>
+<text x="545" y="54" class="d-s d-c">when to go down</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> EcuM sits between the users and BswM. It sums up the requests and reports them; the decision and the call that takes the ECU down come from BswM.</figcaption>
+</figure>
+
+<h2>A RUN request does not stop a shutdown</h2>
+<p>In <span class="term">EcuM Flex</span>, EcuM has no state machine of its own for RUN and POST_RUN: it relies on the state transitions BswM makes and does not request a state itself. A RUN request is therefore information for BswM's rules, not a lock. When an action list calls <code class="term">EcuM_GoDownHaltPoll</code> (the call that takes the ECU to its <span class="term">shutdown target</span>, the place it goes when it stops: off, reset or sleep), EcuM goes down. The specification defines no check of open RUN requests in that call. Whether open requests hold off a shutdown is decided only by how the BswM rules are written.</p>
+<p>This is the main difference from <span class="term">EcuM Fixed</span> (the older EcuM variant with its own fixed state machine, lesson 51), where the RUN requests held the ECU in its RUN state until the last one was released.</p>
+
+<h2>Try it</h2>
+<p>Place and release requests for the two users and watch what EcuM reports. The BswM rules here are an example (an integrator writes the real ones): RUN released → <code>POST_RUN</code>; POST_RUN released → shut down; a new request while in <code>POST_RUN</code> → back to <code>RUN</code>. Each click is handled at once; in the ECU, EcuM evaluates the requests in its next main function.</p>
+<div class="panel no-print" id="sim">
+<div class="users">
+  <div class="user" data-u="0"><h3>BodyControl</h3><span class="st">RUN: – · POST_RUN: –</span>
+    <div class="btns"><button type="button" data-a="rq">EcuM_RequestRUN</button><button type="button" data-a="rl">EcuM_ReleaseRUN</button><button type="button" data-a="pq">EcuM_RequestPOST_RUN</button><button type="button" data-a="pl">EcuM_ReleasePOST_RUN</button></div></div>
+  <div class="user" data-u="1"><h3>Logger</h3><span class="st">RUN: – · POST_RUN: –</span>
+    <div class="btns"><button type="button" data-a="rq">EcuM_RequestRUN</button><button type="button" data-a="rl">EcuM_ReleaseRUN</button><button type="button" data-a="pq">EcuM_RequestPOST_RUN</button><button type="button" data-a="pl">EcuM_ReleasePOST_RUN</button></div></div>
+</div>
+<div class="modes" aria-live="polite"><strong>ECU mode:</strong> <span class="state-pill" data-m="RUN">RUN</span><span class="state-pill" data-m="POST_RUN">POST_RUN</span><span class="state-pill" data-m="SHUTDOWN">SHUTDOWN</span></div>
+<div class="controls" style="margin:0"><button type="button" id="force">BswM: shut down now (other rule)</button><button type="button" id="reset">Start over</button></div>
+<p class="readout" id="why"></p>
+<ol class="log" id="log"></ol>
+</div>
+
+<div class="older">
+<p>In <strong>4.4.0</strong> EcuM requested the next state instead of reporting a status: when the last RUN request was released it called <code>BswM_EcuM_RequestedState(POST_RUN, ECUM_RUNSTATUS_RELEASED)</code>, when the last POST_RUN request was released <code>BswM_EcuM_RequestedState(SHUTDOWN, ECUM_RUNSTATUS_RELEASED)</code>. There was no report for the first request. In <strong>R19-11</strong> the BswM specification removed <code>BswM_EcuM_RequestedState</code> and <code>BswM_EcuM_CurrentState</code> as obsolete, while the EcuM specification still called them; <strong>R20-11</strong> reinstated both. R20-11 has the three reports of this page, but its text names the states <code>ECUM_STATE_APP_RUN</code> and <code>ECUM_STATE_APP_POST_RUN</code>; from R21-11 on they are <code>ECUM_STATE_RUN</code> and <code>ECUM_STATE_POST_RUN</code>, as in <code>EcuM_StateType</code>.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> EcuM only counts and reports; BswM decides. A user that needs POST_RUN time must request it before it releases RUN. The "shut down now" button works even while requests are open: in EcuM Flex nothing in EcuM stops a shutdown that BswM starts.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">EcuM user</span></td><td>A configured identifier for an SWC or another entity that uses the interfaces of EcuM</td></tr>
+<tr><td><span class="term">RUN request</span></td><td>A request from an EcuM user that the ECU stays in RUN; placed with <code>EcuM_RequestRUN</code></td></tr>
+<tr><td><span class="term">POST_RUN request</span></td><td>A request for time after the last RUN request, to finish work before going down</td></tr>
+<tr><td><code class="term">EcuM_ReleaseRUN</code></td><td>Releases the RUN request of a user</td></tr>
+<tr><td><code class="term">EcuM_ReleasePOST_RUN</code></td><td>Releases the POST_RUN request of a user</td></tr>
+<tr><td><span class="term">ECU Mode Handling</span></td><td>The optional cooperation of EcuM and BswM about the ECU modes RUN and POST_RUN</td></tr>
+<tr><td><code class="term">BswM_EcuM_RequestedState</code></td><td>EcuM tells BswM which state its users request, and whether requested or released</td></tr>
+<tr><td><code class="term">EcuM_SetState</code></td><td>BswM sets the EcuM state; EcuM then switches the ECU mode in the RTE</td></tr>
+<tr><td><code class="term">BswM_EcuM_CurrentState</code></td><td>EcuM tells BswM its current state, after the RTE has acknowledged the mode switch</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 1, 7.6, 7.10, 8.3.3 and 8.8.5; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of Basic Software Mode Manager, R25-11</a>, chapters 5.2 and 8.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const names = ['BodyControl', 'Logger'];
+  let run, post, mode;
+  const log = document.getElementById('log');
+  const why = document.getElementById('why');
+  const cards = Array.from(document.querySelectorAll('#sim .user'));
+  const pills = Array.from(document.querySelectorAll('#sim [data-m]'));
+  function add(text, cls) {
+    const li = document.createElement('li');
+    li.textContent = text;
+    if (cls) li.className = cls;
+    log.prepend(li);
+  }
+  const count = (a) => a.filter(Boolean).length;
+  function setMode(m, why) {
+    mode = m;
+    add('BswM → EcuM_SetState(ECUM_STATE_' + m + ')   ' + why);
+    add('EcuM → RTE: mode switch to ' + m + '; after the acknowledgement BswM_EcuM_CurrentState(ECUM_STATE_' + m + ')');
+  }
+  function shutdown(reason) {
+    setMode('SHUTDOWN', reason);
+    add('BswM → EcuM_GoDownHaltPoll(...): the ECU goes to its shutdown target', 'no');
+  }
+  function render() {
+    cards.forEach((c, u) => {
+      c.querySelector('.st').textContent = 'RUN: ' + (run[u] ? 'requested' : '–') + ' · POST_RUN: ' + (post[u] ? 'requested' : '–');
+      c.querySelectorAll('button').forEach((b) => { b.disabled = mode === 'SHUTDOWN'; });
+    });
+    pills.forEach((p) => { p.className = 'state-pill ' + (p.dataset.m === mode ? (mode === 'SHUTDOWN' ? 'bad' : 'on') : 'off'); });
+    document.getElementById('force').disabled = mode === 'SHUTDOWN';
+  }
+  function reset() {
+    run = [true, false]; post = [false, false]; mode = 'RUN';
+    log.replaceChildren();
+    add('Start: BodyControl holds a RUN request; the ECU mode is RUN.');
+    why.textContent = 'Release the RUN request of BodyControl, or let Logger request POST_RUN first.';
+    render();
+  }
+  function act(u, a) {
+    const n = names[u];
+    const before = count(run) + count(post);
+    if (a === 'rq' || a === 'pq') {
+      const arr = a === 'rq' ? run : post;
+      const api = a === 'rq' ? 'EcuM_RequestRUN' : 'EcuM_RequestPOST_RUN';
+      if (arr[u]) { add(n + ' → ' + api + ': already requested → Det: ECUM_E_MULTIPLE_RUN_REQUESTS', 'no'); why.textContent = 'Requests do not nest: one user holds one request of each kind.'; return render(); }
+      arr[u] = true;
+      add(n + ' → ' + api + ' → E_OK');
+      if (before === 0 || (a === 'rq' && mode !== 'RUN')) {
+        add('EcuM → BswM_EcuM_RequestedState(ECUM_STATE_RUN, ECUM_RUNSTATUS_REQUESTED)', 'ok');
+        if (mode === 'POST_RUN') setMode('RUN', '(example rule: request in POST_RUN → back to RUN)');
+      }
+      why.textContent = 'Open requests: RUN ' + count(run) + ', POST_RUN ' + count(post) + '.';
+    } else {
+      const arr = a === 'rl' ? run : post;
+      const api = a === 'rl' ? 'EcuM_ReleaseRUN' : 'EcuM_ReleasePOST_RUN';
+      if (!arr[u]) { add(n + ' → ' + api + ': no request to release → Det: ECUM_E_MISMATCHED_RUN_RELEASE', 'no'); why.textContent = 'A release needs a matching request of the same user.'; return render(); }
+      arr[u] = false;
+      add(n + ' → ' + api + ' → E_OK');
+      if (a === 'rl' && count(run) === 0) {
+        add('EcuM → BswM_EcuM_RequestedState(ECUM_STATE_RUN, ECUM_RUNSTATUS_RELEASED)', 'ok');
+        setMode('POST_RUN', '(example rule: RUN released → POST_RUN)');
+        why.textContent = count(post) ? 'POST_RUN: the users with a POST_RUN request finish their work, then release it.'
+          : 'POST_RUN, but no POST_RUN request is open: EcuM has nothing more to report, and these example rules wait. Real BswM rules must cover this case.';
+      } else if (a === 'pl' && count(post) === 0) {
+        add('EcuM → BswM_EcuM_RequestedState(ECUM_STATE_POST_RUN, ECUM_RUNSTATUS_RELEASED)', 'ok');
+        if (mode === 'POST_RUN') { shutdown('(example rule: POST_RUN released → shut down)'); why.textContent = 'The last POST_RUN request is gone: BswM shuts the ECU down.'; }
+        else why.textContent = 'Reported, but the ECU is still in RUN because RUN requests are open; the example rules ignore it.';
+      } else {
+        why.textContent = 'Open requests: RUN ' + count(run) + ', POST_RUN ' + count(post) + '. Nothing to report yet: other requests of the same kind are still open.';
+      }
+    }
+    render();
+  }
+  cards.forEach((c, u) => c.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => act(u, b.dataset.a))));
+  document.getElementById('force').addEventListener('click', () => {
+    const open = count(run) + count(post);
+    shutdown('(another BswM rule, for example low battery voltage)');
+    why.textContent = open ? 'The ECU goes down although ' + open + ' request(s) are open: EcuM Flex does not prevent it.' : 'BswM shuts the ECU down.';
+    render();
+  });
+  document.getElementById('reset').addEventListener('click', reset);
+  reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The last RUN request is released. What does EcuM do in R25-11?',
+    options: ['Reports it to BswM, and BswM decides', 'Switches the ECU to POST_RUN by itself', 'Calls EcuM_GoDownHaltPoll by itself'],
+    answer: 0,
+    why: 'EcuM calls <code>BswM_EcuM_RequestedState(ECUM_STATE_RUN, ECUM_RUNSTATUS_RELEASED)</code>. BswM\'s rules decide and set the new state with <code>EcuM_SetState</code>.'
+  },
+  {
+    prompt: 'Logger needs time to save data before the ECU goes down. What must it do?',
+    options: ['Request POST_RUN before releasing RUN', 'Release RUN, then request POST_RUN', 'Request RUN a second time to stay up'],
+    answer: 0,
+    why: 'Only a POST_RUN request placed before RUN is released makes sure the user still gets its POST_RUN time. A second RUN request is a development error.'
+  },
+  {
+    prompt: 'A RUN request is open and a BswM rule calls EcuM_GoDownHaltPoll. What happens?',
+    options: ['The ECU goes to its shutdown target', 'EcuM refuses because a request is open', 'EcuM waits until the request is released'],
+    answer: 0,
+    why: 'In EcuM Flex the requests are only reported. Whether they hold off a shutdown depends on the BswM rules alone.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

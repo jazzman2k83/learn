@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The example ECU: a body gateway · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+#ecu .bus { stroke: var(--m-drv); stroke-width: 4; }
+#ecu .bus.awake { stroke: var(--good); }
+#ecu .node.awake { fill: var(--good-soft); stroke: var(--good); stroke-width: 2.2; }
+.pncbtns { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.6rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The example ECU: a body gateway</h1>
+<p class="lede">Every later lesson uses one ECU as its example: a gateway on three buses with one SWC, a few <span class="term">ComM</span> requesters and <span class="term">Dcm</span>. Here it is, with all the names you will meet again.</p>
+
+<p>Real ECUs have dozens of channels and users. This one is small enough to keep in your head and still has everything the course needs: two CAN networks, one Ethernet network, partial networking and diagnostics.</p>
+
+<h2>Three buses, four other ECUs</h2>
+<p>The example is a <span class="term">gateway</span> (an ECU connected to several buses that passes data between them and keeps them awake together). It is connected to three networks:</p>
+<ul>
+<li><strong>body CAN</strong>, with the Door ECU and the Light ECU. It uses <span class="term">CanNm</span>, and it uses <span class="term">partial networking</span> (only some of the ECUs on the bus wake up, the others keep sleeping).</li>
+<li><strong>chassis CAN</strong>, with the Brake ECU. It also uses <span class="term">CanNm</span>, without partial networking.</li>
+<li><strong>Ethernet</strong>, with the Head unit. It uses <span class="term">UdpNm</span>.</li>
+</ul>
+<p>On each of them, network management sends an <span class="term">NM PDU</span> (the network management message each ECU sends cyclically while it needs the bus). On body CAN each ECU has a node identifier that it puts into its NM PDUs: the gateway 0x10, the Door ECU 0x21, the Light ECU 0x22.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg id="ecu" viewBox="0 0 760 450" role="img" aria-labelledby="ecut">
+<title id="ecut">The body gateway. Inside: the SWC BodyControl with the ComM users UserComfort, UserLighting and UserChassis; ComM with the PNCs Comfort (16) and Lighting (17) and the channels BodyCan (0), ChassisCan (1) and Eth (2). UserComfort is mapped to PNC Comfort, which uses BodyCan and Eth; UserLighting to PNC Lighting, which uses BodyCan; UserChassis to the channel ChassisCan. Dcm reports active diagnostics to ComM. Below: body CAN with the Door ECU (0x21) and the Light ECU (0x22), chassis CAN with the Brake ECU, Ethernet with the Head unit.</title>
+<rect x="20" y="8" width="720" height="300" class="d-ecu"/>
+<text x="30" y="26" class="d-tb">Body gateway</text>
+<text x="30" y="40" class="d-s">node 0x10 on body CAN</text>
+<rect x="180" y="34" width="420" height="74" class="m-app"/>
+<text x="190" y="51" class="d-tb">SWC BodyControl</text>
+<text x="600" y="51" class="d-s d-r">three ComM users</text>
+<rect x="192" y="62" width="125" height="34" class="d-box"/><text x="254" y="84" class="d-m d-c">UserComfort</text>
+<rect x="327" y="62" width="125" height="34" class="d-box"/><text x="389" y="84" class="d-m d-c">UserLighting</text>
+<rect x="462" y="62" width="125" height="34" class="d-box"/><text x="524" y="84" class="d-m d-c">UserChassis</text>
+<rect x="628" y="50" width="96" height="40" class="m-dcm"/><text x="676" y="68" class="d-tb d-c">Dcm</text><text x="676" y="82" class="d-s d-c">not a ComM user</text>
+<line x1="676" y1="90" x2="676" y2="130" class="d-ln" marker-end="url(#ar)"/>
+<rect x="40" y="130" width="680" height="148" class="m-comm"/>
+<text x="50" y="148" class="d-tb">ComM</text>
+<text x="712" y="147" class="d-m d-r">ComM_DCM_ActiveDiagnostic</text>
+<rect x="150" y="156" width="150" height="34" class="d-box"/><text x="225" y="171" class="d-tb d-c">PNC Comfort</text><text x="225" y="184" class="d-s d-c">PNC 16</text>
+<rect x="320" y="156" width="150" height="34" class="d-box"/><text x="395" y="171" class="d-tb d-c">PNC Lighting</text><text x="395" y="184" class="d-s d-c">PNC 17</text>
+<rect x="120" y="226" width="170" height="40" class="d-box"/><text x="205" y="243" class="d-m d-c">BodyCan</text><text x="205" y="258" class="d-s d-c">channel 0 · CAN</text>
+<rect x="400" y="226" width="150" height="40" class="d-box"/><text x="475" y="243" class="d-m d-c">ChassisCan</text><text x="475" y="258" class="d-s d-c">channel 1 · CAN</text>
+<rect x="570" y="226" width="140" height="40" class="d-box"/><text x="640" y="243" class="d-m d-c">Eth</text><text x="640" y="258" class="d-s d-c">channel 2 · Ethernet</text>
+<line x1="250" y1="96" x2="230" y2="153" class="d-ln" marker-end="url(#ar)"/>
+<line x1="389" y1="96" x2="393" y2="153" class="d-ln" marker-end="url(#ar)"/>
+<line x1="524" y1="96" x2="478" y2="223" class="d-ln" marker-end="url(#ar)"/>
+<line x1="215" y1="190" x2="207" y2="223" class="d-ln" marker-end="url(#ar)"/>
+<line x1="250" y1="190" x2="625" y2="224" class="d-ln" marker-end="url(#ar)"/>
+<line x1="380" y1="190" x2="230" y2="224" class="d-ln" marker-end="url(#ar)"/>
+<text x="210" y="294" class="d-s">CanNm · CanSM · CanIf</text>
+<text x="480" y="294" class="d-s">CanNm · CanSM · CanIf</text>
+<text x="735" y="294" class="d-s d-r">UdpNm · EthSM · EthIf</text>
+<line x1="205" y1="266" x2="205" y2="334" class="d-ln"/>
+<line x1="475" y1="266" x2="475" y2="334" class="d-ln"/>
+<line x1="640" y1="266" x2="640" y2="334" class="d-ln"/>
+<line x1="20" y1="334" x2="340" y2="334" class="bus" id="busB"/>
+<line x1="390" y1="334" x2="560" y2="334" class="bus"/>
+<line x1="590" y1="334" x2="740" y2="334" class="bus" id="busE"/>
+<text x="22" y="326" class="d-s">body CAN · partial networking</text>
+<text x="392" y="326" class="d-s">chassis CAN</text>
+<text x="738" y="326" class="d-s d-r">Ethernet</text>
+<line x1="95" y1="334" x2="95" y2="360" class="d-ln"/><line x1="245" y1="334" x2="245" y2="360" class="d-ln"/>
+<line x1="475" y1="334" x2="475" y2="360" class="d-ln"/><line x1="665" y1="334" x2="665" y2="360" class="d-ln"/>
+<rect x="30" y="360" width="130" height="44" class="d-box node" id="nDoor"/><text x="95" y="378" class="d-tb d-c">Door ECU</text><text x="95" y="394" class="d-s d-c">node 0x21</text>
+<rect x="180" y="360" width="130" height="44" class="d-box node" id="nLight"/><text x="245" y="378" class="d-tb d-c">Light ECU</text><text x="245" y="394" class="d-s d-c">node 0x22</text>
+<rect x="410" y="360" width="130" height="44" class="d-box node"/><text x="475" y="386" class="d-tb d-c">Brake ECU</text>
+<rect x="600" y="360" width="130" height="44" class="d-box node" id="nHead"/><text x="665" y="386" class="d-tb d-c">Head unit</text>
+<text x="95" y="422" class="d-s d-c">Comfort · Lighting</text>
+<text x="245" y="422" class="d-s d-c">Lighting</text>
+<text x="475" y="422" class="d-s d-c">no PNC</text>
+<text x="665" y="422" class="d-s d-c">Comfort</text>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The body gateway and its neighbours. Read it from the top: each ComM user is mapped either to a PNC or to a channel, and each PNC uses one or more channels. The grey line under each ECU names the PNCs it belongs to.</figcaption>
+</figure>
+
+<h2>One SWC, three ComM users</h2>
+<p>The application of the gateway is one SWC, <code>BodyControl</code>. It does not ask for "body CAN" directly. It owns three <span class="term">ComM user</span> (a logical requester of communication in ComM, mapped to channels or PNCs) entries, one per function, and each user asks for communication on its own:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>ComM user</th><th>Mapped to</th><th>So it wakes</th></tr></thead>
+<tbody>
+<tr><td><code>UserComfort</code></td><td>PNC Comfort (16)</td><td>body CAN and Ethernet, but on them only the ECUs of Comfort</td></tr>
+<tr><td><code>UserLighting</code></td><td>PNC Lighting (17)</td><td>body CAN, but on it only the ECUs of Lighting</td></tr>
+<tr><td><code>UserChassis</code></td><td>channel <code>ChassisCan</code></td><td>the whole chassis CAN</td></tr>
+</tbody>
+</table>
+</div>
+<p>ComM knows each network as a <span class="term">channel</span> (one network the ECU is connected to, with its own number, the network handle): <code>BodyCan</code> = 0, <code>ChassisCan</code> = 1, <code>Eth</code> = 2. Lesson 5 shows how ComM combines the requests of several users on one channel.</p>
+
+<h2>Partial networking, lightly</h2>
+<p>A <span class="term">PNC</span> (partial network cluster: a group of ECUs that are switched on and off together, independently of the other ECUs on the same bus) lets the gateway wake only the ECUs a function needs. The example has two:</p>
+<div class="cards">
+  <div class="card m-comm"><p class="tag">PNC 16</p><h3>Comfort</h3><p>Door ECU and Head unit, with the gateway. It uses body CAN and Ethernet, so the gateway passes Comfort requests between the two.</p></div>
+  <div class="card m-comm"><p class="tag">PNC 17</p><h3>Lighting</h3><p>Door ECU and Light ECU, with the gateway. It uses body CAN only.</p></div>
+</div>
+<p>Each PNC is one bit in the <span class="term">PNC bit vector</span> (bytes of the NM PDU with one bit per PNC; 1 means the sender requests that PNC). On body CAN the PNC bit vector is one byte long and starts at byte 2 of the NM PDU, right after the two bytes network management uses for itself; Ethernet uses the same offset. PNC 16 and PNC 17 are bits 0 and 1 of that byte. An ECU that belongs to neither requested PNC may keep sleeping even though NM PDUs run on its bus. The Brake ECU is not involved at all: chassis CAN has no PNCs. Part 8 explains how this works.</p>
+
+<h2>Try it</h2>
+<p>Request the PNCs and see which buses and ECUs have to be awake. This shows only the result; how the requests travel is the topic of the later lessons.</p>
+<div class="panel no-print">
+<div class="pncbtns">
+<button type="button" aria-pressed="false" data-pnc="C">PNC Comfort (16)</button>
+<button type="button" aria-pressed="false" data-pnc="L">PNC Lighting (17)</button>
+</div>
+<p class="readout" id="pncout">No PNC requested: body CAN and Ethernet may sleep.</p>
+</div>
+
+<h2>Dcm and the wakeup sources</h2>
+<p><span class="term">Dcm</span> answers a tester connected to the gateway. It is <em>not</em> a ComM user: while a diagnostic session is active on a channel, Dcm calls <code class="term">ComM_DCM_ActiveDiagnostic</code> (Dcm tells ComM that diagnostics is active on this channel, which keeps it awake) for that channel; lesson 10 shows the details.</p>
+<p>Three <span class="term">wakeup source</span> (a configured source of wakeups known to EcuM) entries can wake the gateway:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Wakeup source</th><th>What it is</th></tr></thead>
+<tbody>
+<tr><td><code>ECUM_WKSOURCE_BODYCAN</code></td><td>The CAN transceiver of body CAN detects bus activity</td></tr>
+<tr><td><code>ECUM_WKSOURCE_POWER</code></td><td>Power on</td></tr>
+<tr><td><code>ECUM_WKSOURCE_DOOR_PIN</code></td><td>A pin of the gateway, wired to the door</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>A wakeup on body CAN is checked before the gateway acts on it: <span class="term">wakeup validation</span> (checking that a wakeup was real, here that a valid CAN message follows, before the ECU acts on it) is switched on in CanIf for <code>ECUM_WKSOURCE_BODYCAN</code>. Lessons 34 and 35 show how.</p>
+
+<h2>Settings the later lessons rely on</h2>
+<p>A few choices of the configuration shape every later example. They are listed here once; each is explained in the lesson named.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Setting</th><th>In the example</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td><span class="term">NM variant</span> (how <span class="term">ComM</span> handles network management on a channel)</td><td><code class="term">FULL</code> (AUTOSAR NM runs and ComM requests and releases the network through it) on <code>BodyCan</code>, <code>ChassisCan</code> and <code>Eth</code></td><td>8</td></tr>
+<tr><td><span class="term">PNC gateway</span> (an ECU that forwards PNC requests between channels) type per channel</td><td><span class="term" data-term="active PNC gateway">ACTIVE</span> (the gateway coordinates the PNC there and sends the combined requests back) on <code>BodyCan</code> and <code>Eth</code>: the gateway is the <span class="term">top-level PNC coordinator</span> (the ECU that coordinates a PNC actively on all its channels) of Comfort and Lighting</td><td>44</td></tr>
+<tr><td><span class="term">PNC bit vector</span> on body CAN</td><td>1 byte at an offset of 2 bytes: byte 2 of the <span class="term">NM PDU</span></td><td>15, 40</td></tr>
+<tr><td><span class="term">Wakeup validation</span></td><td>on in CanIf; <code>ECUM_WKSOURCE_BODYCAN</code> is validated by a received CAN message</td><td>34, 35</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The SWC never names a bus; it requests through its users, and the configuration decides which channels and PNCs that means. Two users can share a bus: UserComfort and UserLighting both end up on <code>BodyCan</code>. Dcm keeps a channel awake by its own interface, not as a user.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">gateway</span></td><td>An ECU connected to several buses that passes data between them and keeps them awake together</td></tr>
+<tr><td><span class="term">partial networking</span></td><td>Letting only some of the ECUs on a bus wake up and communicate, while the others keep sleeping</td></tr>
+<tr><td><span class="term">PNC</span></td><td>Partial network cluster: a group of ECUs switched on and off together, one bit in the PNC bit vector</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7.1 and 7.3 (PNCs, user to PNC and channel mapping, PNC bit position); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 10 (PNC bit vector offset and length); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">Specification of CAN Interface, R25-11</a>, chapter 10 (wakeup validation support).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const req = { C: false, L: false };
+  const out = document.getElementById('pncout');
+  const on = (id, v) => document.getElementById(id).classList.toggle('awake', v);
+  document.querySelectorAll('[data-pnc]').forEach((b) => b.addEventListener('click', () => {
+    req[b.dataset.pnc] = !req[b.dataset.pnc];
+    b.setAttribute('aria-pressed', String(req[b.dataset.pnc]));
+    const c = req.C, l = req.L;
+    on('busB', c || l); on('busE', c);
+    on('nDoor', c || l); on('nLight', l); on('nHead', c);
+    if (!c && !l) out.textContent = 'No PNC requested: body CAN and Ethernet may sleep.';
+    else {
+      const ecus = [];
+      if (c || l) ecus.push('Door ECU');
+      if (l) ecus.push('Light ECU');
+      if (c) ecus.push('Head unit');
+      out.textContent = 'Awake: body CAN' + (c ? ' and Ethernet' : '') + '; ECUs: gateway, ' + ecus.join(', ') + '.' +
+        (c && !l ? ' The Light ECU belongs to neither requested PNC and may keep sleeping.' : '') +
+        (!c ? ' Ethernet and the Head unit are not needed.' : '');
+    }
+  }));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which channels does a request of UserComfort concern?',
+    options: ['BodyCan and Eth, through PNC Comfort', 'BodyCan only, through PNC Lighting', 'ChassisCan, through its own mapping'],
+    answer: 0,
+    why: 'UserComfort is mapped to PNC Comfort, and Comfort uses body CAN and Ethernet.'
+  },
+  {
+    prompt: 'How does Dcm keep a channel of the gateway awake?',
+    options: ['It calls ComM_DCM_ActiveDiagnostic', 'It requests as a fourth ComM user', 'It sends NM PDUs on its own'],
+    answer: 0,
+    why: 'Dcm is not a ComM user; it reports active diagnostics per channel with ComM_DCM_ActiveDiagnostic.'
+  },
+  {
+    prompt: 'Only PNC Lighting is requested. Which ECU may keep sleeping?',
+    options: ['The Head unit on Ethernet', 'The Door ECU on body CAN', 'The Light ECU on body CAN'],
+    answer: 0,
+    why: 'Lighting covers the Door ECU and the Light ECU on body CAN. The Head unit belongs only to Comfort.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

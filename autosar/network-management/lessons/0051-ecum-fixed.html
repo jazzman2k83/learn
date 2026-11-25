@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EcuM Fixed · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.fsm-ctl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin: 0.8rem 0 0.4rem; }
+@media (max-width: 34rem) { .fsm-ctl { grid-template-columns: 1fr; } }
+.fsm-ctl fieldset { border: 1px solid var(--rule); margin: 0; padding: 0.45rem 0.6rem 0.55rem; font-family: var(--sans); font-size: 0.78rem; }
+.fsm-ctl legend { font-size: 0.72rem; color: var(--muted); padding: 0 0.3rem; }
+.fsm-ctl .row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.fsm-ctl button { font-size: 0.72rem; padding: 0.25rem 0.5rem; }
+.fsm-ctl code { font-size: 0.72rem; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; font-family: var(--sans); font-size: 0.75rem; margin: 0.5rem 0; }
+#sim .scroll { overflow-x: auto; }
+#sim .scroll svg { display: block; width: 100%; min-width: 40rem; height: auto; }
+#fsm .d-frame-t { font-family: var(--sans); font-size: 11px; font-weight: 700; fill: var(--muted); letter-spacing: 0.04em; }
+#fsm .d-m { font-size: 10.5px; }
+#fsm .tr { fill: none; stroke: var(--d-mute); stroke-width: 1.3; }
+#fsm .tr.hot { stroke: var(--good); stroke-width: 2.2; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>EcuM Fixed</h1>
+<p class="lede">Before <span class="term">EcuM Flex</span> and <span class="term">BswM</span> took over, the ECU State Manager came with one state machine that the standard fixed: it kept the ECU in RUN while anyone asked for it, and it decided by itself when to shut down.</p>
+
+<div class="warn"><p><strong>Releases on this page: AUTOSAR 4.0.3 to 4.3.1.</strong> EcuM Fixed has its own specification up to 4.3.1, which marks it obsolete; 4.4.0 removes it. R25-11, the release of the rest of this course, has only <span class="term">EcuM Flex</span> (lessons 25 to 32).</p></div>
+
+<p>Read this page if your project still uses EcuM Fixed. It shows the fixed states, how RUN and POST_RUN requests keep the ECU running, how EcuM Fixed works together with <span class="term">ComM</span>, its callouts, and the TTII protocol. Configuration names appear openly here, because reading an old configuration is part of the topic.</p>
+
+<svg class="defs" aria-hidden="true"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker><marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ah-res"/></marker></defs></svg>
+
+<h2>One state machine, fixed by the standard</h2>
+<p><span class="term">EcuM Fixed</span> (the older EcuM variant with its own fixed state machine that decides shutdown itself) knows six main states: OFF, STARTUP, RUN, SHUTDOWN, SLEEP and WAKEUP. Most of them have sub-states. The type <code>EcuM_StateType</code> encodes the main state in the high nibble and the sub-state in the low nibble, so <code>ECUM_STATE_APP_RUN</code> = 0x32 belongs to <code>ECUM_STATE_RUN</code> = 0x30. The specification text also uses older names for some of them: RUN II and RUN III for the two RUN sub-states, STARTUP I and II, WAKEUP I and II, GO OFF I and II.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Main state</th><th>Sub-states (<code>ECUM_STATE_…</code>)</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td>STARTUP 0x10</td><td><code>STARTUP_ONE</code> 0x11, <code>STARTUP_TWO</code> 0x12</td><td>STARTUP_ONE runs from <code class="term">EcuM_Init</code> until the OS is started; STARTUP_TWO (<code class="term">EcuM_StartupTwo</code>) ends when the RTE is started.</td></tr>
+<tr><td>RUN 0x30</td><td><code>APP_RUN</code> 0x32 (RUN II), <code>APP_POST_RUN</code> 0x33 (RUN III)</td><td>The SWCs do their regular work in APP_RUN; APP_POST_RUN gives them time to save data before shutdown.</td></tr>
+<tr><td>SHUTDOWN 0x40</td><td><code>PREP_SHUTDOWN</code> 0x44, <code>GO_SLEEP</code> 0x49, <code>GO_OFF_ONE</code> 0x4d, <code>GO_OFF_TWO</code> 0x4e</td><td>PREP_SHUTDOWN is common to every <span class="term">shutdown target</span>; then GO_SLEEP for a sleep mode, or GO_OFF_ONE (stops the RTE, ends with <code>ShutdownOS</code>) and GO_OFF_TWO (switches off or resets).</td></tr>
+<tr><td>SLEEP 0x50</td><td>none</td><td>The MCU is in a sleep mode, the wakeup sources are armed.</td></tr>
+<tr><td>WAKEUP 0x20</td><td><code>WAKEUP_ONE</code> 0x21, <code>WAKEUP_VALIDATION</code> 0x22, <code>WAKEUP_REACTION</code> 0x23, <code>WAKEUP_TWO</code> 0x24, <code>WAKEUP_WAKESLEEP</code> 0x25, <code>WAKEUP_TTII</code> 0x26</td><td>Restart the drivers, validate the wakeup, choose the reaction (RUN, TTII or shutdown), then go back to RUN. <code>WAKEUP_WAKESLEEP</code> is listed in the type without a description; the specification only names a WakeSleep mode, which EcuM indicates to the RTE when a wakeup leads back to sleep.</td></tr>
+<tr><td>OFF 0x80, RESET 0x90</td><td>none</td><td>The ECU has no power; RESET is a shutdown target that passes straight to STARTUP.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The SWCs see these states through a mode port of EcuM: the RTE switches the mode to STARTUP, RUN, POSTRUN, SHUTDOWN or SLEEP at the points where the state machine passes them.</p>
+
+<h2>RUN: who keeps the ECU running</h2>
+<p>An SWC that needs the ECU calls <code class="term">EcuM_RequestRUN</code> and later <code class="term">EcuM_ReleaseRUN</code>; for clean-up work after that it calls <code class="term">EcuM_RequestPOST_RUN</code> and <code class="term">EcuM_ReleasePOST_RUN</code>. Each <span class="term">EcuM user</span> can place one request of each kind; EcuM Fixed tracks them per user. In EcuM Fixed these requests decide on their own: while one <span class="term">RUN request</span> is placed the ECU stays in RUN, and once the last <span class="term">POST_RUN request</span> is gone it shuts down. No BswM rule is involved.</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">entering APP_RUN</p><h3>Allow communication, start the timer</h3><p>EcuM calls the callout <code>EcuM_OnEnterRun</code>, indicates RUN to the RTE, calls <code class="term">ComM_CommunicationAllowed</code>(channel, TRUE) for every channel of its list and starts a timer: it stays at least <code class="term">EcuMRunMinimumDuration</code> (seconds) in RUN, so that the SWCs have time to place their RUN requests after startup.</p></div>
+  <div class="card m-ecum"><p class="tag">leaving APP_RUN</p><h3>No request, no communication, timer over</h3><p>In <code class="term" data-term="main function">EcuM_MainFunction</code> EcuM checks the RUN requests and the timer, and reads every ComM channel with <code class="term">ComM_GetState</code>. Only when no RUN request is left, the timer has run out and every channel reports <code class="term">COMM_NO_COM_NO_PENDING_REQUEST</code>, it calls <code class="term">ComM_CommunicationAllowed</code>(channel, FALSE), the callout <code>EcuM_OnExitRun</code>, and enters APP_POST_RUN.</p></div>
+  <div class="card m-ecum"><p class="tag">in APP_POST_RUN</p><h3>Back to RUN, or on to SHUTDOWN</h3><p>A new RUN request sends EcuM straight back to APP_RUN. So does a ComM channel in <code class="term">COMM_NO_COM_REQUEST_PENDING</code>: someone wants to communicate. When no POST_RUN request is left and no RUN request came, EcuM calls <code>EcuM_OnExitPostRun</code> and enters SHUTDOWN.</p></div>
+</div>
+
+<h3>ComM as a resource manager</h3>
+<p>EcuM Fixed treats <span class="term">ComM</span> as a <span class="term">resource manager</span> (a BSW module with its own state machine that has one idle state; while it is not idle, it keeps the ECU in RUN). For ComM the idle state is no communication. A <span class="term">ComM user</span> that requests full communication therefore keeps the ECU running without any RUN request of its own: the EcuM Fixed specification calls this an implicit RUN request. The ComM specification of 4.3.1 implements it through <code class="term">ComM_GetState</code>: EcuM Fixed polls every channel and leaves RUN only when all of them are idle. The rule for SWCs follows from it: an SWC that wants to communicate asks ComM, an SWC that needs the ECU without communication asks EcuM.</p>
+<p>Because EcuM Fixed calls <code class="term">ComM_CommunicationAllowed</code> itself, a configuration names the channels: <code class="term">EcuMComMCommunicationAllowedList</code> holds references to the ComM channels for which EcuM makes these calls. In R25-11 BswM makes the same call through an action list (lesson 9).</p>
+
+<h2>Try it</h2>
+<p>Drive the state machine of the body gateway. Each box is a value of <code>EcuM_StateType</code>, written without its prefix <code>ECUM_STATE_</code>. <code>BodyControl</code> is an EcuM user and owns the ComM user <code>UserChassis</code>; the wakeup source is the transceiver of body CAN. One <code>EcuM_MainFunction</code> cycle takes 0.6 s here, <code>EcuMRunMinimumDuration</code> is 3 s, and ComM falls back to no communication 4 s after the last request (in a real ECU the NM timers decide that). All times are slowed down.</p>
+<div class="panel no-print" id="sim">
+<div class="scroll">
+<svg id="fsm" viewBox="0 0 770 390" role="img" aria-labelledby="fsmt">
+<title id="fsmt">The EcuM Fixed state machine: OFF, the STARTUP sub-states, the RUN sub-states APP_RUN and APP_POST_RUN, the SHUTDOWN sub-states, SLEEP and the WAKEUP sub-states, with the current state highlighted.</title>
+<rect x="160" y="14" width="304" height="82" class="d-frame"/><text x="170" y="29" class="d-frame-t">STARTUP</text>
+<rect x="160" y="130" width="304" height="82" class="d-frame"/><text x="170" y="145" class="d-frame-t">RUN</text>
+<rect x="160" y="246" width="304" height="128" class="d-frame"/><text x="170" y="261" class="d-frame-t">SHUTDOWN</text>
+<rect x="480" y="14" width="266" height="218" class="d-frame"/><text x="490" y="29" class="d-frame-t">WAKEUP</text>
+<path d="M130,57 H170" class="tr" marker-end="url(#ar)" data-tr="OFF>STARTUP_ONE"/>
+<path d="M298,59 H324" class="tr" marker-end="url(#ar)" data-tr="STARTUP_ONE>STARTUP_TWO"/>
+<path d="M389,76 V112 H235 V156" class="tr" marker-end="url(#ar)" data-tr="STARTUP_TWO>APP_RUN"/>
+<path d="M298,168 H324" class="tr" marker-end="url(#ar)" data-tr="APP_RUN>APP_POST_RUN"/>
+<path d="M326,186 H300" class="tr" marker-end="url(#ar)" data-tr="APP_POST_RUN>APP_RUN"/>
+<path d="M389,192 V272" class="tr" marker-end="url(#ar)" data-tr="APP_POST_RUN>PREP_SHUTDOWN"/>
+<path d="M326,291 H300" class="tr" marker-end="url(#ar)" data-tr="PREP_SHUTDOWN>GO_OFF_ONE"/>
+<path d="M389,308 V324" class="tr" marker-end="url(#ar)" data-tr="PREP_SHUTDOWN>GO_SLEEP"/>
+<path d="M235,308 V324" class="tr" marker-end="url(#ar)" data-tr="GO_OFF_ONE>GO_OFF_TWO"/>
+<path d="M172,343 H75 V76" class="tr" marker-end="url(#ar)" data-tr="GO_OFF_TWO>OFF"/>
+<path d="M452,343 H628" class="tr" marker-end="url(#ar)" data-tr="GO_SLEEP>SLEEP"/>
+<path d="M740,343 H756 V59 H632" class="tr" marker-end="url(#ar)" data-tr="SLEEP>WAKEUP_ONE"/>
+<path d="M560,76 V88" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_ONE>WAKEUP_VALIDATION"/>
+<path d="M560,124 V136" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_VALIDATION>WAKEUP_REACTION"/>
+<path d="M560,172 V184" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_REACTION>WAKEUP_TWO"/>
+<path d="M630,155 H638" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_REACTION>WAKEUP_TTII"/>
+<path d="M688,172 V328" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_TTII>SLEEP"/>
+<path d="M490,165 H472 V264 H420 V272" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_REACTION>PREP_SHUTDOWN"/>
+<path d="M490,203 H250 V194" class="tr" marker-end="url(#ar)" data-tr="WAKEUP_TWO>APP_RUN"/>
+<rect x="20" y="40" width="110" height="34" class="d-state" data-st="OFF"/><text x="75" y="61" class="d-m d-c">OFF</text>
+<rect x="172" y="42" width="126" height="34" class="d-state" data-st="STARTUP_ONE"/><text x="235" y="63" class="d-m d-c">STARTUP_ONE</text>
+<rect x="326" y="42" width="126" height="34" class="d-state" data-st="STARTUP_TWO"/><text x="389" y="63" class="d-m d-c">STARTUP_TWO</text>
+<rect x="172" y="158" width="126" height="34" class="d-state" data-st="APP_RUN"/><text x="235" y="179" class="d-m d-c">APP_RUN</text>
+<rect x="326" y="158" width="126" height="34" class="d-state" data-st="APP_POST_RUN"/><text x="389" y="179" class="d-m d-c">APP_POST_RUN</text>
+<rect x="326" y="274" width="126" height="34" class="d-state" data-st="PREP_SHUTDOWN"/><text x="389" y="295" class="d-m d-c">PREP_SHUTDOWN</text>
+<rect x="172" y="274" width="126" height="34" class="d-state" data-st="GO_OFF_ONE"/><text x="235" y="295" class="d-m d-c">GO_OFF_ONE</text>
+<rect x="172" y="326" width="126" height="34" class="d-state" data-st="GO_OFF_TWO"/><text x="235" y="347" class="d-m d-c">GO_OFF_TWO</text>
+<rect x="326" y="326" width="126" height="34" class="d-state" data-st="GO_SLEEP"/><text x="389" y="347" class="d-m d-c">GO_SLEEP</text>
+<rect x="630" y="326" width="110" height="34" class="d-state" data-st="SLEEP"/><text x="685" y="347" class="d-m d-c">SLEEP</text>
+<rect x="490" y="42" width="140" height="34" class="d-state" data-st="WAKEUP_ONE"/><text x="560" y="63" class="d-m d-c">WAKEUP_ONE</text>
+<rect x="490" y="90" width="140" height="34" class="d-state" data-st="WAKEUP_VALIDATION"/><text x="560" y="111" class="d-m d-c">WAKEUP_VALIDATION</text>
+<rect x="490" y="138" width="140" height="34" class="d-state" data-st="WAKEUP_REACTION"/><text x="560" y="159" class="d-m d-c">WAKEUP_REACTION</text>
+<rect x="490" y="186" width="140" height="34" class="d-state" data-st="WAKEUP_TWO"/><text x="560" y="207" class="d-m d-c">WAKEUP_TWO</text>
+<rect x="640" y="138" width="96" height="34" class="d-state" data-st="WAKEUP_TTII"/><text x="688" y="159" class="d-m d-c">WAKEUP_TTII</text>
+</svg>
+</div>
+<div class="pills" aria-live="polite">
+<span>EcuM: <code id="st">OFF</code></span>
+<span>RUN requests: <span class="state-pill" id="pRun">none</span></span>
+<span>POST_RUN requests: <span class="state-pill" id="pPost">none</span></span>
+<span>Minimum duration: <span class="state-pill" id="pTimer">–</span></span>
+<span>Communication allowed: <span class="state-pill" id="pAllow">FALSE</span></span>
+</div>
+<div class="pills">
+<span>ComM <code>BodyCan</code>: <code id="chBody">COMM_NO_COM_NO_PENDING_REQUEST</code></span>
+<span>ComM <code>ChassisCan</code>: <code id="chChassis">COMM_NO_COM_NO_PENDING_REQUEST</code></span>
+</div>
+<div class="fsm-ctl">
+<fieldset><legend>BodyControl as EcuM user</legend><div class="row">
+<button type="button" id="bRun" aria-pressed="false">EcuM_RequestRUN</button>
+<button type="button" id="bPost" aria-pressed="false">EcuM_RequestPOST_RUN</button>
+</div></fieldset>
+<fieldset><legend>BodyControl as ComM user (UserChassis)</legend><div class="row">
+<button type="button" id="bCom" aria-pressed="false">ComM_RequestComMode(FULL)</button>
+</div></fieldset>
+<fieldset><legend>Shutdown target (EcuM_SelectShutdownTarget)</legend><div class="row">
+<button type="button" id="tSleep" aria-pressed="true">ECUM_STATE_SLEEP</button>
+<button type="button" id="tOff" aria-pressed="false">ECUM_STATE_OFF</button>
+</div></fieldset>
+<fieldset><legend>From outside</legend><div class="row">
+<button type="button" id="ePower">Power on</button>
+<button type="button" id="eWake">Wakeup on body CAN</button>
+<button type="button" id="eSpike">Spike on body CAN</button>
+<button type="button" id="eTtii">TTII timer</button>
+</div></fieldset>
+</div>
+<p class="readout" id="why">The ECU is off. Press Power on.</p>
+<ol class="log" id="log" aria-label="Calls made by EcuM"></ol>
+</div>
+
+<h2>Shutdown, sleep and wakeup</h2>
+<p>In PREP_SHUTDOWN EcuM calls <code>EcuM_OnPrepShutdown</code> and shuts down the <span class="term">DEM</span>. With a sleep mode as shutdown target it continues in GO_SLEEP: <code>EcuM_OnGoSleep</code>, the NvM write-all job, and <code class="term">EcuM_EnableWakeupSources</code> for every wakeup source of that sleep mode; the OS keeps running. With OFF or RESET it continues in GO_OFF_ONE: <code>EcuM_OnGoOffOne</code>, the RTE is stopped, ComM is de-initialized and the OS is shut down; GO_OFF_TWO then calls <code>EcuM_OnGoOffTwo</code> and switches off through the callout <code>EcuM_AL_SwitchOff</code>, or resets through the MCU driver. EcuM Fixed never puts the ECU into SLEEP while a RUN request is still placed.</p>
+<p>A wakeup leads through the WAKEUP sub-states. WAKEUP_ONE restores the normal MCU mode, disables the pending wakeup source and restarts the drivers (<code>EcuM_AL_DriverRestart</code>). WAKEUP_VALIDATION runs the same <span class="term">wakeup validation</span> as EcuM Flex (lesson 34): <code class="term">EcuM_StartWakeupSources</code>, <code class="term">EcuM_CheckValidation</code> until a source is validated or its <span class="term">validation timeout</span> runs out. On success EcuM calls <code class="term">ComM_EcuM_WakeUpIndication</code> for the channel of the source, and ComM moves that channel to <code class="term">COMM_NO_COM_REQUEST_PENDING</code>. WAKEUP_REACTION chooses one of three reactions: <code>ECUM_WKACT_RUN</code> (on through WAKEUP_TWO to RUN), <code>ECUM_WKACT_TTII</code>, or <code>ECUM_WKACT_SHUTDOWN</code>, which is also the default when nothing was validated. The callout <code>EcuM_OnWakeupReaction</code> may override the choice.</p>
+
+<h3>TTII: sleeping deeper over time</h3>
+<p><span class="term">TTII</span> (time triggered increased inoperation: a timer wakes the ECU again and again, and after a configured number of these wakeups EcuM selects the next, deeper sleep mode) exists only in EcuM Fixed. Each entry of the list names a sleep mode, its successor and a divisor: how often the ECU must be woken up before the successor is selected. When the configured TTII wakeup source is the only wakeup, WAKEUP_REACTION chooses <code>ECUM_WKACT_TTII</code>: EcuM counts the divisor down and, at the end, switches to the successor sleep mode. Every time RUN is reached, TTII starts again from its first entry. Configuration: <code>EcuMTTIIEnabled</code> and <code>EcuMTTIIWakeupSourceRef</code> in <code>EcuMFixedGeneral</code>, one <code>EcuMTTII</code> container (<code>EcuMDivisor</code>, <code>EcuMSleepModeRef</code>, <code>EcuMSuccessorRef</code>) per list entry. EcuM Flex has no TTII; its <span class="term">alarm clock</span> (lesson 31) covers timed wakeups.</p>
+
+<h2>The callouts</h2>
+<p>A callout is a function that EcuM calls and the integrator fills in. EcuM Fixed has one at almost every transition, and several of them exist only in EcuM Fixed:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Where</th><th>Callouts</th></tr></thead>
+<tbody>
+<tr><td>STARTUP_ONE</td><td><code>EcuM_AL_DriverInitZero</code>, <code>EcuM_DeterminePbConfiguration</code>, <code>EcuM_AL_DriverInitOne</code></td></tr>
+<tr><td>STARTUP_TWO</td><td><code>EcuM_AL_DriverInitTwo</code>, <code>EcuM_OnRTEStartup</code>, <code>EcuM_AL_DriverInitThree</code> (all three Fixed only)</td></tr>
+<tr><td>RUN</td><td><code>EcuM_OnEnterRun</code>, <code>EcuM_OnExitRun</code>, <code>EcuM_OnExitPostRun</code> (all three Fixed only)</td></tr>
+<tr><td>SHUTDOWN</td><td><code>EcuM_OnPrepShutdown</code>, <code>EcuM_OnGoSleep</code> (both Fixed only); <code>EcuM_OnGoOffOne</code>, <code>EcuM_OnGoOffTwo</code>, <code>EcuM_AL_SwitchOff</code>; <code>EcuM_EnableWakeupSources</code></td></tr>
+<tr><td>SLEEP and WAKEUP</td><td><code>EcuM_SleepActivity</code>, <code>EcuM_DisableWakeupSources</code>, <code>EcuM_AL_DriverRestart</code>, <code>EcuM_StartWakeupSources</code>, <code>EcuM_CheckValidation</code>, <code>EcuM_StopWakeupSources</code>, <code>EcuM_OnWakeupReaction</code> (Fixed only)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The configuration, briefly</h2>
+<p>An EcuM Fixed configuration is easy to recognise: it has the containers <code>EcuMFixedGeneral</code> and <code>EcuMConfiguration/EcuMFixedConfiguration</code>, all marked obsolete in 4.3.1. <code>EcuMFixedConfiguration</code> holds <code class="term">EcuMRunMinimumDuration</code>, <code class="term">EcuMComMCommunicationAllowedList</code>, the NvM timeouts <code>EcuMNvramReadallTimeout</code> and <code>EcuMNvramWriteallTimeout</code>, <code>EcuMNormalMcuModeRef</code>, the init lists <code>EcuMDriverInitListTwo</code> and <code>EcuMDriverInitListThree</code>, the users (<code>EcuMFixedUserConfig</code> with <code>EcuMFixedUser</code>, for SWCs and for modules below the RTE such as ComM) and the TTII list. <code>EcuMFixedGeneral</code> adds <code>EcuMIncludeComM</code> and the TTII switches. The wakeup sources (<code>EcuMWakeupSource</code> with <code>EcuMComMChannelRef</code> and <code>EcuMValidationTimeout</code>) and the sleep modes live in the common part, as in EcuM Flex.</p>
+
+<div class="older"><p>In 4.0.3, <code>EcuM_KillAllPostRUNRequests</code> does not exist yet; 4.1.2 added it next to <code>EcuM_KillAllRUNRequests</code>, which clears every RUN request and leads into a controlled shutdown. The 4.0.3 specification also names the generated symbol of <code>EcuMRunMinimumDuration</code> <code>ECUM_RUN_SELF_REQUEST_PERIOD</code>. The states and their values are the same from 4.0.3 to 4.3.1.</p></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> In EcuM Fixed the RUN requests themselves decide: no request, no ComM channel out of no communication and the minimum duration over means shutdown. EcuM Fixed, not BswM, calls <code class="term">ComM_CommunicationAllowed</code>, and it reads the ComM channels with <code class="term">ComM_GetState</code>. POST_RUN is a real state: a ComM request that arrives there is held as pending and brings the ECU back into RUN.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">EcuM Fixed</span></td><td>The older EcuM variant with its own fixed state machine that decides shutdown itself; specified up to 4.3.1, removed in 4.4.0</td></tr>
+<tr><td><span class="term">resource manager</span></td><td>In EcuM Fixed: a BSW module with one idle state that keeps the ECU in RUN while it is not idle, such as ComM</td></tr>
+<tr><td><code class="term">ComM_GetState</code></td><td>ComM API (up to 4.3.1) that returns the state and sub-state of a channel; EcuM Fixed polls it before it leaves RUN</td></tr>
+<tr><td><code class="term">EcuMRunMinimumDuration</code></td><td>EcuM Fixed parameter: the time in seconds the ECU stays in RUN even when nobody requests RUN</td></tr>
+<tr><td><code class="term">EcuMComMCommunicationAllowedList</code></td><td>EcuM Fixed parameter: the ComM channels for which EcuM calls ComM_CommunicationAllowed on entering and leaving RUN</td></tr>
+<tr><td><span class="term">TTII</span></td><td>Time triggered increased inoperation: after a configured number of timer wakeups, EcuM Fixed selects the next, deeper sleep mode</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/classic/4-3-1/AUTOSAR_SWS_ECUStateManagerFixed.pdf">Specification of ECU State Manager with fixed state machine, 4.3.1</a>, chapters 5.1, 7.1 to 7.9, 8.2 to 8.7, 10.3 (and the 4.0.3 and 4.2.2 editions); <a href="https://www.autosar.org/fileadmin/standards/classic/4-3-1/AUTOSAR_SWS_COMManager.pdf">Specification of Communication Manager, 4.3.1</a>, chapters 5.3, 7.2 and 8.3.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const TICK = 600, MINRUN = 3000, FULLMIN = 1500, NMSLEEP = 4000; // ms, scaled
+  const NO = 'COMM_NO_COM_NO_PENDING_REQUEST', PEND = 'COMM_NO_COM_REQUEST_PENDING',
+        NETREQ = 'COMM_FULL_COM_NETWORK_REQUESTED', READY = 'COMM_FULL_COM_READY_SLEEP';
+  const $ = (id) => document.getElementById(id);
+  const s = { st: 'OFF', prev: null, run: false, post: false, com: false, target: 'SLEEP', allowed: false,
+    minEnd: 0, wake: null, ttii: 0, ch: { BodyCan: { st: NO, t: 0 }, ChassisCan: { st: NO, t: 0 } } };
+  const log = $('log');
+  function call(t) {
+    const li = document.createElement('li'); li.textContent = t; log.prepend(li);
+    while (log.children.length > 30) log.lastChild.remove();
+  }
+  function say(t) { $('why').textContent = t; }
+  function go(n, text) {
+    s.prev = s.st; s.st = n;
+    if (text) say(text);
+    render();
+  }
+  function allow(v) {
+    if (s.allowed === v) return;
+    s.allowed = v;
+    ['BodyCan', 'ChassisCan', 'Eth'].forEach((c) => call('ComM_CommunicationAllowed(' + c + ', ' + (v ? 'TRUE' : 'FALSE') + ')'));
+  }
+  function comm(now) {
+    const ch = s.ch;
+    // ChassisCan follows UserChassis
+    const c = ch.ChassisCan;
+    if (s.com) {
+      if (c.st === NO) c.st = PEND;
+      if (c.st === READY) c.st = NETREQ;
+    } else {
+      if (c.st === PEND) c.st = NO;
+      if (c.st === NETREQ) { c.st = READY; c.t = now + NMSLEEP; }
+    }
+    Object.keys(ch).forEach((k) => {
+      const x = ch[k];
+      if (x.st === PEND && s.allowed && (k === 'BodyCan' || s.com)) { x.st = NETREQ; x.t = now + FULLMIN; }
+      if (k === 'BodyCan' && x.st === NETREQ && now >= x.t) { x.st = READY; x.t = now + NMSLEEP; }
+      if (x.st === READY && now >= x.t && !(k === 'ChassisCan' && s.com)) x.st = NO;
+    });
+  }
+  function anyPend() { return s.ch.BodyCan.st === PEND || s.ch.ChassisCan.st === PEND; }
+  function allIdle() { return s.ch.BodyCan.st === NO && s.ch.ChassisCan.st === NO; }
+  function enterRun(now) {
+    call('EcuM_OnEnterRun()'); call('Rte_Switch: RUN');
+    allow(true);
+    s.minEnd = now + MINRUN; s.ttii = 0;
+  }
+  function step() {
+    const now = performance.now();
+    comm(now);
+    switch (s.st) {
+      case 'STARTUP_ONE':
+        call('EcuM_StartupTwo()');
+        go('STARTUP_TWO', 'STARTUP_ONE is done and the OS runs. STARTUP_TWO starts the BSW Scheduler and the RTE. The reset reason is ECUM_WKSOURCE_POWER, which needs no validation, so RUN follows.');
+        call('EcuM_OnRTEStartup()');
+        break;
+      case 'STARTUP_TWO':
+        go('APP_RUN', 'Entering APP_RUN: communication is allowed on the channels of EcuMComMCommunicationAllowedList, and the minimum RUN duration starts.');
+        enterRun(now);
+        break;
+      case 'WAKEUP_ONE':
+        call('EcuM_AL_DriverRestart()');
+        go('WAKEUP_VALIDATION', 'WAKEUP_VALIDATION: EcuM starts the wakeup source and checks it until it is validated or its validation timeout runs out.');
+        if (s.wake !== 'ttii') { call('EcuM_StartWakeupSources(ECUM_WKSOURCE_BODYCAN)'); call('EcuM_CheckValidation(ECUM_WKSOURCE_BODYCAN)'); }
+        break;
+      case 'WAKEUP_VALIDATION':
+        if (s.wake === 'can') {
+          call('EcuM_ValidateWakeupEvent(ECUM_WKSOURCE_BODYCAN)');
+          call('ComM_EcuM_WakeUpIndication(BodyCan)');
+          s.ch.BodyCan.st = PEND;
+          go('WAKEUP_REACTION', 'The wakeup is validated. ComM puts BodyCan into COMM_NO_COM_REQUEST_PENDING; communication is not allowed yet. WAKEUP_REACTION chooses ECUM_WKACT_RUN.');
+        } else if (s.wake === 'spike') {
+          call('EcuM_StopWakeupSources(ECUM_WKSOURCE_BODYCAN)');
+          go('WAKEUP_REACTION', 'The validation timeout ran out: nothing was validated. WAKEUP_REACTION falls back to ECUM_WKACT_SHUTDOWN, and the ECU goes back to sleep.');
+        } else {
+          go('WAKEUP_REACTION', 'The TTII timer needs no validation. It is the only wakeup, so WAKEUP_REACTION chooses ECUM_WKACT_TTII.');
+        }
+        call('EcuM_OnWakeupReaction()');
+        break;
+      case 'WAKEUP_REACTION':
+        if (s.wake === 'can') go('WAKEUP_TWO', 'WAKEUP_TWO initializes the DEM again and indicates RUN to the RTE.');
+        else if (s.wake === 'spike') { go('PREP_SHUTDOWN', 'Back through PREP_SHUTDOWN and GO_SLEEP into the same sleep mode.'); call('EcuM_OnPrepShutdown()'); }
+        else { s.ttii++; go('WAKEUP_TTII', 'TTII counts the divisor down (' + s.ttii + ' of 3 in this example). At the end it selects the next, deeper sleep mode.'); }
+        break;
+      case 'WAKEUP_TWO':
+        go('APP_RUN', 'Back in APP_RUN. Now communication is allowed, ComM starts BodyCan (passive startup), and the channel keeps the ECU in RUN with no RUN request at all.');
+        enterRun(now);
+        break;
+      case 'WAKEUP_TTII':
+        go('SLEEP', s.ttii >= 3 ? 'Third TTII wakeup: the successor sleep mode is selected, and the ECU sleeps more deeply.' : 'Back to sleep in the same sleep mode.');
+        if (s.ttii >= 3) s.ttii = 0;
+        break;
+      case 'APP_RUN': {
+        const left = s.minEnd - now;
+        if (s.run) { say('A RUN request is placed: EcuM stays in APP_RUN.'); break; }
+        if (left > 0) { say('No RUN request, but the minimum duration (EcuMRunMinimumDuration) is still running.'); break; }
+        if (!allIdle()) { say('No RUN request and the timer is over, but ComM_GetState reports a channel that is not COMM_NO_COM_NO_PENDING_REQUEST: ComM keeps the ECU in RUN.'); call('ComM_GetState(BodyCan), ComM_GetState(ChassisCan)'); break; }
+        call('ComM_GetState(BodyCan), ComM_GetState(ChassisCan)');
+        allow(false);
+        call('EcuM_OnExitRun()'); call('Rte_Switch: POSTRUN');
+        go('APP_POST_RUN', 'No RUN request, timer over, every channel idle: communication is no longer allowed, and EcuM enters APP_POST_RUN.');
+        break; }
+      case 'APP_POST_RUN':
+        if (s.run) { go('APP_RUN', 'A RUN request arrived in APP_POST_RUN: EcuM goes back to APP_RUN at once.'); enterRun(now); break; }
+        if (anyPend()) { go('APP_RUN', 'ComM_GetState reports COMM_NO_COM_REQUEST_PENDING: someone wants to communicate, so EcuM goes back to APP_RUN and allows communication again.'); enterRun(now); break; }
+        if (s.post) { say('A POST_RUN request is still placed: the SWC finishes its work.'); break; }
+        call('EcuM_OnExitPostRun()');
+        go('PREP_SHUTDOWN', 'No POST_RUN request left and no RUN request: SHUTDOWN begins.');
+        call('EcuM_OnPrepShutdown()'); call('Rte_Switch: ' + (s.target === 'SLEEP' ? 'SLEEP' : 'SHUTDOWN'));
+        break;
+      case 'PREP_SHUTDOWN':
+        if (s.target === 'SLEEP') { go('GO_SLEEP', 'The shutdown target is a sleep mode: GO_SLEEP arms the wakeup sources of that sleep mode.'); call('EcuM_OnGoSleep()'); call('EcuM_EnableWakeupSources(ECUM_WKSOURCE_BODYCAN)'); }
+        else { go('GO_OFF_ONE', 'The shutdown target is OFF: GO_OFF_ONE stops the RTE, de-initializes ComM and shuts the OS down.'); call('EcuM_OnGoOffOne()'); call('ComM_DeInit()'); call('ShutdownOS()'); }
+        break;
+      case 'GO_SLEEP':
+        go('SLEEP', 'The ECU sleeps. Only a wakeup brings it back.'); call('EcuM_SleepActivity()');
+        break;
+      case 'GO_OFF_ONE':
+        go('GO_OFF_TWO', 'GO_OFF_TWO runs after the OS is down.'); call('EcuM_OnGoOffTwo()');
+        break;
+      case 'GO_OFF_TWO':
+        call('EcuM_AL_SwitchOff()');
+        go('OFF', 'The ECU switched itself off. Only Power on starts it again.');
+        break;
+      default: break;
+    }
+    render();
+  }
+  function render() {
+    $('st').textContent = 'ECUM_STATE_' + s.st;
+    document.querySelectorAll('#fsm [data-st]').forEach((r) => r.classList.toggle('on', r.dataset.st === s.st));
+    document.querySelectorAll('#fsm [data-tr]').forEach((p) => p.classList.toggle('hot', p.dataset.tr === s.prev + '>' + s.st));
+    document.querySelectorAll('#fsm .tr').forEach((p) => p.setAttribute('marker-end', p.classList.contains('hot') ? 'url(#arh)' : 'url(#ar)'));
+    $('pRun').textContent = s.run ? 'BodyControl' : 'none'; $('pRun').className = 'state-pill ' + (s.run ? 'on' : 'off');
+    $('pPost').textContent = s.post ? 'BodyControl' : 'none'; $('pPost').className = 'state-pill ' + (s.post ? 'on' : 'off');
+    const left = s.st === 'APP_RUN' ? Math.max(0, s.minEnd - performance.now()) : 0;
+    $('pTimer').textContent = s.st === 'APP_RUN' ? (left > 0 ? (left / 1000).toFixed(1) + ' s left' : 'over') : '–';
+    $('pAllow').textContent = s.allowed ? 'TRUE' : 'FALSE'; $('pAllow').className = 'state-pill ' + (s.allowed ? 'on' : 'off');
+    $('chBody').textContent = s.ch.BodyCan.st; $('chChassis').textContent = s.ch.ChassisCan.st;
+    $('bRun').setAttribute('aria-pressed', String(s.run)); $('bRun').textContent = s.run ? 'EcuM_ReleaseRUN' : 'EcuM_RequestRUN';
+    $('bPost').setAttribute('aria-pressed', String(s.post)); $('bPost').textContent = s.post ? 'EcuM_ReleasePOST_RUN' : 'EcuM_RequestPOST_RUN';
+    $('bCom').setAttribute('aria-pressed', String(s.com)); $('bCom').textContent = s.com ? 'ComM_RequestComMode(NO)' : 'ComM_RequestComMode(FULL)';
+    $('tSleep').setAttribute('aria-pressed', String(s.target === 'SLEEP')); $('tOff').setAttribute('aria-pressed', String(s.target === 'OFF'));
+    const up = s.st !== 'OFF' && s.st !== 'SLEEP';
+    $('ePower').disabled = s.st !== 'OFF';
+    ['eWake', 'eSpike', 'eTtii'].forEach((id) => { $(id).disabled = s.st !== 'SLEEP'; });
+    ['bRun', 'bPost', 'bCom'].forEach((id) => { $(id).disabled = !up; });
+  }
+  $('bRun').addEventListener('click', () => { s.run = !s.run; call(s.run ? 'EcuM_RequestRUN(BodyControl)' : 'EcuM_ReleaseRUN(BodyControl)'); render(); });
+  $('bPost').addEventListener('click', () => { s.post = !s.post; call(s.post ? 'EcuM_RequestPOST_RUN(BodyControl)' : 'EcuM_ReleasePOST_RUN(BodyControl)'); render(); });
+  $('bCom').addEventListener('click', () => { s.com = !s.com; call('ComM_RequestComMode(UserChassis, ' + (s.com ? 'COMM_FULL_COMMUNICATION' : 'COMM_NO_COMMUNICATION') + ')'); comm(performance.now()); render(); });
+  $('tSleep').addEventListener('click', () => { s.target = 'SLEEP'; call('EcuM_SelectShutdownTarget(ECUM_STATE_SLEEP, sleep mode)'); render(); });
+  $('tOff').addEventListener('click', () => { s.target = 'OFF'; call('EcuM_SelectShutdownTarget(ECUM_STATE_OFF, 0)'); render(); });
+  $('ePower').addEventListener('click', () => {
+    s.run = s.post = s.com = false; s.allowed = false;
+    s.ch.BodyCan.st = NO; s.ch.ChassisCan.st = NO;
+    call('EcuM_Init()');
+    go('STARTUP_ONE', 'Power on: EcuM_Init runs STARTUP_ONE (init blocks zero and one, post-build configuration, reset reason) and starts the OS.');
+  });
+  function wake(kind, text) {
+    s.wake = kind;
+    call(kind === 'ttii' ? 'EcuM_SetWakeupEvent(TTII timer source)' : 'EcuM_SetWakeupEvent(ECUM_WKSOURCE_BODYCAN)');
+    call('EcuM_DisableWakeupSources()');
+    go('WAKEUP_ONE', text);
+  }
+  $('eWake').addEventListener('click', () => wake('can', 'Another ECU sends on body CAN. WAKEUP_ONE restores the MCU mode and restarts the drivers.'));
+  $('eSpike').addEventListener('click', () => wake('spike', 'A spike on body CAN wakes the transceiver, but no real frame follows. WAKEUP_ONE restarts the drivers.'));
+  $('eTtii').addEventListener('click', () => wake('ttii', 'The TTII timer wakes the ECU. WAKEUP_ONE restarts the drivers.'));
+  setInterval(step, TICK);
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'No SWC holds a RUN request and EcuMRunMinimumDuration is over. ComM reports COMM_FULL_COM_READY_SLEEP on ChassisCan. What does EcuM Fixed do?',
+    options: ['It stays in APP_RUN until the channel is idle', 'It enters APP_POST_RUN and keeps the channel', 'It releases ChassisCan and starts the shutdown'],
+    answer: 0,
+    why: 'ComM is a resource manager: EcuM Fixed leaves APP_RUN only when ComM_GetState reports COMM_NO_COM_NO_PENDING_REQUEST on every channel.'
+  },
+  {
+    prompt: 'Who calls ComM_CommunicationAllowed in an ECU with EcuM Fixed?',
+    options: ['EcuM, on entering and leaving RUN', 'BswM, from one of its action lists', 'ComM itself, when a user requests it'],
+    answer: 0,
+    why: 'EcuM Fixed calls it for every channel in EcuMComMCommunicationAllowedList: TRUE after entering RUN, FALSE before leaving it. With EcuM Flex, BswM does it.'
+  },
+  {
+    prompt: 'EcuM is in APP_POST_RUN when a ComM user requests full communication. What happens?',
+    options: ['The request is pending, and EcuM returns to RUN', 'ComM starts the channel at once in POST_RUN', 'The request is lost and the ECU shuts down'],
+    answer: 0,
+    why: 'Communication is not allowed in POST_RUN, so the channel goes to COMM_NO_COM_REQUEST_PENDING. EcuM sees this with ComM_GetState and goes back to APP_RUN.'
+  },
+  {
+    prompt: 'What does TTII do?',
+    options: ['Selects a deeper sleep mode after timer wakeups', 'Validates a wakeup within a configured timeout', 'Keeps the ECU in RUN for a minimum duration'],
+    answer: 0,
+    why: 'Time triggered increased inoperation counts timer wakeups and, after the configured divisor, switches to the successor sleep mode.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

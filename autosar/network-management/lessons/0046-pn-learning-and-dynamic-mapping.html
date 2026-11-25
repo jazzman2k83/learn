@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PN learning and dynamic PNC-to-channel mapping · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+table.map { border-collapse: collapse; font-family: var(--sans); font-size: 0.8rem; margin: 0.6rem 0 0; background: var(--paper); }
+table.map th, table.map td { border: 1px solid var(--rule); padding: 0.3rem 0.6rem; text-align: center; }
+table.map th { background: var(--head); font-weight: 600; }
+table.map td.new { background: var(--good-soft); border-color: var(--good); font-weight: 700; }
+.lp { font-family: var(--sans); font-size: 0.78rem; margin: 0.6rem 0 0; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>PN learning and dynamic PNC-to-channel mapping</h1>
+<p class="lede">A <span class="term">PNC gateway</span> normally knows from its configuration which channels each <span class="term">PNC</span> uses. With an optional feature it can ask the ECUs on a bus which PNCs they belong to, and extend that mapping at run time.</p>
+
+<p>Lesson 44 took the PNC-to-channel mapping of the gateway as fixed. This lesson shows how it can be learned: what starts the learning, what each ECU answers, what the gateway does with the answers, and how far the specification has got with it.</p>
+
+<h2>Why learn the mapping</h2>
+<p>The gateway's configuration says, per PNC, which channels reach its members: Comfort on <code>BodyCan</code> and <code>Eth</code>, Lighting on <code>BodyCan</code>. If an ECU variant that is fitted later belongs to a PNC on a channel where the gateway does not expect it, the gateway would not forward that PNC there. <span class="term">Dynamic PNC-to-channel mapping</span> (an optional ComM feature of a PNC gateway: the configured mapping of PNCs to channels is extended at run time from what the ECUs report) lets the gateway find out instead. It works as request and response:</p>
+<ul>
+<li>The gateway starts <span class="term">PN learning</span> (a learning phase in which every ECU on a channel sends its PNC membership in its NM PDUs) on its channels.</li>
+<li>Every ECU taking part answers with its <span class="term">PNC membership</span> (the PNCs this ECU belongs to; an SWC can set it at run time with <code>ComM_UpdatePncMembership</code>).</li>
+<li>The gateway sets a mapping entry for every PNC it receives on a channel.</li>
+</ul>
+
+<h2>The learning phase, step by step</h2>
+<p>The request travels in two bits of the <span class="term">Control Bit Vector</span>: the <span class="term">Repeat Message Request</span>, which brings every node back into <span class="term">Repeat Message State</span>, and the <span class="term">Partial Network Learning Bit</span> (bit 5 of the Control Bit Vector: together with the Repeat Message Request it starts the PNC learning phase; cleared when the sender leaves Repeat Message State). Step through a learning phase on body CAN:</p>
+<div class="panel" id="learn"></div>
+<p>While the learning phase is active, ComM refuses to start another one and to read or change the mapping: <code class="term">ComM_PnLearningRequest</code> (ComM API: starts the PNC learning phase on all channels with dynamic mapping), <code>ComM_UpdatePncMembership</code>, <code>ComM_GetPncToChannelMapping</code>, <code>ComM_UpdatePncToChannelMapping</code> and <code>ComM_ResetPncToChannelMapping</code> then return <code>COMM_E_LEARNING_ACTIVE</code>. The reset brings the learned entries back to the configured default. A PNC that is mapped to a channel for transmission only (lesson 44) cannot be combined with dynamic mapping.</p>
+<p>On a gateway, the learning request itself is forwarded like a PNC request, without mirroring it back: from an active channel to all other coordinated channels with dynamic mapping, from a passive channel to the active ones. The membership bits that arrive are forwarded by the same rule, merged into the gateway's own membership.</p>
+
+<h2>What is valid in R25-11</h2>
+<p>PN learning arrived in R20-11 as a draft and is still not finished everywhere. In the R25-11 documents:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Part</th><th>Status in R25-11</th></tr></thead>
+<tbody>
+<tr><td><code>ComM_PnLearningRequest</code>, <code>ComM_UpdatePncMembership</code>, <code>ComM_Nm_PncLearningBitIndication</code>, <code>ComM_Nm_RepeatMessageLeftIndication</code></td><td>valid</td></tr>
+<tr><td><code class="term">Nm_PnLearningRequest</code>, <code>CanNm_PnLearningRequest</code></td><td>valid</td></tr>
+<tr><td><code>UdpNm_PnLearningRequest</code> and the UdpNm configuration of the feature</td><td>draft: on Ethernet PN learning is not yet standardized</td></tr>
+<tr><td>the NmIf configuration switches that enable the feature</td><td>draft</td></tr>
+<tr><td>the ComM rule that sets a mapping entry from a received ERA bit</td><td>draft</td></tr>
+<tr><td>the C functions to get, update and reset the mapping</td><td>valid; the same operations on the SWC port are marked draft</td></tr>
+</tbody>
+</table>
+</div>
+<p>So the core of the feature, the step from the received bits to the mapping, is still a draft, and in the example ECU learning can be described only for body CAN. Treat it as optional and check what your basic software supplier implements.</p>
+
+<div class="older">
+<p>4.4.0 has no PN learning and no dynamic mapping. In R20-11 the feature is new: <code>Nm_PnLearningRequest</code>, <code>CanNm_PnLearningRequest</code>, <code>UdpNm_PnLearningRequest</code>, <code>ComM_Nm_PncLearningBitIndication</code> and <code>ComM_Nm_RepeatMessageLeftIndication</code> are drafts there. From R22-11 the ComM, NmIf and CanNm functions are valid; the UdpNm function has stayed a draft up to R25-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> PN learning reuses what NM already has: the Repeat Message Request brings every node into Repeat Message State, and the PNC bit vector carries the answers. The phase ends by itself when Repeat Message State ends. Only a PNC gateway keeps a mapping; the other ECUs only answer. Much of the feature is still draft in R25-11, on Ethernet all of it.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">dynamic PNC-to-channel mapping</span></td><td>Optional ComM feature of a PNC gateway: the configured mapping of PNCs to channels is extended at run time from a PN learning phase</td></tr>
+<tr><td><span class="term">PN learning</span></td><td>A learning phase in which every ECU on a channel sends its PNC membership in its NM PDUs</td></tr>
+<tr><td><span class="term">PNC membership</span></td><td>The PNCs an ECU belongs to; sent as PNC bits during PN learning</td></tr>
+<tr><td><span class="term">Partial Network Learning Bit</span></td><td>Bit 5 of the Control Bit Vector: with the Repeat Message Request it starts the PNC learning phase</td></tr>
+<tr><td><code class="term">ComM_PnLearningRequest</code></td><td>ComM API: starts the PNC learning phase on all channels with dynamic mapping</td></tr>
+<tr><td><code class="term">Nm_PnLearningRequest</code></td><td>NmIf API: passes the learning request of one channel to the bus NM</td></tr>
+<tr><td><code class="term">ComM_Nm_PncLearningBitIndication</code></td><td>ComM callback: an NM PDU with the Partial Network Learning Bit was received on a channel</td></tr>
+<tr><td><code class="term">ComM_Nm_RepeatMessageLeftIndication</code></td><td>ComM callback: the bus NM has left Repeat Message State; the learning phase of the channel ends</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.1.5, 8.3.13 to 8.3.17 and 8.4.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 8.3 and 8.4 (<code>Nm_PnLearningRequest</code>, <code>Nm_RepeatMessageIndication</code>) and chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, sections 7.2.1 and 8.3.20; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>, section 8.3.19.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/stepper.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const host = document.getElementById('learn');
+  const holder = document.createElement('div');
+  host.appendChild(holder);
+  const lp = document.createElement('p'); lp.className = 'lp'; host.appendChild(lp);
+  const tbl = document.createElement('table'); tbl.className = 'map'; host.appendChild(tbl);
+  // learned[ch][pnc]: 0 = not set, 1 = set; configured mapping shown alongside
+  const CONF = { BodyCan: { Comfort: 1, Lighting: 1 }, Eth: { Comfort: 1, Lighting: 0 } };
+  function table(learned) {
+    let h = '<caption class="d-s" style="caption-side:top;text-align:left;padding-bottom:0.2rem">Gateway PNC-to-channel mapping (configured · learned)</caption><thead><tr><th>Channel</th><th>Comfort (16)</th><th>Lighting (17)</th></tr></thead><tbody>';
+    ['BodyCan', 'Eth'].forEach((ch) => {
+      h += '<tr><th>' + ch + '</th>' + ['Comfort', 'Lighting'].map((p) => {
+        const l = learned[ch] && learned[ch][p];
+        return '<td' + (l ? ' class="new"' : '') + '>' + (CONF[ch][p] ? 'yes' : 'no') + ' · ' + (l ? 'learned' : '–') + '</td>';
+      }).join('') + '</tr>';
+    });
+    tbl.innerHTML = h + '</tbody>';
+  }
+  const S = [
+    { at: [0], phase: 'inactive', learned: {}, text: 'A tester connects and opens a diagnostic session. Dcm keeps body CAN in full communication with ComM_DCM_ActiveDiagnostic: learning may only start while every channel involved is in COMM_FULL_COMMUNICATION.' },
+    { at: [1], phase: 'active on BodyCan', learned: {}, text: 'ComM_PnLearningRequest is called (for example on request of the tester). The learning phase is not active and the channels are in full communication, so ComM calls Nm_PnLearningRequest for every channel with dynamic mapping, here BodyCan, and marks the learning phase of BodyCan active.' },
+    { at: [2], phase: 'active on BodyCan', learned: {}, text: 'NmIf calls CanNm_PnLearningRequest(BodyCan). CanNm, in Network Mode, sets the Repeat Message Request and the Partial Network Learning Bit and enters (or restarts) Repeat Message State. Its next NM PDUs carry both bits.' },
+    { at: [3, 4], phase: 'active on BodyCan', learned: {}, text: 'The Door ECU and the Light ECU receive both bits. Each sets the Partial Network Learning Bit itself and restarts Repeat Message State. CanNm reports it with Nm_RepeatMessageIndication (learning bit set); NmIf calls ComM_Nm_PncLearningBitIndication, and their ComM marks the learning phase active.' },
+    { at: [3, 4], phase: 'active on BodyCan', learned: {}, text: 'During the learning phase each ECU puts its PNC membership into the IRA and passes it with Nm_UpdateIRA. The Door ECU sends 0x03 (Comfort and Lighting), the Light ECU 0x02 (Lighting).' },
+    { at: [1, 2], phase: 'active on BodyCan', learned: { BodyCan: { Comfort: 1, Lighting: 1 } }, text: 'The gateway receives these bits; they reach its ERA of BodyCan. For every PNC whose ERA bit is 1 on a channel with dynamic mapping, ComM sets the mapping entry (this rule is still draft in R25-11). Ethernet is not learned: UdpNm_PnLearningRequest is a draft.' },
+    { at: [2, 1], phase: 'inactive', learned: { BodyCan: { Comfort: 1, Lighting: 1 } }, text: 'The Repeat Message Time runs out. CanNm leaves Repeat Message State and clears the Partial Network Learning Bit. NmIf sees the state change and calls ComM_Nm_RepeatMessageLeftIndication: the learning phase of BodyCan ends. ComM_GetPncToChannelMapping now returns the mapping.' }
+  ];
+  Stepper.create(holder, {
+    stages: [{ html: 'Tester · Dcm', cls: 'm-dcm' }, { html: 'ComM (gateway)', cls: 'm-comm' }, { html: 'NmIf · CanNm (gateway)', cls: 'm-nm' }, { html: 'Door ECU', cls: 'm-app' }, { html: 'Light ECU', cls: 'm-app' }],
+    steps: S.map((s) => ({ at: s.at, text: s.text })),
+    onStep: (i) => { lp.textContent = 'Learning phase of the gateway: ' + S[i].phase; table(S[i].learned); }
+  });
+  lp.textContent = 'Learning phase of the gateway: ' + S[0].phase; table({});
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which two Control Bit Vector bits start a PN learning phase?',
+    options: ['Repeat Message Request and PN Learning', 'PN Learning and PN Shutdown Request', 'Active Wakeup and Partial Network Info'],
+    answer: 0,
+    why: 'The Repeat Message Request brings every node into Repeat Message State; the Partial Network Learning Bit tells it to answer with its PNC membership.'
+  },
+  {
+    prompt: 'When does the learning phase of a channel end?',
+    options: ['When NM leaves Repeat Message State', 'When the gateway has a full mapping', 'After a learning timer in ComM expires'],
+    answer: 0,
+    why: 'CanNm clears the learning bit when it leaves Repeat Message State, and NmIf reports this with ComM_Nm_RepeatMessageLeftIndication.'
+  },
+  {
+    prompt: 'Can the example gateway learn the mapping of Comfort on Ethernet in R25-11?',
+    options: ['Not in a standard way: UdpNm\'s part is draft', 'Yes, UdpNm supports it just like CanNm', 'Yes, but only through COM signals'],
+    answer: 0,
+    why: 'UdpNm_PnLearningRequest and the UdpNm configuration of the feature are still marked draft in R25-11.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

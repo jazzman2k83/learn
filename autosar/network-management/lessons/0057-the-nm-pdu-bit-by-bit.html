@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The NM PDU bit by bit · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.bitgrid { border-collapse: collapse; font-family: var(--mono); font-size: 0.75rem; margin: 0.4rem 0; }
+.bitgrid th { font-family: var(--sans); font-weight: 400; font-size: 0.62rem; color: var(--muted); padding: 0 0.15rem 0.2rem; text-align: center; }
+.bitgrid td { padding: 1px; text-align: center; }
+.bitgrid td.lab { text-align: left; font-family: var(--sans); font-size: 0.66rem; color: var(--muted); padding-right: 0.4rem; white-space: nowrap; }
+.bitgrid td.hex { font-weight: 700; padding-left: 0.4rem; min-width: 2.2rem; }
+.bitgrid button { width: 1.9rem; height: 1.9rem; padding: 0; font-family: var(--mono); font-size: 0.75rem; }
+.bitgrid tr.sni button { background: var(--m-app-soft); border-color: var(--m-app); }
+.bitgrid tr.cbv button { background: var(--m-nm-soft); border-color: var(--m-nm); }
+.bitgrid tr.pnc button { background: var(--m-comm-soft); border-color: var(--m-comm); }
+.bitgrid tr.ud button { background: var(--paper); }
+.bitgrid tr button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+@media (max-width: 34rem) { .bitgrid button { width: 1.45rem; height: 1.7rem; } .bitgrid td { padding: 0; } #ed { padding: 0.7rem; } .bitgrid td.hex { padding-left: 0.2rem; min-width: 0; } }
+#lay { max-width: 100%; }
+#ed .controls label { max-width: 100%; min-width: 0; }
+.decode { font-size: 0.85rem; margin: 0.7rem 0 0; }
+.decode dt { font-weight: 700; font-family: var(--sans); font-size: 0.78rem; margin-top: 0.4rem; }
+.decode dd { margin: 0.1rem 0 0 0; font-family: var(--mono); font-size: 0.78rem; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The NM PDU bit by bit</h1>
+<p class="lede">Lesson 15 showed the four parts of an <span class="term">NM PDU</span>. This page goes down to the bits: where each part may sit, what each bit of the <span class="term">Control Bit Vector</span> means, and how a bit of the <span class="term">PNC bit vector</span> turns into a PNC number.</p>
+
+<p>The layout is the same for <span class="term">CanNm</span> and <span class="term">UdpNm</span>; the differences are listed at the end. The configuration parameters named here are those of lesson 55.</p>
+
+<h2>The system bytes</h2>
+<p>The <span class="term">system bytes</span> (the bytes of the NM PDU that NM itself uses: the Source Node Identifier and the Control Bit Vector) come first. Each of them is configured to byte 0, byte 1 or off (SWS_CanNm_00074, SWS_CanNm_00075): <code>CanNmPduNidPosition</code> for the <span class="term">Source Node Identifier</span> and <code>CanNmPduCbvPosition</code> for the Control Bit Vector, each with the values <code>CANNM_PDU_BYTE_0</code>, <code>CANNM_PDU_BYTE_1</code> or <code>CANNM_PDU_OFF</code>. The definitions add three rules (<code>ECUC_CanNm_00026</code>):</p>
+<ul>
+<li>both may not use the same byte;</li>
+<li>if the Control Bit Vector is used and the node identifier is off, the Control Bit Vector is in byte 0;</li>
+<li>with <span class="term">node detection</span> switched on, the Control Bit Vector may not be off.</li>
+</ul>
+<p>A part that is off takes no space: its byte is free for <span class="term">user data</span> or the PNC bit vector. CanNm writes <code>CanNmNodeId</code> into the Source Node Identifier byte (SWS_CanNm_00013). After initialization the Control Bit Vector is <code>0x00</code> (SWS_CanNm_00085) and every user data byte is <code>0xFF</code> (SWS_CanNm_00025).</p>
+
+<h2>The Control Bit Vector</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Bit</th><th>Name</th><th>Set to 1 when</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>0</td><td><span class="term">Repeat Message Request</span></td><td>the node asks all nodes to enter Repeat Message State</td><td><a href="0016-repeat-message-request-and-node-detection.html">16</a></td></tr>
+<tr><td>1</td><td><span class="term">PN Shutdown Request Bit</span></td><td>the NM PDU is a PN shutdown message of a synchronized PNC shutdown</td><td><a href="0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr><td>2</td><td>reserved</td><td>never</td><td>–</td></tr>
+<tr><td>3</td><td><span class="term">NM Coordinator Sleep Ready Bit</span></td><td>the NM coordinator signals that the coordinated shutdown may start</td><td><a href="0039-nested-sub-buses-and-aborting-a-shutdown.html">39</a></td></tr>
+<tr><td>4</td><td><span class="term">Active Wakeup Bit</span></td><td>the node woke the network itself (with <code>CanNmActiveWakeupBitEnabled</code>)</td><td><a href="0036-passive-and-active-startup.html">36</a></td></tr>
+<tr><td>5</td><td><span class="term">Partial Network Learning Bit</span></td><td>the node asks for PN learning (with the Repeat Message Request)</td><td><a href="0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+<tr><td>6</td><td><span class="term">Partial Network Information Bit</span></td><td>the NM PDU carries a PNC bit vector (CanNm sets it whenever <code>CanNmPnEnabled</code> is true)</td><td><a href="0040-why-partial-networking.html">40</a></td></tr>
+<tr><td>7</td><td>reserved</td><td>never</td><td>–</td></tr>
+</tbody>
+</table>
+</div>
+<p>Bits 1 and 2 were used in AUTOSAR R3.2 for an NM coordinator ID; the specification still notes this, and bit 1 has since been reused. The <span class="term">Active Wakeup Bit</span> is set when CanNm enters <span class="term">Network Mode</span> through a network request and cleared when it leaves Network Mode (SWS_CanNm_00401, SWS_CanNm_00402). With partial networking on, CanNm sends the PNI bit as 1 (SWS_CanNm_00413), and a received NM PDU with PNI 0 is ignored unless <code>CanNmAllNmMessagesKeepAwake</code> is true (SWS_CanNm_00410, SWS_CanNm_00411). The <span class="term">car wakeup</span> bit is not part of the Control Bit Vector: its byte and bit are configured freely with <code>CanNmCarWakeUpBytePosition</code> and <code>CanNmCarWakeUpBitPosition</code>.</p>
+
+<h2>The PNC bit vector and the PNC ID</h2>
+<p>Where the PNC bit vector sits is set in NmIf: <code>NmPncBitVectorOffset</code> (in bytes from the start of the NM PDU) and <code>NmPncBitVectorLength</code>. It lies after the system bytes and within the length of the NM PDU. Each bit stands for one PNC. ComM computes the place of a PNC as (SWS_ComM_00825):</p>
+<ul>
+<li>byte in the PNC bit vector = (<span class="term">PNC ID</span> div 8) − offset</li>
+<li>bit = PNC ID mod 8</li>
+</ul>
+<p>Counted from the start of the NM PDU, this simply means: <b>PNC ID = byte × 8 + bit</b>. On body CAN, with an offset of 2 and a length of 1, byte 2 holds PNCs 16 to 23. Comfort (16) is bit 0 and Lighting (17) bit 1. A PNC ID below 16 has no place in this layout. In general a <code>ComMPncId</code> lies between 8 and 511 (<code>ECUC_ComM_00874</code>).</p>
+<p>The specifications do not write this formula the same way. ComM does not name the offset it subtracts; this course takes it as <code>NmPncBitVectorOffset</code>, the only offset of the PNC bit vector that is configured. The NmIf specification (note to <code>SWS_Nm_00537</code>) and the NM protocol specification write byteIndex = PNC ID div 8 without any offset, for the byte "within the PNC bit vector". Read literally, that would put PNC 16 into byte 2 of the PNC bit vector, which a vector of one byte does not have. Read as the byte of the NM PDU, it gives the same place as ComM's formula. Check how your basic software counts before you assign PNC IDs.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 660 150" role="img" aria-labelledby="f1t">
+<title id="f1t">The body CAN NM PDU of the gateway: byte 0 Source Node Identifier 0x10, byte 1 Control Bit Vector, byte 2 PNC bit vector with Comfort at bit 0 and Lighting at bit 1, bytes 3 to 7 user data.</title>
+<rect x="10" y="40" width="78" height="44" class="m-app"/><text x="49" y="58" class="d-t d-c">byte 0</text><text x="49" y="75" class="d-m d-c">SNI 0x10</text>
+<rect x="88" y="40" width="78" height="44" class="m-nm"/><text x="127" y="58" class="d-t d-c">byte 1</text><text x="127" y="75" class="d-m d-c">CBV</text>
+<rect x="166" y="40" width="78" height="44" class="m-comm"/><text x="205" y="58" class="d-t d-c">byte 2</text><text x="205" y="75" class="d-m d-c">PNC 16–23</text>
+<rect x="244" y="40" width="406" height="44" class="d-box"/><text x="447" y="58" class="d-t d-c">bytes 3 to 7</text><text x="447" y="75" class="d-m d-c">user data</text>
+<line x1="88" y1="30" x2="88" y2="94" class="d-ln dash"/><line x1="166" y1="30" x2="166" y2="94" class="d-ln dash"/>
+<text x="166" y="24" class="d-s d-c">NmPncBitVectorOffset = 2</text>
+<text x="205" y="112" class="d-s d-c">bit 0: Comfort (16)</text>
+<text x="205" y="128" class="d-s d-c">bit 1: Lighting (17)</text>
+<text x="88" y="112" class="d-s d-c">system bytes</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The gateway's NM PDU on body CAN. The offset of 2 equals the two system bytes; the PNC bit vector is one byte long, and the rest is user data.</figcaption>
+</figure>
+
+<h2>Where the user data may go</h2>
+<p>Every byte that is neither a system byte nor part of the PNC bit vector is user data (SWS_CanNm_00501). With partial networking, the user data is one block: either between the system bytes and the PNC bit vector (its length is then the offset minus the number of system bytes) or between the end of the PNC bit vector and the end of the NM PDU (its length is the PDU length minus offset minus vector length). Without partial networking, it is the PDU length minus the system bytes. The length of the NM PDU itself is the <code>PduLength</code> of the global PDU in the ECU configuration.</p>
+<p>The CanNm specification gives an example of the first case: Control Bit Vector in byte 0, node identifier in byte 1, <code>NmPncBitVectorOffset</code> 4 and <code>NmPncBitVectorLength</code> 4. Bytes 2 and 3 are user data, bytes 4 to 7 the PNC bit vector. The example ECU uses the second case.</p>
+
+<h2>Try it</h2>
+<p>Click a bit to set or clear it (or tab to it and press Enter). The panel decodes the eight bytes with the chosen layout. The presets are NM PDUs of the example ECU and the specification's example.</p>
+<div class="panel no-print" id="ed">
+<div class="controls">
+<label>Layout<select id="lay">
+<option value="body">Body CAN: SNI 0, CBV 1, offset 2, length 1</option>
+<option value="spec">Spec example: CBV 0, SNI 1, offset 4, length 4</option>
+</select></label>
+</div>
+<div class="buttons-row" role="group" aria-label="Presets">
+<button type="button" data-pre="gw">Gateway requests Comfort</button>
+<button type="button" data-pre="light">Light ECU requests Lighting</button>
+<button type="button" data-pre="door">Door ECU: Repeat Message Request</button>
+<button type="button" data-pre="spec">Specification example</button>
+<button type="button" data-pre="clear">All 0</button>
+</div>
+<div class="scroll" style="overflow-x:auto">
+<table class="bitgrid" aria-label="Eight bytes of the NM PDU, bit 7 to bit 0">
+<thead><tr><th></th><th>7</th><th>6</th><th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>0</th><th>hex</th></tr></thead>
+<tbody id="grid"></tbody>
+</table>
+</div>
+<dl class="decode" id="dec" aria-live="polite"></dl>
+</div>
+
+<h2>UdpNm: the same layout, larger</h2>
+<p>UdpNm places its system bytes with <code>UdpNmPduNidPosition</code> and <code>UdpNmPduCbvPosition</code>, with the same values (<code>UDPNM_PDU_BYTE_0</code>, <code>UDPNM_PDU_BYTE_1</code>, <code>UDPNM_PDU_OFF</code>) and the same rules (SWS_UdpNm_00074, SWS_UdpNm_00075). Its PNC bit vector is placed by the same two NmIf parameters, and its user data follows the same rules (SWS_UdpNm_00491). The difference is size: an <span class="term">NM packet</span> on Ethernet is not limited to the eight bytes of a classic CAN frame, so its PDU length can leave room for a longer user data block or PNC bit vector. The R25-11 UdpNm specification no longer draws the Control Bit Vector; it names the same bits (Repeat Message Request, PNI, Partial Network Learning, NM Coordinator Sleep Ready, Active Wakeup, PN Shutdown Request), and the last UdpNm specification that draws it (R22-11) shows the same bit positions as CanNm.</p>
+
+<div class="older">
+<p>In 4.4.0 (and up to R19-11) bits 1 and 5 of the Control Bit Vector were reserved: the PN Shutdown Request Bit and the Partial Network Learning Bit appear in R20-11. Bits 1 and 2 were marked as the R3.2 NM coordinator ID.</p>
+<p>Up to R21-11 the place of the PNC bit vector was configured in the bus NM as the PN info range: <code>CanNmPnInfoOffset</code> (1 to 63) and <code>CanNmPnInfoLength</code> in <code>CanNmPnInfo</code>, and the same with <code>UdpNm</code> names. Since R22-11 it is <code>NmPncBitVectorOffset</code> and <code>NmPncBitVectorLength</code> in NmIf.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The PNC ID is simply the bit number counted over the whole NM PDU: byte × 8 + bit. That is why the offset decides the lowest PNC a bus can carry. Bits 2 and 7 of the Control Bit Vector are reserved; bit 1 was reserved too until R20-11.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">system bytes</span></td><td>The bytes of the NM PDU that NM itself uses: the Source Node Identifier and the Control Bit Vector</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.4, 7.6 and 7.11, chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>, chapter 7.9; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, SWS_ComM_00825; Specification of the AUTOSAR Network Management Protocol, R25-11, chapter 5.1 (NM message layout, Control Bit Vector); CanNm and UdpNm specifications of 4.4.0, R19-11, R20-11, R21-11 and R22-11 for the older releases.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const LAYOUTS = {
+    body: { sni: 0, cbv: 1, off: 2, len: 1 },
+    spec: { sni: 1, cbv: 0, off: 4, len: 4 }
+  };
+  const CBV = ['Repeat Message Request', 'PN Shutdown Request Bit', 'reserved (bit 2)', 'NM Coordinator Sleep Ready Bit', 'Active Wakeup Bit', 'Partial Network Learning Bit', 'Partial Network Information Bit', 'reserved (bit 7)'];
+  const NODES = { 0x10: 'gateway', 0x21: 'Door ECU', 0x22: 'Light ECU' };
+  const PNCS = { 16: 'Comfort', 17: 'Lighting' };
+  const PRE = {
+    gw: ['body', [0x10, 0x40, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]],
+    light: ['body', [0x22, 0x40, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]],
+    door: ['body', [0x21, 0x41, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]],
+    spec: ['spec', [0x40, 0x00, 0xFF, 0xFF, 0x12, 0x8E, 0x80, 0x01]],
+    clear: [null, [0, 0, 0, 0, 0, 0, 0, 0]]
+  };
+  let bytes = PRE.gw[1].slice();
+  const lay = document.getElementById('lay');
+  const grid = document.getElementById('grid');
+  const dec = document.getElementById('dec');
+  const hex = (v) => '0x' + v.toString(16).toUpperCase().padStart(2, '0');
+  function role(i, L) {
+    if (i === L.sni) return ['sni', 'SNI'];
+    if (i === L.cbv) return ['cbv', 'CBV'];
+    if (i >= L.off && i < L.off + L.len) return ['pnc', 'PNC ' + (i * 8) + '–' + (i * 8 + 7)];
+    return ['ud', 'user data'];
+  }
+  function build() {
+    const L = LAYOUTS[lay.value];
+    let html = '';
+    for (let i = 0; i < 8; i++) {
+      const r = role(i, L);
+      html += '<tr class="' + r[0] + '"><td class="lab">byte ' + i + '<br>' + r[1] + '</td>';
+      for (let b = 7; b >= 0; b--) {
+        const on = (bytes[i] >> b) & 1;
+        let label = 'byte ' + i + ' bit ' + b;
+        if (r[0] === 'cbv') label += ', ' + CBV[b];
+        if (r[0] === 'pnc') label += ', PNC ' + (i * 8 + b);
+        html += '<td><button type="button" data-i="' + i + '" data-b="' + b + '" aria-pressed="' + (on ? 'true' : 'false') + '" aria-label="' + label + '">' + on + '</button></td>';
+      }
+      html += '<td class="hex">' + hex(bytes[i]) + '</td></tr>';
+    }
+    grid.innerHTML = html;
+    decode();
+  }
+  function decode() {
+    const L = LAYOUTS[lay.value];
+    const sni = bytes[L.sni];
+    const cbv = bytes[L.cbv];
+    const set = [];
+    for (let b = 0; b < 8; b++) if ((cbv >> b) & 1) set.push('bit ' + b + ' ' + CBV[b]);
+    const pncs = [];
+    for (let i = L.off; i < L.off + L.len; i++) for (let b = 0; b < 8; b++) if ((bytes[i] >> b) & 1) { const id = i * 8 + b; pncs.push(id + (PNCS[id] && lay.value === 'body' ? ' (' + PNCS[id] + ')' : '')); }
+    const ud = [];
+    for (let i = 0; i < 8; i++) if (role(i, L)[0] === 'ud') ud.push(hex(bytes[i]));
+    const pni = (cbv >> 6) & 1;
+    let html = '<dt>Source Node Identifier (byte ' + L.sni + ')</dt><dd>' + hex(sni) + (lay.value === 'body' && NODES[sni] ? ' = ' + NODES[sni] : '') + '</dd>';
+    html += '<dt>Control Bit Vector (byte ' + L.cbv + ')</dt><dd>' + hex(cbv) + (set.length ? ': ' + set.join(' · ') : ': no bit set') + '</dd>';
+    html += '<dt>PNC bit vector (bytes ' + L.off + '–' + (L.off + L.len - 1) + ')</dt><dd>' + (pni ? (pncs.length ? 'requested PNCs: ' + pncs.join(', ') : 'PNI = 1, no PNC requested') : 'PNI = 0: a receiver with partial networking ignores this NM PDU unless CanNmAllNmMessagesKeepAwake is true') + '</dd>';
+    html += '<dt>User data</dt><dd>' + ud.join(' ') + '</dd>';
+    dec.innerHTML = html;
+  }
+  grid.addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    const i = +t.dataset.i, b = +t.dataset.b;
+    bytes[i] ^= (1 << b);
+    build();
+    const again = grid.querySelector('button[data-i="' + i + '"][data-b="' + b + '"]');
+    if (again) again.focus();
+  });
+  lay.addEventListener('change', build);
+  document.querySelectorAll('#ed [data-pre]').forEach((btn) => btn.addEventListener('click', () => {
+    const p = PRE[btn.dataset.pre];
+    if (p[0]) lay.value = p[0];
+    bytes = p[1].slice();
+    build();
+  }));
+  build();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Byte 2 of an NM PDU has bit 1 set. Which PNC does that request?',
+    options: ['PNC 17, as 2 × 8 + 1 = 17', 'PNC 3, as 2 + 1 = 3', 'PNC 10, as 8 + 2 = 10'],
+    answer: 0,
+    why: 'Counted over the whole NM PDU, the PNC ID is byte × 8 + bit. On body CAN this is Lighting.'
+  },
+  {
+    prompt: 'Which Control Bit Vector bit tells a receiver that the PDU carries PNC requests?',
+    options: ['Bit 6, Partial Network Information', 'Bit 5, Partial Network Learning', 'Bit 0, Repeat Message Request'],
+    answer: 0,
+    why: 'Bit 6 is the PNI bit; CanNm sets it to 1 when partial networking is enabled on the channel.'
+  },
+  {
+    prompt: 'The node identifier is off and the Control Bit Vector is used. Where is it?',
+    options: ['In byte 0 of the NM PDU', 'In byte 1 of the NM PDU', 'After the PNC bit vector'],
+    answer: 0,
+    why: 'ECUC_CanNm_00026: if the Control Bit Vector is used and the node identifier is off, the Control Bit Vector is in byte 0.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

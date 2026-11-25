@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The alarm clock · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.clocks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 0 0 0.8rem; font-family: var(--sans); font-size: 0.8rem; }
+@media (max-width: 34rem) { .clocks { grid-template-columns: 1fr; } }
+.clocks div { border: 1px solid var(--rule); background: var(--paper); padding: 0.45rem 0.6rem; }
+.clocks small { display: block; color: var(--muted); font-size: 0.7rem; }
+.urow { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.35rem 0; font-family: var(--sans); font-size: 0.8rem; }
+.urow strong { min-width: 6.5rem; }
+.urow button { font-size: 0.72rem; padding: 0.25rem 0.45rem; }
+.urow .val { font-family: var(--mono); font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The alarm clock</h1>
+<p class="lede">Some jobs must run hours after the car was parked, while the ECU sleeps. <span class="term">EcuM</span> can keep a clock running through the sleep and wake the ECU at a set time.</p>
+
+<p>This lesson shows the clock that EcuM keeps, the alarms its users set on it, and how the clock goes on counting while the ECU sleeps.</p>
+
+<h2>The EcuM clock and the alarms</h2>
+<p>The <span class="term">alarm clock</span> (an optional EcuM service that wakes the ECU from sleep at a set time) is built from two parts:</p>
+<ul>
+  <li>The <span class="term">EcuM clock</span> (time in seconds since the battery was connected): it counts in the <span class="term">UP phase</span> and in the <span class="term">SLEEP phase</span>, and where the hardware allows, an ECU reset does not reset it.</li>
+  <li>Alarms: each <span class="term">EcuM user</span> may own one user alarm clock (a wakeup time of one user). No user can change the alarm of another. The <span class="term">master alarm clock</span> (the wakeup time EcuM acts on) is always the earliest of the user alarms.</li>
+</ul>
+<p>The service has one <span class="term">wakeup source</span> of its own, usually a timer of the microcontroller that can wake it. Alarms are set and read only in the UP phase; they take effect in the SLEEP phase.</p>
+
+<h2>Setting and aborting alarms</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Call</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><code class="term">EcuM_SetRelWakeupAlarm</code></td><td>Sets the user's alarm a number of seconds from now</td></tr>
+<tr><td><code class="term">EcuM_SetAbsWakeupAlarm</code></td><td>Sets the user's alarm to an absolute time of the EcuM clock; a time already passed returns <code>ECUM_E_PAST</code></td></tr>
+<tr><td><code class="term">EcuM_AbortWakeupAlarm</code></td><td>Cancels the user's alarm; without one it returns <code>ECUM_E_NOT_ACTIVE</code>. The master alarm moves to the next earliest user alarm.</td></tr>
+<tr><td><code>EcuM_GetCurrentTime</code>, <code>EcuM_GetWakeupTime</code></td><td>Read the EcuM clock and the master alarm (<code>0xFFFFFFFF</code>: no alarm active)</td></tr>
+<tr><td><code>EcuM_SetClock</code></td><td>Sets the EcuM clock; only users allowed by configuration, meant for testing alarms that take days</td></tr>
+</tbody>
+</table>
+</div>
+<p>An alarm earlier than the current master alarm moves the wakeup time forward. A later one leaves the wakeup time as it is, and the call returns <code>ECUM_E_EARLIER_ACTIVE</code>: an earlier alarm is already set.</p>
+
+<h2>Counting through the sleep</h2>
+<p>In the UP phase the <span class="term">main function</span> of EcuM advances the clock from an OS counter. During sleep EcuM counts differently: in <span class="term">HALT</span> a timer wakes the CPU, ideally once a second. EcuM adds the time and goes straight back to sleep, without the <span class="term">WakeupRestart sequence</span>, unless the clock has reached the master alarm. In <span class="term">POLL</span> the clock can be advanced in <code class="term">EcuM_SleepActivity</code>. Only when the master alarm is reached does the ECU really wake up; then the BswM rules decide whether it starts fully or goes back to sleep.</p>
+<p>When the ECU leaves the sleep, for the alarm or for any other wakeup, EcuM cancels all user alarms and the master alarm. They are also cancelled in the startup and in the OffPreOS sequence of a shutdown. A user that needs another wakeup sets its alarm again before the next sleep.</p>
+
+<h2>Try it</h2>
+<p>Set alarms for the two EcuM users of lesson 28, then send the ECU to sleep. One second of the EcuM clock takes a quarter of a second here.</p>
+<div class="panel no-print" id="sim">
+<div class="clocks">
+  <div><small>EcuM clock (EcuM_GetCurrentTime)</small><span class="bigval" id="now">1000 s</span></div>
+  <div><small>master alarm (EcuM_GetWakeupTime)</small><span class="bigval" id="mas">0xFFFFFFFF</span></div>
+  <div><small>ECU</small><span class="bigval" id="st">UP</span></div>
+</div>
+<div class="urow" data-u="0"><strong>BodyControl</strong><button type="button" data-a="r10">EcuM_SetRelWakeupAlarm(10 s)</button><button type="button" data-a="r30">EcuM_SetRelWakeupAlarm(30 s)</button><button type="button" data-a="abort">EcuM_AbortWakeupAlarm</button><span class="val">–</span></div>
+<div class="urow" data-u="1"><strong>Logger</strong><button type="button" data-a="r20">EcuM_SetRelWakeupAlarm(20 s)</button><button type="button" data-a="abs">EcuM_SetAbsWakeupAlarm(990 s)</button><button type="button" data-a="abort">EcuM_AbortWakeupAlarm</button><span class="val">–</span></div>
+<div class="controls" style="margin:0.6rem 0 0"><button type="button" class="primary" id="sleep">Sleep (HALT)</button><button type="button" id="can">Wakeup on body CAN</button><button type="button" id="reset">Start over</button></div>
+<p class="readout" id="why">Set an alarm, then let the ECU sleep.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The master alarm is always the earliest user alarm, and an abort moves it to the next one. During sleep the timer wakes the CPU every second, yet the ECU only really wakes at the master alarm. Any real wakeup clears every alarm.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">alarm clock</span></td><td>Optional EcuM service that wakes the ECU from sleep at a set time</td></tr>
+<tr><td><span class="term">EcuM clock</span></td><td>Time in seconds since the battery was connected; counts in UP and in sleep</td></tr>
+<tr><td><span class="term">master alarm clock</span></td><td>The wakeup time EcuM acts on: the earliest of all user alarms</td></tr>
+<tr><td><code class="term">EcuM_SetRelWakeupAlarm</code></td><td>Sets the user's alarm a number of seconds from now</td></tr>
+<tr><td><code class="term">EcuM_SetAbsWakeupAlarm</code></td><td>Sets the user's alarm to an absolute time of the EcuM clock</td></tr>
+<tr><td><code class="term">EcuM_AbortWakeupAlarm</code></td><td>Cancels the user's alarm</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 7.6.1, 7.8 and 8.3.6.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const TICK = 250; // ms per EcuM clock second (scaled)
+  const NONE = 0xFFFFFFFF;
+  const names = ['BodyControl', 'Logger'];
+  let now, alarm, state, timer, ticks;
+  const $ = (id) => document.getElementById(id);
+  const rows = Array.from(document.querySelectorAll('#sim .urow'));
+  const master = () => Math.min(NONE, ...alarm.map((a) => (a === null ? NONE : a)));
+  function render() {
+    $('now').textContent = now + ' s';
+    const m = master();
+    $('mas').textContent = m === NONE ? '0xFFFFFFFF' : m + ' s';
+    $('st').textContent = state;
+    rows.forEach((r, u) => {
+      r.querySelector('.val').textContent = alarm[u] === null ? 'no alarm' : 'alarm at ' + alarm[u] + ' s';
+      r.querySelectorAll('button').forEach((b) => { b.disabled = state !== 'UP'; });
+    });
+    $('sleep').disabled = state !== 'UP';
+    $('can').disabled = state !== 'SLEEP';
+  }
+  function set(u, t, api) {
+    const m = master();
+    alarm[u] = t;
+    if (t < m) return api + ' → E_OK: the master alarm moves to ' + t + ' s.';
+    if (t === m) return api + ' → E_OK.';
+    return api + ' → ECUM_E_EARLIER_ACTIVE: an earlier alarm (' + m + ' s) already sets the wakeup time.';
+  }
+  function act(u, a) {
+    const n = names[u] + ': ';
+    let msg;
+    if (a === 'abort') {
+      if (alarm[u] === null) msg = 'EcuM_AbortWakeupAlarm → ECUM_E_NOT_ACTIVE: no alarm of this user.';
+      else { alarm[u] = null; const m = master(); msg = 'EcuM_AbortWakeupAlarm → E_OK. ' + (m === NONE ? 'No alarm is left.' : 'The master alarm is now the next earliest: ' + m + ' s.'); }
+    } else if (a === 'abs') {
+      if (990 < now) msg = 'EcuM_SetAbsWakeupAlarm(990 s) → ECUM_E_PAST: 990 s has already passed (the clock is at ' + now + ' s).';
+      else msg = set(u, 990, 'EcuM_SetAbsWakeupAlarm(990 s)');
+    } else {
+      const d = Number(a.slice(1));
+      msg = set(u, now + d, 'EcuM_SetRelWakeupAlarm(' + d + ' s)');
+    }
+    $('why').textContent = n + msg;
+    render();
+  }
+  function wake(reason) {
+    clearInterval(timer);
+    state = 'UP';
+    alarm = [null, null];
+    $('why').textContent = reason + ' WakeupRestart runs, and EcuM cancels every alarm.';
+    render();
+  }
+  function tick() {
+    now++;
+    ticks++;
+    const m = master();
+    if (now >= m) { wake('The clock reached the master alarm at ' + m + ' s after ' + ticks + ' timer wakeups: the ECU wakes up.'); return; }
+    $('why').textContent = 'Timer wakeup ' + ticks + ': EcuM adds one second and goes straight back to sleep (' + (m === NONE ? 'no alarm set: only another wakeup source can end this sleep' : (m - now) + ' s to the master alarm') + ').';
+    render();
+  }
+  rows.forEach((r, u) => r.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => act(u, b.dataset.a))));
+  $('sleep').addEventListener('click', () => { state = 'SLEEP'; ticks = 0; render(); $('why').textContent = 'The ECU sleeps. The alarm clock timer wakes the CPU every second.'; timer = setInterval(tick, TICK); });
+  $('can').addEventListener('click', () => wake('A frame on body CAN wakes the ECU before the alarm.'));
+  function reset() { clearInterval(timer); now = 1000; alarm = [null, null]; state = 'UP'; $('why').textContent = 'Set an alarm, then let the ECU sleep.'; render(); }
+  $('reset').addEventListener('click', reset);
+  reset();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'BodyControl sets an alarm for 600 s, Logger one for 300 s. When does the ECU wake?',
+    options: ['At 300 s, the earliest user alarm', 'At 600 s, the latest user alarm', 'At 900 s, the sum of both alarms'],
+    answer: 0,
+    why: 'The master alarm clock is always the earliest of the user alarms.'
+  },
+  {
+    prompt: 'In HALT the alarm clock timer wakes the CPU every second. What does EcuM do?',
+    options: ['Adds the time and sleeps again', 'Runs WakeupRestart every time', 'Validates a wakeup each second'],
+    answer: 0,
+    why: 'Until the clock reaches the master alarm, EcuM only advances the clock and returns to sleep at once.'
+  },
+  {
+    prompt: 'A CAN frame wakes the ECU before any alarm is due. What happens to the alarms?',
+    options: ['All of them are cancelled', 'They stay set for the next sleep', 'Only the master alarm is kept'],
+    answer: 0,
+    why: 'Leaving the sleep, for any reason, clears every user alarm and the master alarm.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

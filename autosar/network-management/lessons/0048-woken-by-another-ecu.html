@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Woken by another ECU · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Woken by another ECU</h1>
+<p class="lede">The body gateway sleeps. The Door ECU sends an <span class="term">NM PDU</span> that requests PNC Comfort. The CAN transceiver wakes the gateway, <span class="term">EcuM</span> validates the <span class="term">wakeup</span>, <span class="term">ComM</span> starts body CAN passively, and the gateway then carries the Comfort request on to Ethernet.</p>
+
+<p>This flow joins the wakeup chain of Part 6 to the partial networking of Part 8. Every call, its caller and its order are taken from the R25-11 specifications; where they leave a choice to the integrator, the step says so.</p>
+
+<h2>The starting point</h2>
+<p>The gateway is in the <span class="term">SLEEP phase</span> with a <span class="term">HALT</span> <span class="term">sleep mode</span> (<a href="0030-sleep-halt-and-poll.html">lesson 30</a>). All three buses are in <span class="term">Bus-Sleep Mode</span>; no ComM user requests anything. The transceiver of body CAN waits in its low-power mode with <span class="term">selective wakeup</span> armed: it wakes the ECU only on a <span class="term">wakeup frame</span> that requests one of the gateway's PNCs (<a href="0043-selective-wakeup-in-the-transceiver.html">lesson 43</a>). The driver unlocks the car, and the Door ECU requests PNC Comfort.</p>
+<p>The example assumes two settings: synchronous wakeup is not configured in ComM (only the woken channel starts), and body CAN is an <span class="term">active PNC gateway</span> channel of the gateway (<a href="0044-the-pnc-gateway.html">lesson 44</a>).</p>
+
+<h2>Try it</h2>
+<p>Step through the night's end. The bands show the context: the wakeup interrupt, the WakeupRestart sequence, the main functions of EcuM, BswM, ComM, CanSM and CanNm, and the CAN driver's reception callback. The lanes of EcuM, ComM and NmIf are drawn highlighted.</p>
+<div class="panel" id="seq"></div>
+
+<h2>The five phases</h2>
+<div class="cards">
+  <div class="card m-drv"><p class="tag">wakeup · lessons 30, 33</p><h3>The interrupt</h3><p>The transceiver raises a wakeup interrupt. In the ISR <code>EcuM_CheckWakeup</code> lets the integrator's hook ask CanIf and CanTrcv, and CanTrcv reports <code class="term">EcuM_SetWakeupEvent</code>. The <span class="term">wakeup event</span> is <span class="term">pending</span>.</p></div>
+  <div class="card m-ecum"><p class="tag">validation · lessons 34, 35</p><h3>Is it real?</h3><p>After the WakeupRestart sequence, <code>EcuM_MainFunction</code> starts the wakeup source with <code class="term">CanSM_StartWakeupSource</code> and asks <code class="term">EcuM_CheckValidation</code> until a CAN message has arrived. <code class="term">CanIf_CheckValidation</code> then calls <code class="term">EcuM_ValidateWakeupEvent</code>.</p></div>
+  <div class="card m-comm"><p class="tag">passive start · lesson 36</p><h3>ComM starts the channel</h3><p><code class="term">ComM_EcuM_WakeUpIndication</code> marks <code>BodyCan</code> as requested; once BswM allows communication, ComM starts CanSM and calls <code class="term">Nm_PassiveStartUp</code>. No local user needs the channel, so it goes on to <code class="term">COMM_FULL_COM_READY_SLEEP</code>.</p></div>
+  <div class="card m-nm"><p class="tag">NmIf · lessons 37, 42</p><h3>The coordinator and the PNC bits</h3><p>Because body CAN is a <span class="term">coordinated channel</span>, NmIf turns the passive startup into <code class="term">CanNm_NetworkRequest</code>. The Door ECU's NM PDUs fill <span class="term">ERA</span> and <span class="term">EIRA</span>.</p></div>
+  <div class="card m-comm"><p class="tag">PNC gateway · lesson 44</p><h3>The request goes on</h3><p>The ERA bit puts PNC Comfort into <code class="term">COMM_PNC_REQUESTED</code>. ComM sets the bit in its own <span class="term">IRA</span>, requests full communication on <code>BodyCan</code> and <code>Eth</code>, and Ethernet wakes for the Head unit.</p></div>
+</div>
+
+<h2>Not just "ready sleep until someone asks"</h2>
+<p>A plain ECU woken by the bus joins the network passively: its channel waits in <code class="term">COMM_FULL_COM_READY_SLEEP</code>, its CanNm leaves the <span class="term">Repeat Message State</span> for the <span class="term">Ready Sleep State</span>, and the bus falls asleep again when the others stop, unless a local ComM user requests the channel first. Two features of the body gateway change that:</p>
+<ul>
+<li>The <span class="term">NM coordinator</span>. For a channel of an <span class="term">NM coordination cluster</span>, NmIf treats <code class="term">Nm_PassiveStartUp</code> as if ComM had called <code class="term">Nm_NetworkRequest</code>, and calls <code class="term">CanNm_NetworkRequest</code>. CanNm therefore goes from the Repeat Message State to the <span class="term">Normal Operation State</span> and the gateway keeps sending NM PDUs until the <span class="term">coordinated shutdown</span> (<a href="0038-coordinated-shutdown-and-shutdown-timers.html">lesson 38</a>), even while ComM has released the channel.</li>
+<li>The <span class="term">PNC gateway</span>. With the gateway function on, a PNC bit in the ERA of a gateway channel is enough to put the PNC into <code class="term">COMM_PNC_REQUESTED</code>. Without it, the EIRA bit would only bring PNC Comfort to <code class="term">COMM_PNC_READY_SLEEP</code>, and the channel would stay in <code class="term">COMM_FULL_COM_READY_SLEEP</code> until <code>UserComfort</code> or <code>UserLighting</code> asked for it.</li>
+</ul>
+<p>Within one main function ComM handles the inputs in a fixed order: requests of users mapped to PNCs, requests of users mapped to the channel, then ERA, then EIRA. So when both bits arrive together, the ERA bit decides, and the PNC goes straight to COMM_PNC_REQUESTED.</p>
+
+<h2>What the specification leaves to the integrator</h2>
+<ul>
+<li>The wakeup ISR that calls <code>EcuM_CheckWakeup</code>, the callouts <code>EcuM_CheckWakeupHook</code>, <code>EcuM_StartWakeupSources</code> and <code class="term">EcuM_CheckValidation</code>, and the <span class="term">validation timeout</span>.</li>
+<li>The BswM rules on the wakeup state: in the example, a validated <code>ECUM_WKSOURCE_BODYCAN</code> leads to <code class="term">ComM_CommunicationAllowed</code> for the channels. Without it the channel waits in <code class="term">COMM_NO_COM_REQUEST_PENDING</code>. A rule on the expired state usually sends the ECU back to sleep.</li>
+<li>The order of <code class="term">ComM_EcuM_WakeUpIndication</code> and the report of the validated state to BswM inside <code class="term">EcuM_ValidateWakeupEvent</code>: the requirements name both calls but no order; the figure of the specification draws ComM first.</li>
+</ul>
+
+<div class="older">
+<p>The wakeup and validation chain is the same in 4.4.0 and R20-11, with one difference in the ISR: there <code>EcuM_CheckWakeup</code> was itself the integrator's callout; from R21-11 it is an EcuM function that calls the callout <code>EcuM_CheckWakeupHook</code>. Up to R20-11 the received PNC bits did not reach ComM through <code>Nm_PncBitVectorRxIndication</code> and <code class="term">ComM_Nm_UpdateERA</code>: CanNm computed EIRA and ERA itself and ComM read them from COM signals (<a href="0053-pnc-through-com-signals.html">lesson 53</a>). In 4.4.0 and R20-11 CanIf calls <code>CanNm_RxIndication</code> directly; the LSduR between them exists from R24-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The frame that wakes the transceiver is never seen by CanNm; it takes a second message to validate the wakeup. EcuM only reports the validated wakeup; BswM's rules allow communication, and ComM starts the channel passively. On this gateway "passive" does not stay passive for long: the NM coordinator requests the network, and the PNC gateway turns the Door ECU's Comfort request into its own request on body CAN and Ethernet.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 7.5 and 7.6.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANTransceiverDriver.pdf">Specification of CAN Transceiver Driver, R25-11</a> (CanTrcv_CheckWakeup); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">Specification of CAN Interface, R25-11</a> (wakeup and validation); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, chapter 7; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7.1, 7.2 and 9.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapters 7.2 and 7.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.2 and 7.11.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+const nb = (n) => ' '.repeat(Math.ceil(n));
+const pad = (steps) => steps.map((s) => s.note ? Object.assign({}, s, { note: s.note + nb((s.note.match(/[A-Z_]/g) || []).length * 0.35) })
+  : Object.assign({}, s, { call: s.call + nb(s.call.length * 0.06) }));
+const W = 'ECUM_WKSOURCE_BODYCAN';
+Sequence.create(document.getElementById('seq'), {
+  lanes: ['Door ECU', 'Can/CanTrcv', 'CanIf', 'Callouts', 'EcuM', 'BswM', 'ComM', 'NmIf', 'CanNm', 'CanSM'],
+  focus: ['EcuM', 'ComM', 'NmIf'],
+  steps: pad([
+    { ctx: 'ECU in HALT: no code runs', from: 'Door ECU', to: 'Can/CanTrcv', call: 'NM PDU 0x21, byte 2 = 0x01 (PNC 16)',
+      text: 'The Door ECU wakes body CAN and sends its NM PDU with the bit of PNC Comfort. The gateway\'s transceiver compares the frame with its configured wakeup frame: PNC 16 is one of its PNCs, so it raises a wakeup interrupt (<a href="0043-selective-wakeup-in-the-transceiver.html">lesson 43</a>). The controller sleeps; nobody receives this frame.' },
+    { ctx: 'wakeup interrupt (ISR)', from: 'Callouts', to: 'EcuM', call: 'EcuM_CheckWakeup(' + W + ')',
+      text: 'The integrator\'s wakeup ISR calls <code>EcuM_CheckWakeup</code> (<a href="0030-sleep-halt-and-poll.html">lesson 30</a>).' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckWakeupHook(' + W + ')',
+      text: 'EcuM calls the integrator\'s hook, which asks the drivers of that wakeup source.' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckWakeup(' + W + ')',
+      text: 'CanIf finds out which CAN device caused the wakeup ...' },
+    { from: 'CanIf', to: 'Can/CanTrcv', call: 'CanTrcv_CheckWakeup(0)',
+      text: '... by asking the transceiver driver of body CAN.' },
+    { from: 'Can/CanTrcv', to: 'EcuM', call: 'EcuM_SetWakeupEvent(' + W + ')',
+      text: 'CanTrcv confirms its wakeup and reports the configured wakeup source. The event is pending; EcuM starts its validation timeout (<a href="0033-wakeup-sources-and-their-states.html">lesson 33</a>).' },
+    { ctx: 'WakeupRestart sequence', from: 'EcuM', note: 'normal MCU mode, EcuM_DisableWakeupSources, EcuM_AL_DriverRestart',
+      text: 'EcuM leaves HALT: it restores the normal MCU mode, disarms the source that fired, re-initializes the drivers that need it and releases its OS resource. The scheduler runs again.' },
+    { from: 'EcuM', to: 'BswM', call: 'E_OK', ret: true,
+      text: '<code class="term">EcuM_GoDownHaltPoll</code>, called by BswM before the sleep, returns.' },
+    { ctx: 'EcuM_MainFunction: WakeupValidation', from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(' + W + ', ECUM_WKSTATUS_PENDING)',
+      text: 'EcuM tells BswM that the body CAN wakeup is pending. BswM rules can react, for example by switching the ECU into a state in which it waits for the validation.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_StartWakeupSources(' + W + ')',
+      text: 'The source needs validation, so EcuM calls the integrator\'s callout to start it ...' },
+    { from: 'Callouts', to: 'CanSM', call: 'CanSM_StartWakeupSource(BodyCan)',
+      text: '... which calls CanSM. In its main function CanSM sets the transceiver to normal, stops the controller and starts it, so that the next frame can be received. Stopping the controller sets the PDU mode of CanIf to receive only (CANIF_TX_OFFLINE) (<a href="0035-can-wakeup-end-to-end.html">lesson 35</a>).' },
+    { ctx: 'CAN driver: frame received', from: 'Can/CanTrcv', to: 'CanIf', call: 'CanIf_RxIndication(NM PDU 0x21)',
+      text: 'The Door ECU sends its NM PDU again, one Message Cycle Time later. Now the controller is started and the CAN driver reports the frame.' },
+    { from: 'CanIf', note: 'first valid reception since the wakeup stored',
+      text: 'With wakeup validation enabled, CanIf stores the first valid reception on the started controller (an NM message counts in either configuration). The PDU mode is receive only, so CanIf also passes the frame up.' },
+    { from: 'CanIf', to: 'CanNm', call: 'LSduR → CanNm_RxIndication(NM PDU 0x21)',
+      text: 'CanNm is still in Bus-Sleep Mode. A received NM PDU does not start it; it only reports a network start ...' },
+    { from: 'CanNm', to: 'NmIf', call: 'Nm_NetworkStartIndication(BodyCan)',
+      text: '... which NmIf passes on to ComM ...' },
+    { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkStartIndication(BodyCan)',
+      text: '... but ComM acts on it only while communication is allowed. BswM withdrew that before the sleep (<a href="0049-going-to-sleep.html">lesson 49</a>), so the indication has no effect; the channel will start through the validated wakeup.' },
+    { ctx: 'EcuM_MainFunction: WakeupValidation', from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckValidation(' + W + ')',
+      text: 'While the wakeup is pending and the validation timeout runs, EcuM calls the integrator\'s validation callout in each main function ...' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckValidation(' + W + ')',
+      text: '... which asks CanIf (<a href="0034-wakeup-validation.html">lesson 34</a>).' },
+    { from: 'CanIf', to: 'EcuM', call: 'EcuM_ValidateWakeupEvent(' + W + ')',
+      text: 'A message has arrived since the wakeup, so CanIf validates it. EcuM stops the validation timeout.' },
+    { from: 'EcuM', to: 'ComM', call: 'ComM_EcuM_WakeUpIndication(BodyCan)',
+      text: 'The wakeup source references the channel <code>BodyCan</code>, so EcuM tells ComM. ComM switches the channel to COMM_NO_COM_REQUEST_PENDING; PNC Comfort stays in COMM_PNC_NO_COMMUNICATION, because synchronous wakeup is not configured.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentWakeup(' + W + ', ECUM_WKSTATUS_VALIDATED)',
+      text: 'EcuM also reports the validated state to BswM. The requirements do not fix the order of these two calls.' },
+    { ctx: 'BswM rule evaluation', from: 'BswM', to: 'ComM', call: 'ComM_CommunicationAllowed(BodyCan, TRUE)',
+      text: 'An integrator rule on the validated wakeup allows communication (and typically does the same for <code>ChassisCan</code> and <code>Eth</code>).' },
+    { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', note: 'BodyCan: NO_COM_REQUEST_PENDING → COMM_FULL_COMMUNICATION',
+      text: 'Communication is allowed, so the channel enters full communication ...' },
+    { from: 'ComM', to: 'CanSM', call: 'CanSM_RequestComMode(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: '... and ComM requests the mode from CanSM.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_PassiveStartUp(BodyCan)',
+      text: 'The channel enters COMM_FULL_COM_NETWORK_REQUESTED, and because EcuM indicated a wakeup, ComM starts NM passively instead of requesting the network (<a href="0036-passive-and-active-startup.html">lesson 36</a>).' },
+    { from: 'NmIf', to: 'CanNm', call: 'CanNm_NetworkRequest(BodyCan)',
+      text: 'BodyCan belongs to the NM coordination cluster. For such a channel NmIf treats a passive startup as a network request: it calls <code>CanNm_NetworkRequest</code>, and the coordinator counts body CAN as requested.' },
+    { from: 'ComM', note: 'no user needs BodyCan → COMM_FULL_COM_READY_SLEEP',
+      text: 'No ComM user and no Dcm request needs the channel, so ComM moves on to COMM_FULL_COM_READY_SLEEP ...' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRelease(BodyCan)',
+      text: '... and releases the network. NmIf does not pass this release on: the coordinator keeps body CAN requested until the coordinated shutdown.' },
+    { ctx: 'CanNm request handling', from: 'CanNm', note: 'Bus-Sleep Mode → Repeat Message State',
+      text: 'CanNm enters Network Mode in its Repeat Message State and starts sending NM PDUs of node 0x10.' },
+    { from: 'CanNm', to: 'NmIf', call: 'Nm_NetworkMode(BodyCan)',
+      text: 'Network Mode is reported to NmIf ...' },
+    { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_NetworkMode(BodyCan)',
+      text: '... and on to ComM.' },
+    { ctx: 'CanSM_MainFunction', from: 'CanSM', to: 'CanIf', call: 'CanIf_SetPduMode(0, CANIF_ONLINE)',
+      text: 'CanSM leaves its wakeup validation state for CANSM_BSM_S_PRE_FULLCOM; the controller is already started from the validation. Entering full communication, it sets CanIf online. Until now the PDU mode was receive only (since the controller was stopped for the validation), so the gateway could receive but not send.' },
+    { from: 'CanSM', to: 'ComM', call: 'ComM_CanSM_ModeIndication(BodyCan, COMM_FULL_COMMUNICATION)',
+      text: 'CanSM reports full communication to ComM, then to BswM (not drawn). ComM passes the mode on to BswM, whose rule starts the I-PDU groups of body CAN, as in <a href="0047-power-on-to-full-communication.html">lesson 47</a>.' },
+    { ctx: 'CAN driver: NM PDU received', from: 'Can/CanTrcv', to: 'CanIf', call: 'CanIf_RxIndication(NM PDU 0x21)',
+      text: 'The next NM PDU of the Door ECU arrives, and CanIf is online now.' },
+    { from: 'CanIf', to: 'CanNm', call: 'LSduR → CanNm_RxIndication(NM PDU 0x21)',
+      text: 'CanIf hands it up through the LSduR to CanNm. CanNm restarts its NM-Timeout Timer.' },
+    { from: 'CanNm', to: 'NmIf', call: 'Nm_PncBitVectorRxIndication(BodyCan, 0x01, &relevant)',
+      text: 'The Partial Network Information Bit is set, so CanNm extracts the PNC bit vector at byte 2 and passes it to NmIf.' },
+    { from: 'NmIf', note: 'filter mask passes PNC 16: ERA of BodyCan and EIRA set',
+      text: 'NmIf applies the PNC filter mask: PNC 16 is relevant, so it stores it as requested in the ERA of <code>BodyCan</code> and in the EIRA, and restarts their reset timers (<a href="0042-eira-and-era.html">lesson 42</a>). The relevant flag tells CanNm to keep processing the PDU.' },
+    { ctx: 'NmIf: ERA and EIRA changed', from: 'NmIf', to: 'ComM', call: 'ComM_Nm_UpdateERA(BodyCan, ERA = 0x01)',
+      text: 'NmIf forwards each change: the ERA of body CAN ...' },
+    { from: 'NmIf', to: 'ComM', call: 'ComM_Nm_UpdateEIRA(EIRA = 0x01)',
+      text: '... and the EIRA.' },
+    { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', note: 'ERA before EIRA: PNC Comfort → COMM_PNC_REQUESTED',
+      text: 'ComM handles the ERA before the EIRA. With the PNC gateway function on and both channels of Comfort being gateway channels, the ERA bit puts PNC Comfort into COMM_PNC_REQUESTED.' },
+    { from: 'ComM', to: 'BswM', call: 'BswM_ComM_CurrentPNCMode(Comfort, COMM_PNC_REQUESTED)',
+      text: 'The PNC state change goes to BswM, which can start the Comfort I-PDU groups.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(BodyCan, IRA = 0x01)',
+      text: 'Body CAN is an active channel of the gateway, so ComM sets the Comfort bit in its IRA: the gateway now requests PNC 16 in its own NM PDUs on body CAN.' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_UpdateIRA(Eth, IRA = 0x01)',
+      text: 'The request came in on an active channel, so ComM also sets the bit for <code>Eth</code>, whatever its gateway type (<a href="0044-the-pnc-gateway.html">lesson 44</a>).' },
+    { from: 'ComM', note: 'BodyCan: COMM_FULL_COM_READY_SLEEP → COMM_FULL_COM_NETWORK_REQUESTED',
+      text: 'Entering COMM_PNC_REQUESTED requests full communication on all channels of Comfort, which counts like a user request. BodyCan goes back to COMM_FULL_COM_NETWORK_REQUESTED ...' },
+    { from: 'ComM', to: 'NmIf', call: 'Nm_NetworkRequest(BodyCan)',
+      text: '... and ComM requests the network itself. CanNm\'s network state was already "requested" through the coordinator; after the Repeat Message Time it enters the Normal Operation State.' },
+    { ctx: 'ComM_MainFunction_Eth', from: 'ComM', note: 'Eth: NO_COM_REQUEST_PENDING → COMM_FULL_COMMUNICATION, then Nm_NetworkRequest(Eth)',
+      text: 'In the main function of <code>Eth</code> the same request wakes Ethernet actively: EthSM brings the link up and UdpNm sends NM PDUs with PNC 16 to the Head unit. The Comfort cluster is awake on both buses.' }
+  ])
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module calls EcuM_ValidateWakeupEvent for the body CAN wakeup?',
+    options: ['CanIf, when a message has arrived', 'CanTrcv, inside its wakeup check', 'ComM, after its wakeup indication'],
+    answer: 0,
+    why: 'EcuM_CheckValidation asks CanIf_CheckValidation; if a valid message has arrived since the wakeup, CanIf calls EcuM_ValidateWakeupEvent.'
+  },
+  {
+    prompt: 'ComM calls Nm_PassiveStartUp for BodyCan. What does NmIf call on the gateway?',
+    options: ['CanNm_NetworkRequest, for the coordinator', 'CanNm_PassiveStartUp, unchanged', 'Nothing until the bus wakes again'],
+    answer: 0,
+    why: 'For a channel of an NM coordination cluster NmIf treats a passive startup as a network request.'
+  },
+  {
+    prompt: 'Why does PNC Comfort go to COMM_PNC_REQUESTED, not to READY_SLEEP?',
+    options: ['The ERA bit counts on a PNC gateway', 'The EIRA bit counts as a local user', 'The wakeup indication requests it'],
+    answer: 0,
+    why: 'With the PNC gateway function on, a PNC bit in the ERA of a gateway channel puts the PNC into COMM_PNC_REQUESTED; ComM handles the ERA before the EIRA.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remote sleep, car wakeup and user data · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.simrow { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0 0 0.7rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Remote sleep, car wakeup and user data</h1>
+<p class="lede">The <span class="term">NM PDU</span> can tell a node more than "someone is still awake": that all the others are ready to sleep, that the whole car should wake up, or whatever the application puts into the <span class="term">user data</span>.</p>
+
+<p>This lesson collects four optional features of CanNm and UdpNm. Each of them is switched on in the configuration; without them, NM behaves as in lessons 13 and 14.</p>
+
+<h2>Remote Sleep Indication</h2>
+<p>A node in <span class="term">Normal Operation State</span> keeps the bus awake. It may want to know whether it is the only one that still does. The <span class="term">Remote Sleep Indication</span> (the notification that no other node has sent an NM PDU for a while: all the others are ready to sleep) answers that:</p>
+<ul>
+<li>If the node receives no NM PDU in Normal Operation State for the <span class="term">Remote Sleep Indication Time</span> (a configured time of silence from the other nodes), CanNm calls <code class="term">Nm_RemoteSleepIndication</code>.</li>
+<li>If, after that, an NM PDU arrives again in Normal Operation State or <span class="term">Ready Sleep State</span>, or the node enters <span class="term">Repeat Message State</span> from one of them, CanNm calls the <span class="term">Remote Sleep Cancellation</span> (the notification that at least one other node is not ready to sleep any more), <code>Nm_RemoteSleepCancellation</code>.</li>
+</ul>
+<p>The node itself still needs the bus, so it goes on sending and the bus stays awake. <span class="term">NmIf</span> does not pass these notifications on to ComM: they are only needed inside NmIf, by the <span class="term">NM coordinator</span> (a gateway function that keeps several buses awake together and shuts them down together; lesson 37). An upper layer can also ask for the current status, but not in Repeat Message State, Prepare Bus-Sleep Mode or Bus-Sleep Mode.</p>
+
+<h2>Try it</h2>
+<p>The gateway stays in Normal Operation State on body CAN. Switch the needs of the Door ECU and the Light ECU and watch the gateway's NmIf lane. Message Cycle Time 1 s, Remote Sleep Indication Time 1.5 s; times are scaled.</p>
+<div class="panel no-print" id="rsi">
+<div class="simrow" id="rsibtns"></div>
+<div id="rsitl"></div>
+<p class="readout" id="rsiwhy">Both ECUs need the bus. Press Start.</p>
+</div>
+
+<h2>Car wakeup</h2>
+<p><span class="term">Car wakeup</span> (an NM feature with which one ECU asks for the whole vehicle to wake up, through a bit in its NM PDU) is built on top of the user data. The position of the car wakeup bit, a byte and a bit within the NM PDU, is configured; setting it on the sending side is the application's job, through the normal user data path.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 170" role="img" aria-labelledby="f1t">
+<title id="f1t">A received NM PDU with the car wakeup bit set goes to CanNm, which calls Nm_CarWakeUpIndication; NmIf calls a configured callout or BswM; that part decides to wake other networks and sets the car wakeup bit in its own NM PDUs.</title>
+<defs><marker id="f1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="4" y="60" width="110" height="46" class="m-drv"/><text x="59" y="80" class="d-t d-c">NM PDU</text><text x="59" y="96" class="d-s d-c">car wakeup bit = 1</text>
+<rect x="150" y="60" width="100" height="46" class="m-nm"/><text x="200" y="80" class="d-t d-c">CanNm</text><text x="200" y="96" class="d-s d-c">checks the filter</text>
+<rect x="290" y="60" width="100" height="46" class="m-nm"/><text x="340" y="88" class="d-t d-c">NmIf</text>
+<rect x="430" y="14" width="200" height="40" class="d-box"/><text x="530" y="31" class="d-t d-c">configured callout</text><text x="530" y="46" class="d-s d-c">if one is configured</text>
+<rect x="430" y="112" width="200" height="40" class="m-bswm"/><text x="530" y="129" class="d-t d-c">BswM</text><text x="530" y="144" class="d-s d-c">BswM_Nm_CarWakeUpIndication</text>
+<line x1="114" y1="83" x2="148" y2="83" class="d-ln" marker-end="url(#f1a)"/>
+<line x1="250" y1="83" x2="288" y2="83" class="d-ln" marker-end="url(#f1a)"/><text x="269" y="36" class="d-s d-c">Nm_CarWake-</text><text x="269" y="48" class="d-s d-c">UpIndication</text><line x1="269" y1="52" x2="269" y2="80" class="d-ln mute"/>
+<line x1="390" y1="76" x2="428" y2="40" class="d-ln" marker-end="url(#f1a)"/>
+<line x1="390" y1="92" x2="428" y2="128" class="d-ln" marker-end="url(#f1a)"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The receiving side of car wakeup. NmIf calls the configured callout if there is one, otherwise BswM. Whoever receives the indication decides which networks to wake and sets the car wakeup bit in its own NM PDUs.</figcaption>
+</figure>
+<p>On reception CanNm checks the bit in every NM PDU. If car wakeup reception is enabled and the bit is 1, CanNm calls <code class="term">Nm_CarWakeUpIndication</code> and then handles the PDU as usual. With a filter enabled, only NM PDUs from one configured <span class="term">Source Node Identifier</span> count; a sub-gateway uses this to follow only the central gateway and to avoid wrong wakeups. During the indication the whole received PDU can be read, so the receiver can see who sent the request. The part that handles the request passes it to its other networks by setting the bit in its own NM PDUs, and drops it when the sender does not repeat it within a certain time.</p>
+
+<h2>State change notification</h2>
+<p>With the <span class="term">state change notification</span> (an option in which CanNm reports each change of its state with the previous and the new state) switched on, CanNm calls <code class="term">Nm_StateChangeNotification</code> on every state change. NmIf passes it on to <span class="term">BswM</span>, so that BswM rules can react to NM states. Optionally NmIf also writes a 6-bit COM signal that is meant to be part of the node's own NM PDU, so that the other nodes see why this node is awake:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Value</th><th>NM state reached</th><th>coming from</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Repeat Message State</td><td>Bus-Sleep Mode</td></tr>
+<tr><td>2</td><td>Repeat Message State</td><td>Prepare Bus-Sleep Mode</td></tr>
+<tr><td>4</td><td>Normal Operation State</td><td>Repeat Message State</td></tr>
+<tr><td>8</td><td>Normal Operation State</td><td>Ready Sleep State</td></tr>
+<tr><td>16</td><td>Repeat Message State</td><td>Ready Sleep State</td></tr>
+<tr><td>32</td><td>Repeat Message State</td><td>Normal Operation State</td></tr>
+</tbody>
+</table>
+</div>
+<div class="older"><p>In 4.4.0 NmIf did not call BswM on a state change; it only wrote the optional COM signal. The call to BswM is in R20-11.</p></div>
+
+<h2>User data through COM</h2>
+<p>The user data can be set in two ways: through the NM API (NmIf passes it to CanNm), or through <span class="term">COM</span>. With the COM way switched on, the user data bytes are one <span class="term">I-PDU</span> of COM, with ordinary signals in it, and the API for setting user data is not available. CanNm fetches the I-PDU from COM through <span class="term">PduR</span> each time before it sends an NM PDU and combines it with the system bytes and the PNC bit vector. If COM itself sends that I-PDU, PduR passes it to CanNm, which sends an extra NM PDU with the new data, but only in Repeat Message State or Normal Operation State.</p>
+<p>The way back is different: the user data of received NM PDUs can only be read through the NM API, not as COM signals. And user data travels only with NM PDUs: it is always sent in Repeat Message State, in Normal Operation State only when this node sends (see <span class="term">bus load reduction</span>), and never in Ready Sleep State.</p>
+<div class="panel no-print" id="ud"></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Remote sleep is a view from one awake node: it sends, the others are silent. It does not change any state and is not passed to ComM. Car wakeup and the state report travel in the user data, so they depend on a node actually sending NM PDUs. COM user data is fetched by CanNm just before each transmission: COM decides the content, CanNm the timing.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Remote Sleep Indication</span></td><td>Notification that no other node has sent an NM PDU for a while: all the others are ready to sleep</td></tr>
+<tr><td><span class="term">Remote Sleep Indication Time</span></td><td>How long a node in Normal Operation State must receive no NM PDU before the Remote Sleep Indication</td></tr>
+<tr><td><span class="term">Remote Sleep Cancellation</span></td><td>Notification that at least one other node is not ready to sleep any more</td></tr>
+<tr><td><code class="term">Nm_RemoteSleepIndication</code></td><td>NmIf callback for the Remote Sleep Indication, used by the NM coordinator</td></tr>
+<tr><td><span class="term">car wakeup</span></td><td>A bit in the NM PDU with which one ECU asks for the whole vehicle to wake up</td></tr>
+<tr><td><code class="term">Nm_CarWakeUpIndication</code></td><td>NmIf callback for a received car wakeup bit; NmIf passes it to a callout or to BswM</td></tr>
+<tr><td><span class="term">state change notification</span></td><td>Option in which CanNm or UdpNm reports each change of its state</td></tr>
+<tr><td><code class="term">Nm_StateChangeNotification</code></td><td>NmIf callback with the previous and the new NM state; NmIf passes it to BswM</td></tr>
+<tr><td><code class="term">PduR_CanNmTriggerTransmit</code></td><td>PduR API with which CanNm fetches the COM user data before it sends an NM PDU</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.9.1, 7.9.2, 7.9.5 and 7.10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapters 7.8 and 8.4.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const CYCLE = 1, RSI = 1.5, DUR = 16;
+  const names = ['Door ECU', 'Light ECU'];
+  const lanes = [{ id: 'g', label: 'Gateway' }, { id: 'd', label: 'Door ECU' }, { id: 'l', label: 'Light ECU' }, { id: 'n', label: 'Gateway NmIf' }];
+  const why = document.getElementById('rsiwhy');
+  let need, next, quiet, detected;
+  function fresh() { need = [true, true]; next = [0.1, 0.4, 0.7]; quiet = 0; detected = false; }
+  fresh();
+  const tl = Timeline.create(document.getElementById('rsitl'), {
+    lanes, duration: DUR, axis: 2,
+    onTick: (prev, now) => { for (let t = prev; t < now - 1e-9; t += 0.01) step(Math.min(0.01, now - t), Math.min(now, t + 0.01)); },
+    onReset: () => { fresh(); render(); run.textContent = 'Start'; why.textContent = 'Both ECUs need the bus. Press Start.'; }
+  });
+  function step(dt, t) {
+    quiet += dt;
+    next = next.map((v, i) => {
+      if (i > 0 && !need[i - 1]) return v;
+      v -= dt;
+      if (v > 0) return v;
+      tl.markAt(lanes[i].id, t, '', 'k-req');
+      if (i > 0) {
+        quiet = 0;
+        if (detected) {
+          detected = false;
+          tl.markAt('n', t, 'Cancellation', 'k-res');
+          why.textContent = 'An NM PDU from the ' + names[i - 1] + ' arrives: Nm_RemoteSleepCancellation. Someone else needs the bus again.';
+        }
+      }
+      return CYCLE;
+    });
+    if (!detected && quiet >= RSI) {
+      detected = true;
+      tl.markAt('n', t, 'Remote Sleep Ind.', 'k-ev');
+      why.textContent = 'No NM PDU from another node for 1.5 s while the gateway is in Normal Operation: Nm_RemoteSleepIndication. The gateway keeps sending, so the bus stays awake.';
+    }
+  }
+  const box = document.getElementById('rsibtns');
+  const btns = names.map((n, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      need[i] = !need[i];
+      if (need[i]) next[i + 1] = 0.05;
+      why.textContent = need[i] ? 'The ' + n + ' requests the network again and sends at once.' : 'The ' + n + ' releases the network: Ready Sleep State, no more NM PDUs from it.';
+      render();
+    });
+    box.appendChild(b);
+    return b;
+  });
+  function render() {
+    btns.forEach((b, i) => { b.setAttribute('aria-pressed', String(need[i])); b.textContent = names[i] + (need[i] ? ': needs the bus' : ': ready to sleep'); });
+  }
+  const run = Timeline.button('Start', () => {
+    if (tl.running()) { tl.stop(); run.textContent = 'Continue'; }
+    else if (!tl.finished()) { tl.start(); run.textContent = 'Pause'; }
+  }, true);
+  tl.buttons.appendChild(run);
+  render();
+
+  Sequence.create(document.getElementById('ud'), {
+    lanes: ['SWC', 'COM', 'PduR', 'CanNm', 'CanIf'],
+    focus: ['CanNm'],
+    steps: [
+      { ctx: 'SWC runnable (task)', from: 'SWC', to: 'COM', call: 'write signal (through RTE)', text: 'The SWC writes a signal that is mapped into the NM user data I-PDU. COM stores the new value in that I-PDU.' },
+      { ctx: 'CanNm main function (task)', from: 'CanNm', note: 'message cycle timer ran out', text: 'Later, the CanNm main function finds that the next NM PDU is due.' },
+      { from: 'CanNm', to: 'PduR', call: 'PduR_CanNmTriggerTransmit', text: 'Before it requests the transmission, CanNm fetches the user data from the referenced I-PDU through PduR.' },
+      { from: 'PduR', to: 'COM', call: 'fetch I-PDU data', text: 'PduR gets the current content of the I-PDU from COM.' },
+      { from: 'PduR', to: 'CanNm', call: 'E_OK · user data bytes', ret: true, text: 'The bytes come back. If this fails (E_NOT_OK), CanNm uses the user data it sent last.' },
+      { from: 'CanNm', note: '+ system bytes, PNC bit vector', text: 'CanNm combines the user data with the Source Node Identifier, the Control Bit Vector and the PNC bit vector.' },
+      { from: 'CanNm', to: 'CanIf', call: 'LSduR_CanNmTransmit → CanIf_Transmit(NM PDU)', text: 'CanNm hands the complete NM PDU to CanIf for transmission; in R25-11 it goes through the L-SDU Router.' },
+      { ctx: 'CanIf transmit confirmation', from: 'CanIf', to: 'CanNm', call: 'CanNm_TxConfirmation(E_OK)', text: 'When the frame is on the bus, CanIf confirms it to CanNm (in R25-11 through the L-SDU Router).' },
+      { from: 'CanNm', to: 'PduR', call: 'PduR_CanNmTxConfirmation', text: 'With COM user data, CanNm forwards the confirmation to PduR, and PduR to COM, as for any other I-PDU.' }
+    ]
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The gateway gets Nm_RemoteSleepIndication on body CAN. What has happened?',
+    options: ['No other node sent an NM PDU for a while', 'The gateway itself has released the bus', 'The bus has entered Prepare Bus-Sleep'],
+    answer: 0,
+    why: 'In Normal Operation State the gateway has received no NM PDU for the Remote Sleep Indication Time: the others are ready to sleep. The gateway still sends.'
+  },
+  {
+    prompt: 'Who sets the car wakeup bit in a sent NM PDU?',
+    options: ['The application, through the user data', 'CanNm, after each network request', 'ComM, for every requested channel'],
+    answer: 0,
+    why: 'The car wakeup bit sits in the user data at a configured position. Transmitting it is the application\'s job through the user data mechanism.'
+  },
+  {
+    prompt: 'With COM user data, when does CanNm get the current user data?',
+    options: ['Just before it requests each transmission', 'Only once, when Network Mode is entered', 'Whenever an NM PDU has been received'],
+    answer: 0,
+    why: 'CanNm calls PduR_CanNmTriggerTransmit each time before it requests the transmission of an NM PDU (or the lower layer asks CanNm with trigger transmit).'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

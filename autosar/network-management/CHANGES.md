@@ -1,0 +1,6 @@
+# Changes
+
+## 2026-11-25
+- New: the course, with 58 lessons in 12 parts: the big picture, [ComM](lessons/0005-comm-users-and-channels.html), [network management](lessons/0012-the-coordination-algorithm.html), the [bus state managers](lessons/0021-cansm-the-state-machine.html), [EcuM and BswM](lessons/0025-the-ecum-phases.html), [wakeup](lessons/0033-wakeup-sources-and-their-states.html), the [NM coordinator](lessons/0037-coordinating-several-buses.html), [partial networking](lessons/0040-why-partial-networking.html), [four flows end to end](lessons/0047-power-on-to-full-communication.html), [the older way](lessons/0051-ecum-fixed.html) (EcuM Fixed, PNC through COM signals), configuration maps and the low-level details.
+- New: a CAN simulator of ComM, CanNm and CanSM with the NM timers, used in several lessons (for example [lesson 14 – The NM timers](lessons/0014-the-nm-timers.html)).
+- New: reference sheets [At a glance](reference/at-a-glance.html), [Interfaces](reference/interfaces.html), [NM timers](reference/nm-timers.html), [The older and the newer way](reference/older-and-newer-way.html), [Release differences](reference/release-differences.html), [FlexRay and LIN](reference/flexray-and-lin.html) and the [Glossary](reference/words.html).

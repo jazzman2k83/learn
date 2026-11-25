@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading an older PNC configuration · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.trees { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.2rem; }
+@media (max-width: 34rem) { .trees { grid-template-columns: 1fr; } }
+.trees h3 { margin-top: 0.8rem; }
+.pncs { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; font-family: var(--mono); font-size: 0.75rem; margin: 0.4rem 0 0.6rem; }
+.pncs label { display: inline-flex; align-items: center; gap: 0.25rem; }
+.calc-out { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+@media (max-width: 34rem) { .calc-out { grid-template-columns: 1fr; } }
+.calc-out pre { margin: 0; font-family: var(--mono); font-size: 0.72rem; background: var(--paper); border: 1px solid var(--rule); padding: 0.5rem 0.6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.calc-out h3 { margin: 0 0 0.3rem; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Reading an older PNC configuration</h1>
+<p class="lede">An ECU configured for the COM signal path spreads one <span class="term">PNC</span> over four modules: <span class="term">ComM</span>, the bus NM, <span class="term">PduR</span> and <span class="term">COM</span>. Knowing which containers to open turns such a configuration from a puzzle into a list.</p>
+
+<div class="warn"><p><strong>Releases on this page: 4.4.0 to R20-11</strong> (the names were checked in the configuration chapters of both). The last column of the mapping table gives the R25-11 names. R21-11 still has the old parameters, marked obsolete; R22-11 removes them.</p></div>
+
+<p>This lesson lists the containers and parameters of the old path module by module, fills them in for PNC Comfort (16) of the example gateway, and maps each of them to its R25-11 counterpart in <span class="term">NmIf</span>. The path itself is explained in lesson 53.</p>
+
+<h2>Where to look</h2>
+<div class="trees">
+<div>
+<h3>ComM</h3>
+<ul class="tree">
+<li class="c"><b>ComMGeneral</b>
+  <ul><li><code>ComMPncSupport</code> <span class="d">PNC handling compiled in</span></li>
+  <li><code>ComMPncGatewayEnabled</code> <span class="d">PNC gateway on or off</span></li>
+  <li><code>ComMPncPrepareSleepTimer</code></li></ul></li>
+<li class="c"><b>ComMConfigSet</b>
+  <ul><li><code>ComMPncEnabled</code> <span class="d">post-build switch</span></li>
+  <li class="c"><b>ComMChannel</b>
+    <ul><li><code>ComMPncGatewayType</code> <span class="d">ACTIVE or PASSIVE</span></li>
+    <li class="c"><b>ComMNetworkManagement</b> <ul><li><code>ComMPncNmRequest</code></li></ul></li></ul></li>
+  <li class="c"><b>ComMPnc</b>
+    <ul><li><code>ComMPncId</code> <span class="d">8 .. 63</span></li>
+    <li><code>ComMChannelPerPnc</code>, <code>ComMUserPerPnc</code></li>
+    <li class="c hl"><code class="term">ComMPncComSignal</code>
+      <ul><li><code>ComMPncComSignalDirection</code> <span class="d">RX or TX</span></li>
+      <li><code>ComMPncComSignalKind</code> <span class="d">EIRA or ERA, RX only</span></li>
+      <li><code>ComMPncComSignalChannelRef</code> <span class="d">with a PNC gateway</span></li>
+      <li><code>ComMPncComSignalRef</code> <span class="d">→ ComSignal</span></li></ul></li></ul></li></ul></li>
+</ul>
+</div>
+<div>
+<h3>CanNm (UdpNm: same names with UdpNm)</h3>
+<ul class="tree">
+<li class="c"><b>CanNmGlobalConfig</b>
+  <ul><li><code>CanNmGlobalPnSupport</code></li>
+  <li><code>CanNmComUserDataSupport</code> <span class="d">user data from COM</span></li>
+  <li class="hl"><code>CanNmPnEiraCalcEnabled</code></li>
+  <li class="hl"><code>CanNmPnEiraRxNSduRef</code> <span class="d">→ Pdu of the EIRA</span></li>
+  <li class="hl"><code>CanNmPnResetTime</code> <span class="d">seconds</span></li>
+  <li class="c hl"><b>CanNmPnInfo</b>
+    <ul><li><code>CanNmPnInfoOffset</code>, <code>CanNmPnInfoLength</code> <span class="d">bytes</span></li>
+    <li class="c"><b>CanNmPnFilterMaskByte</b> <ul><li><code>CanNmPnFilterMaskByteIndex</code>, <code>CanNmPnFilterMaskByteValue</code></li></ul></li></ul></li>
+  <li class="c"><b>CanNmChannelConfig</b>
+    <ul><li><code>CanNmPnEnabled</code></li>
+    <li class="hl"><code>CanNmPnEraCalcEnabled</code></li>
+    <li class="hl"><code>CanNmPnEraRxNSduRef</code> <span class="d">→ Pdu of this channel's ERA</span></li>
+    <li class="c"><b>CanNmUserDataTxPdu</b> <ul><li><code>CanNmTxUserDataPduRef</code></li></ul></li></ul></li></ul></li>
+</ul>
+<h3>PduR and COM</h3>
+<ul class="tree">
+<li><span class="d">PduR: a routing path from each EIRA and ERA Pdu (source CanNm or UdpNm) to COM, and one from the user data I-PDU of COM to CanNm or UdpNm.</span></li>
+<li><span class="d">COM: a receive I-PDU per EIRA and ERA Pdu, each with one bit vector signal (as long as the PN info) whose notification is <code class="term">ComM_COMCbk_&lt;sn&gt;</code>; and the TX signal inside the NM user data I-PDU, placed on the PN info bytes.</span></li>
+</ul>
+</div>
+</div>
+<p>The marked entries exist only for the old path. A quick test of which path a configuration uses: if <code class="term">ComMPncComSignal</code> containers are present and <code>CanNmPnEiraCalcEnabled</code> is set, it is the COM signal path.</p>
+<div class="older"><p>In 4.4.0, <code>CanNmPnInfoOffset</code> and <code>CanNmPnInfoLength</code> range from 1 to 7 (an 8-byte NM PDU); R20-11 allows 1 to 63. R20-11 also adds parameters for the drafts of that release, such as <code>CanNmSynchronizedPncShutdownEnabled</code>, <code>CanNmDynamicPncToChannelMappingEnabled</code> and <code>ComMSynchronizedPncShutdownEnabled</code>; they do not belong to the basic COM path.</p></div>
+
+<h2>A worked example: PNC Comfort = 16</h2>
+<p>Comfort runs on body CAN (CanNm) and on Ethernet (UdpNm); Lighting (17) only on body CAN. The PN info is one byte at offset 2 on both buses. The COM signal names are examples.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Module</th><th>Container / parameter</th><th>Value</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>ComM</td><td><code>ComMPnc</code> Comfort: <code>ComMPncId</code></td><td>16</td><td>byte (16 div 8) − 2 = 0, bit 16 mod 8 = 0</td></tr>
+<tr><td>ComM</td><td><code>ComMChannelPerPnc</code> / <code>ComMUserPerPnc</code></td><td><code>BodyCan</code>, <code>Eth</code> / <code>UserComfort</code></td><td>the channels and the user of Comfort</td></tr>
+<tr><td>ComM</td><td><code>ComMPncComSignal</code> 1</td><td>RX, EIRA → <code>PncEiraCan</code></td><td>the EIRA of CanNm, one for all CAN channels</td></tr>
+<tr><td>ComM</td><td><code>ComMPncComSignal</code> 2</td><td>RX, EIRA → <code>PncEiraUdp</code></td><td>the EIRA of UdpNm</td></tr>
+<tr><td>ComM</td><td><code>ComMPncComSignal</code> 3 and 4</td><td>TX → <code>PncTxBodyCan</code>, <code>PncTxEth</code></td><td>ComM's own request, one signal per channel</td></tr>
+<tr><td>CanNm</td><td><code>CanNmGlobalPnSupport</code>, <code>CanNmPnEiraCalcEnabled</code>, <code>CanNmComUserDataSupport</code></td><td>true</td><td>PN handling, EIRA, user data from COM</td></tr>
+<tr><td>CanNm</td><td><code>CanNmPnInfoOffset</code> / <code>CanNmPnInfoLength</code></td><td>2 / 1</td><td>PNC bit vector in byte 2 of the NM PDU</td></tr>
+<tr><td>CanNm</td><td><code>CanNmPnFilterMaskByte</code>: <code>…Index</code> / <code>…Value</code></td><td>0 / 0x03</td><td>Comfort (bit 0) and Lighting (bit 1) are relevant on body CAN</td></tr>
+<tr><td>CanNm</td><td><code>CanNmPnResetTime</code></td><td>longer than the message cycle time</td><td>lesson 42</td></tr>
+<tr><td>CanNm</td><td><code>CanNmPnEiraRxNSduRef</code></td><td>→ Pdu <code>EiraCan</code></td><td>the PDU that PduR routes to COM</td></tr>
+<tr><td>CanNm</td><td><code>CanNmChannelConfig</code> BodyCan: <code>CanNmPnEnabled</code></td><td>true</td><td>body CAN uses partial networking</td></tr>
+<tr><td>UdpNm</td><td><code>UdpNmPnInfoOffset</code> / <code>UdpNmPnInfoLength</code>, filter mask byte 0</td><td>2 / 1, 0x01</td><td>only Comfort is relevant on Ethernet</td></tr>
+<tr><td>COM</td><td>signal <code>PncEiraCan</code> in the receive I-PDU of <code>EiraCan</code></td><td>1 byte, notification <code>ComM_COMCbk_PncEiraCan</code></td><td>bit 0 = Comfort, bit 1 = Lighting</td></tr>
+<tr><td>COM</td><td>signal <code>PncTxBodyCan</code> in the NM user data I-PDU of body CAN</td><td>1 byte on the PN info position</td><td>written by ComM with <code class="term">Com_SendSignal</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>If the gateway were a <span class="term">PNC gateway</span>, add <code>CanNmPnEraCalcEnabled</code> and <code>CanNmPnEraRxNSduRef</code> on each channel, one RX signal of kind ERA per channel in ComM, <code>ComMPncComSignalChannelRef</code> on the signals, and <code>ComMPncGatewayType</code> on the channels.</p>
+
+<h2>Try it</h2>
+<p>Set the PN info position and tick the PNCs that are relevant to the ECU. The page computes the filter mask bytes and writes them once with the old CanNm names and once with the R25-11 NmIf names.</p>
+<div class="panel no-print" id="calc">
+<div class="controls">
+<label>PN info offset (bytes) <input type="number" id="off" min="1" max="7" value="2"></label>
+<label>PN info length (bytes) <input type="number" id="len" min="1" max="2" value="1"></label>
+</div>
+<div class="pncs" id="pncs" role="group" aria-label="Relevant PNCs"></div>
+<p class="readout" id="calcWhy"></p>
+<div class="calc-out">
+<div><h3>Up to R20-11 (CanNm)</h3><pre id="oldOut"></pre></div>
+<div><h3>R25-11 (NmIf)</h3><pre id="newOut"></pre></div>
+</div>
+</div>
+
+<h2>Now → then</h2>
+<p>Read the table from left to right when you meet an older configuration, from right to left when you move one forward.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Up to R20-11</th><th>R25-11</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>CanNmPnEiraCalcEnabled</code> (<code>CanNmGlobalConfig</code>), <code>UdpNmPnEiraCalcEnabled</code></td><td><code>NmPnEiraCalcEnabled</code> (<code>NmGlobalProperties</code>)</td><td>one switch in NmIf for all buses</td></tr>
+<tr><td><code>CanNmPnEraCalcEnabled</code> (<code>CanNmChannelConfig</code>)</td><td><code>NmPnEraCalcEnabled</code> (<code>NmChannelConfig</code>)</td><td>still per channel</td></tr>
+<tr><td><code>CanNmPnResetTime</code></td><td><code>NmPnResetTime</code> (<code>NmGlobalProperties</code>)</td><td>still one value for EIRA and ERA</td></tr>
+<tr><td><code>CanNmPnInfoOffset</code> (<code>CanNmPnInfo</code>)</td><td><code>NmPncBitVectorOffset</code> (<code>NmGlobalProperties</code>)</td><td>range 0 .. 63, default 0</td></tr>
+<tr><td><code>CanNmPnInfoLength</code></td><td><code>NmPncBitVectorLength</code> (<code>NmChannelConfig</code>)</td><td>now per channel</td></tr>
+<tr><td><code>CanNmPnFilterMaskByte</code> (global, in <code>CanNmPnInfo</code>)</td><td><code>NmPnFilterMaskByte</code> (<code>NmChannelConfig</code>): <code>NmPnFilterMaskByteIndex</code>, <code>NmPnFilterMaskByteValue</code></td><td>now per channel</td></tr>
+<tr><td><code>CanNmPnEnabled</code></td><td><code>CanNmPnEnabled</code> and <code>NmPnEnabled</code> (<code>NmChannelConfig</code>)</td><td>both exist</td></tr>
+<tr><td><code>CanNmPnEiraRxNSduRef</code>, <code>CanNmPnEraRxNSduRef</code>, the PduR routes and COM I-PDUs of EIRA and ERA</td><td>none</td><td>NmIf calls <code class="term">ComM_Nm_UpdateEIRA</code> and <code class="term">ComM_Nm_UpdateERA</code></td></tr>
+<tr><td><code class="term">ComMPncComSignal</code>, RX</td><td>none</td><td>ComM gets the arrays from NmIf</td></tr>
+<tr><td><code class="term">ComMPncComSignal</code>, TX, and its COM signal</td><td>none</td><td>ComM passes its <span class="term">IRA</span> with <code class="term">Nm_UpdateIRA</code></td></tr>
+<tr><td><code>ComMPncId</code> 8 .. 63</td><td><code>ComMPncId</code> 8 .. 511</td><td>same rule for byte and bit</td></tr>
+<tr><td><code>ComMPncGatewayEnabled</code>, <code>ComMPncGatewayType</code>, <code>ComMChannelPerPnc</code>, <code>ComMUserPerPnc</code></td><td>same names</td><td>unchanged</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The numbers survive a migration: PNC IDs, the offset and length of the PNC bit vector, the mask bytes and the reset time keep their values and change only their container. What disappears is the transport: the EIRA and ERA PDUs, their PduR routes, their COM I-PDUs and signals, and every <code class="term">ComMPncComSignal</code>.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COMManager.pdf">Specification of Communication Manager, R20-11</a>, chapter 10.2; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R20-11</a>, chapters 7.11 and 10; <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R20-11</a>, chapter 10; the same documents in 4.4.0; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 10.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const off = document.getElementById('off'), len = document.getElementById('len');
+  const box = document.getElementById('pncs');
+  const names = { 16: 'Comfort', 17: 'Lighting' };
+  let picked = new Set([16, 17]);
+  const hex = (v) => '0x' + v.toString(16).toUpperCase().padStart(2, '0');
+  function clamp(el, lo, hi) { let v = parseInt(el.value, 10); if (isNaN(v)) v = lo; v = Math.max(lo, Math.min(hi, v)); el.value = v; return v; }
+  function build() {
+    const o = clamp(off, 1, 7), l = clamp(len, 1, 2);
+    const first = o * 8, last = (o + l) * 8 - 1;
+    picked = new Set([...picked].filter((p) => p >= first && p <= last));
+    box.replaceChildren();
+    for (let p = first; p <= last; p++) {
+      const lab = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = picked.has(p);
+      cb.addEventListener('change', () => { if (cb.checked) picked.add(p); else picked.delete(p); out(); });
+      lab.append(cb, document.createTextNode('PNC ' + p + (names[p] ? ' ' + names[p] : '')));
+      box.append(lab);
+    }
+    out();
+  }
+  function out() {
+    const o = parseInt(off.value, 10), l = parseInt(len.value, 10);
+    const bytes = new Array(l).fill(0);
+    [...picked].forEach((p) => { bytes[Math.floor(p / 8) - o] |= 1 << (p % 8); });
+    const list = [...picked].sort((a, b) => a - b).map((p) => 'PNC ' + p + ': NM PDU byte ' + Math.floor(p / 8) + ', mask byte ' + (Math.floor(p / 8) - o) + ', bit ' + (p % 8));
+    document.getElementById('calcWhy').textContent = list.length ? list.join(' · ') : 'No PNC is relevant: every NM PDU that requests only PNCs would be dropped by the filter.';
+    let a = 'CanNmGlobalConfig\n  CanNmPnInfo\n    CanNmPnInfoOffset = ' + o + '\n    CanNmPnInfoLength = ' + l + '\n';
+    let b = 'NmGlobalProperties\n  NmPncBitVectorOffset = ' + o + '\nNmChannelConfig BodyCan\n  NmPncBitVectorLength = ' + l + '\n';
+    bytes.forEach((v, i) => {
+      if (!v) return;
+      a += '    CanNmPnFilterMaskByte\n      CanNmPnFilterMaskByteIndex = ' + i + '\n      CanNmPnFilterMaskByteValue = ' + hex(v) + '\n';
+      b += '  NmPnFilterMaskByte\n    NmPnFilterMaskByteIndex = ' + i + '\n    NmPnFilterMaskByteValue = ' + hex(v) + '\n';
+    });
+    document.getElementById('oldOut').textContent = a;
+    document.getElementById('newOut').textContent = b;
+  }
+  off.addEventListener('change', build); len.addEventListener('change', build);
+  off.addEventListener('input', build); len.addEventListener('input', build);
+  build();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'In an R20-11 configuration you find CanNmPnInfoOffset = 2 and ComMPncId = 19. Which bit carries PNC 19?',
+    options: ['Byte 2 of the NM PDU, bit 3', 'Byte 3 of the NM PDU, bit 2', 'Byte 0 of the NM PDU, bit 19'],
+    answer: 0,
+    why: '19 div 8 = 2 is the NM PDU byte, which is byte 0 of the PN info; 19 mod 8 = 3 is the bit.'
+  },
+  {
+    prompt: 'Where does CanNmPnFilterMaskByte go when the configuration moves to R25-11?',
+    options: ['NmPnFilterMaskByte, per NM channel', 'ComMPnc, as a parameter per PNC', 'It is dropped: no filter is used'],
+    answer: 0,
+    why: 'The filter mask moves to NmIf, into NmChannelConfig, with the same index and value.'
+  },
+  {
+    prompt: 'Which part of the old configuration has no counterpart in R25-11?',
+    options: ['The COM signals that carry EIRA and ERA', 'The PNC IDs and their channel mapping', 'The PNC reset time for EIRA and ERA'],
+    answer: 0,
+    why: 'NmIf hands EIRA and ERA to ComM directly (ComM_Nm_UpdateEIRA, ComM_Nm_UpdateERA), so the COM signals, I-PDUs and PduR routes go away.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

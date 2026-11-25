@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlexRay and LIN · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+table.buses th:first-child { width: 18%; }
+table.buses td { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">Network Management</p>
+<h1>FlexRay and LIN</h1>
+<p class="lede">The course uses CAN and Ethernet. FlexRay and LIN fit into the same picture: <span class="term">ComM</span> sees a <span class="term">channel</span> and a <span class="term">bus state manager</span>, whatever the bus. What changes is the module below ComM, and whether there is network management at all.</p>
+
+<h2>The same picture</h2>
+<p>For every channel, ComM calls <code>&lt;Bus&gt;SM_RequestComMode</code> of the channel's bus state manager, whose prefix is <span class="term">CanSM</span>, <span class="term">EthSM</span>, <span class="term">FrSM</span> or <span class="term">LinSM</span> (by the bus type COMM_BUS_TYPE_CAN, _ETH, _FR or _LIN), and waits for its mode indication. Each bus state manager also reports its state to <span class="term">BswM</span> (<code>BswM_FrSM_CurrentState</code>, <code>BswM_LinSM_CurrentState</code>). The channel state machine of ComM is the same for all four; the <span class="term">NM variant</span> of the channel (<a href="../lessons/0008-nm-variants-per-channel.html">8</a>) decides how it goes to sleep.</p>
+
+<div class="table-wrap">
+<table class="data buses">
+<thead><tr><th></th><th>CAN</th><th>Ethernet</th><th>FlexRay</th><th>LIN</th></tr></thead>
+<tbody>
+<tr><th>Bus state manager</th><td>CanSM</td><td>EthSM</td><td>FrSM</td><td>LinSM</td></tr>
+<tr><th>Bus NM below NmIf</th><td>CanNm</td><td>UdpNm</td><td>FrNm</td><td>none</td></tr>
+<tr><th>NM variant</th><td><span class="term">FULL</span> or <span class="term">PASSIVE</span></td><td>FULL or PASSIVE; <code class="term">SLAVE_PASSIVE</code> for hardware that follows OA TC10</td><td>FULL or PASSIVE</td><td><code class="term">SLAVE_ACTIVE</code> on a LIN slave; no NM on the master</td></tr>
+<tr><th>How the bus sleeps</th><td>No NM PDU for NM-Timeout Time + Wait Bus-Sleep Time</td><td>The same, with NM packets</td><td>(FrNmReadySleepCnt + 1) repetition cycles without a positive NM-Vote</td><td>The master sends the goto-sleep command</td></tr>
+<tr><th>Wakeup</th><td>Any frame; with <span class="term">selective wakeup</span> only a matching <span class="term">wakeup frame</span></td><td>Through the Ethernet hardware (<code class="term">EthIf_CheckWakeup</code>)</td><td>A special wakeup pattern, sent by FrSM</td><td>A wakeup signal on the bus (<code>LinIf_Wakeup</code>), from master or slave</td></tr>
+<tr><th><span class="term">Partial networking</span></th><td>Yes</td><td>Yes</td><td>Yes (FrNm)</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>FlexRay: FrSM and FrNm</h2>
+<p>FlexRay is time-triggered: all nodes run one shared communication cycle. Starting it is far more involved than on CAN: on CAN any message can wake the bus, on FlexRay a special wakeup pattern is needed. <span class="term">FrSM</span> maps ComM's modes to the states of the FlexRay controllers (FRSM_READY, FRSM_WAKEUP, FRSM_STARTUP, FRSM_ONLINE …) and, if the cluster is configured for it (FrSMIsWakeupEcu), sends the wakeup pattern.</p>
+<p><span class="term">FrNm</span> runs the same coordination algorithm (<a href="../lessons/0012-the-coordination-algorithm.html">12</a>) with the same three states inside Network Mode as CanNm, and a Synchronize Mode between Bus-Sleep Mode and Network Mode. Instead of one NM PDU it sends NM data and a separate <span class="term">NM-Vote</span>: a node that needs the bus votes to keep it awake. When no node has voted for (FrNmReadySleepCnt + 1) repetition cycles, all nodes enter Bus-Sleep Mode at the end of the same cycle. FrNm has no Prepare Bus-Sleep Mode and no Wait Bus-Sleep Time. Because the bus is cyclic, a FlexRay channel is the natural synchronizing network of an <span class="term">NM coordinator</span> (<a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a>): FrNm calls <code>Nm_SynchronizationPoint</code> at the points where a coordinated shutdown may start.</p>
+
+<h2>LIN: LinSM, no NM</h2>
+<p>LIN has a master and slaves, and no AUTOSAR network management: <span class="term">NmIf</span> is not involved. <span class="term">LinSM</span> knows only two states per network, LINSM_NO_COM and LINSM_FULL_COM; <code class="term">COMM_SILENT_COMMUNICATION</code> is not used.</p>
+<ul>
+<li><strong>LIN master.</strong> When ComM requests <code class="term">COMM_NO_COMMUNICATION</code>, LinSM has the <span class="term">goto-sleep command</span> sent (<code>LinIf_GotoSleep</code>); the slaves follow. A request for full communication sends a wakeup (<code>LinIf_Wakeup</code>). The master's own channel uses an NM variant without NM; the specifications do not name one for a LIN master.</li>
+<li><strong>LIN slave</strong>, NM variant <code>SLAVE_ACTIVE</code>. The slave cannot keep the bus awake, but it can wake it: a request for full communication makes LinSM send a wakeup signal, and the master starts the bus. The slave sleeps when it receives the goto-sleep command or sees the bus idle; LinSM then tells ComM with <code>ComM_LinSM_BusSleepMode</code>, and ComM goes to <code>COMM_NO_COMMUNICATION</code>.</li>
+</ul>
+<p class="small">The LinSM specification of R25-11 writes the sleep notification <code>ComM_BusSM_BusSleepMode</code> and the mode indication <code>ComM_BusSM_ModeIndication</code>; the ComM specification writes them <code>ComM_&lt;Bus&gt;SM_BusSleepMode</code> and <code>ComM_&lt;Bus&gt;SM_ModeIndication</code>. They are the same functions.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> ComM, BswM and EcuM work the same on every bus. The bus state manager hides how a bus is switched on and off; the NM variant says who decides that the bus may sleep: the bus NM on CAN, Ethernet and FlexRay, the LIN master on LIN. <code>SLAVE_PASSIVE</code> belongs to Ethernet, not to LIN.</p>
+</div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Communication Manager, R25-11</a>, Table 7.3, SWS_ComM_01018, SWS_ComM_01017, the bus state manager prefixes and ECUC_ComM_00568 (ComMNmVariant); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_FlexRayStateManager.pdf">FlexRay State Manager, R25-11</a>, sections 7.1 and 7.3.8; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_FlexRayNetworkManagement.pdf">FlexRay Network Management, R25-11</a>, chapter 7 and SWS_FrNm_00101; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_LINStateManager.pdf">LIN State Manager, R25-11</a>, chapters 5 and 7; <a href="https://www.autosar.org/fileadmin/standards/R25-11/FO/AUTOSAR_FO_PRS_NetworkManagementProtocol.pdf">Network Management Protocol, R25-11</a>, section 5.4; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Network Management Interface, R25-11</a>, section 7.2.8.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

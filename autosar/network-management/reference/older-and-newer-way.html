@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The older and the newer way · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+table.map { table-layout: fixed; min-width: 36rem; }
+table.map td, table.map th { overflow-wrap: anywhere; }
+table.map col.old, table.map col.new { width: 42%; }
+table.map col.les { width: 16%; }
+table.map tr.group th { background: var(--panel); color: var(--muted); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem; margin: 1rem 0; }
+.steps .card p { font-size: 0.86rem; }
+@media print { table.map { min-width: 0; } }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">Network Management</p>
+<h1>The older and the newer way</h1>
+<p class="lede">Two parts of the course worked differently in older releases: <span class="term">EcuM Fixed</span> decided shutdown by itself, and PNC requests travelled between <span class="term">ComM</span> and the bus NMs as COM signals. In both cases the newer way moves the work to another module. This sheet puts the two ways side by side and maps each older concept to its newer equivalent.</p>
+
+<h2>EcuM Fixed and EcuM Flex with BswM</h2>
+<p>EcuM Fixed has its own specification up to 4.3.1, which marks it obsolete; 4.4.0 removes it. In 4.3.1 both variants are specified, so a project of that release may use either. R25-11 has only <span class="term">EcuM Flex</span>.</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">EcuM Fixed · 4.3.1 and older</p><h3>EcuM decides</h3><p>The states are fixed by the standard. EcuM stays in RUN while a <span class="term">RUN request</span> is placed, a ComM channel is not idle (<code class="term">ComM_GetState</code>) or <code class="term">EcuMRunMinimumDuration</code> is not over; after the last <span class="term">POST_RUN request</span> it shuts down. It calls <code class="term">ComM_CommunicationAllowed</code> itself. ComM is a <span class="term">resource manager</span>: a channel out of no communication keeps the ECU running.</p></div>
+  <div class="card m-bswm"><p class="tag">EcuM Flex + BswM · R25-11</p><h3>BswM decides, EcuM executes</h3><p>EcuM keeps the <span class="term">STARTUP phase</span>, the <span class="term">SHUTDOWN phase</span>, the <span class="term">SLEEP phase</span> and the wakeup handling. It only reports the RUN requests with <code class="term">BswM_EcuM_RequestedState</code>. <span class="term">BswM</span> rules combine them with the ComM modes and whatever else matters; an <span class="term">action list</span> allows communication, selects the <span class="term">shutdown target</span> and calls <code class="term">EcuM_GoDownHaltPoll</code>. Without such a rule, nothing shuts the ECU down.</p></div>
+</div>
+
+<div class="table-wrap">
+<table class="data map">
+<colgroup><col class="old"><col class="new"><col class="les"></colgroup>
+<thead><tr><th>EcuM Fixed (4.3.1 and older)</th><th>EcuM Flex + BswM (R25-11)</th><th>Lessons</th></tr></thead>
+<tbody>
+<tr class="group"><th colspan="3">Who decides</th></tr>
+<tr><td>Staying in RUN: EcuM checks the RUN requests, the ComM channels and the minimum duration</td><td>A BswM rule on the mode request <code>BswMEcuMRUNRequestIndication</code>, fed by <code>BswM_EcuM_RequestedState</code>, plus any other conditions the integrator adds</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td>Shutdown starts by itself after the last POST_RUN request</td><td>An action list with <code>BswMEcuMSelectShutdownTarget</code> and <code>BswMEcuMGoDownHaltPoll</code></td><td><a href="../lessons/0029-shutdown-targets.html">29</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td>ComM keeps the ECU in RUN as a resource manager (an implicit RUN request)</td><td>Only if a rule looks at the ComM mode: mode request <code>BswMComMIndication</code>, fed by <code>BswM_ComM_CurrentMode</code></td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0051-ecum-fixed.html">51</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td>EcuM allows communication on entering RUN and forbids it before leaving</td><td>Action <code>BswMComMAllowCom</code> per channel, when a rule says so</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr><td>Wakeup reaction chosen in <code>ECUM_STATE_WAKEUP_REACTION</code>, callout <code>EcuM_OnWakeupReaction</code></td><td>BswM rules on the wakeup source states (<code class="term">BswM_EcuM_CurrentWakeup</code>, mode request <code>BswMEcuMWakeupSource</code>)</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0051-ecum-fixed.html">51</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr class="group"><th colspan="3">APIs</th></tr>
+<tr><td><code>EcuM_RequestRUN</code>, <code class="term">EcuM_ReleaseRUN</code>, <code>EcuM_RequestPOST_RUN</code>, <code class="term">EcuM_ReleasePOST_RUN</code></td><td>The same four calls, with the same parameter (the <span class="term">EcuM user</span>); only what follows from them differs</td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td>Sub-states <code>ECUM_STATE_APP_RUN</code>, <code>ECUM_STATE_APP_POST_RUN</code></td><td><span class="term">ECU Mode Handling</span>: BswM sets <code>ECUM_STATE_RUN</code> or <code>ECUM_STATE_POST_RUN</code> with <code class="term">EcuM_SetState</code> (action <code>BswMEcuMStateSwitch</code>)</td><td><a href="../lessons/0025-the-ecum-phases.html">25</a>, <a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code>ComM_GetState</code>, polled by EcuM</td><td>ComM reports its mode changes to BswM (<code>BswM_ComM_CurrentMode</code>); <code>ComM_GetState</code> was removed in 4.4.0</td><td><a href="../lessons/0051-ecum-fixed.html">51</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code>EcuM_GetState</code></td><td>SWCs use the mode port of EcuM; BSW modules use BswM modes</td><td><a href="../lessons/0025-the-ecum-phases.html">25</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code>EcuM_KillAllRUNRequests</code></td><td>No equivalent; a rule can start the shutdown directly with <code>EcuM_GoDownHaltPoll</code></td><td><a href="../lessons/0029-shutdown-targets.html">29</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td>EcuM Flex up to 4.3.1: <code class="term">EcuM_GoDown</code>, <code>EcuM_GoHalt</code>, <code>EcuM_GoPoll</code></td><td><code>EcuM_GoDownHaltPoll</code> (since 4.4.0); the selected shutdown target decides between off, reset, <span class="term">HALT</span> and <span class="term">POLL</span></td><td><a href="../lessons/0029-shutdown-targets.html">29</a>, <a href="../lessons/0030-sleep-halt-and-poll.html">30</a></td></tr>
+<tr><td>Callouts <code>EcuM_OnEnterRun</code>, <code>EcuM_OnExitRun</code>, <code>EcuM_OnExitPostRun</code>, <code>EcuM_OnPrepShutdown</code>, <code>EcuM_OnGoSleep</code></td><td>A <code>BswMUserCallout</code> in the action list of the matching rule</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr><td>Callouts <code>EcuM_AL_DriverInitTwo</code>, <code>EcuM_AL_DriverInitThree</code></td><td><code>EcuMDriverInitListBswM</code> (callout <code>EcuM_AL_DriverInitBswM_&lt;x&gt;</code>) and BswM action lists</td><td><a href="../lessons/0026-startup.html">26</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr class="group"><th colspan="3">Configuration</th></tr>
+<tr><td><code>EcuMFixedGeneral</code>, <code>EcuMFixedConfiguration</code> (in <code>EcuMConfiguration</code>)</td><td><code>EcuMFlexGeneral</code>, <code class="term">EcuMFlexConfiguration</code></td><td><a href="../lessons/0051-ecum-fixed.html">51</a>, <a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+<tr><td><code>EcuMFixedUserConfig</code> / <code>EcuMFixedUser</code></td><td><code>EcuMFlexUserConfig</code> / <code>EcuMFlexUser</code></td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code>EcuMRunMinimumDuration</code></td><td>No EcuM parameter; a <code>BswMTimer</code> in the rule can play the same role</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><code class="term">EcuMComMCommunicationAllowedList</code></td><td>Action <code>BswMComMAllowCom</code> per channel in an action list</td><td><a href="../lessons/0027-bswm-as-the-glue.html">27</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr><td><span class="term">TTII</span>: <code>EcuMTTII</code> with <code>EcuMDivisor</code>, <code>EcuMSleepModeRef</code>, <code>EcuMSuccessorRef</code></td><td>No equivalent; the <span class="term">alarm clock</span> and BswM rules that select the <span class="term">sleep mode</span> can build similar behaviour</td><td><a href="../lessons/0031-the-alarm-clock.html">31</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr><td>Wakeup sources and sleep modes in the common part</td><td>The same, in <code class="term">EcuMCommonConfiguration</code></td><td><a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a>, <a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>Unchanged in both: initialization, the wakeup sources and <span class="term">wakeup validation</span> with <code class="term">ComM_EcuM_WakeUpIndication</code>, the shutdown target and the <span class="term">boot target</span> (<a href="../lessons/0026-startup.html">26</a>, <a href="../lessons/0032-multi-core-and-the-bootloader.html">32</a>, <a href="../lessons/0034-wakeup-validation.html">34</a>). Moving a project from EcuM Fixed means writing down as BswM rules everything that EcuM Fixed did implicitly; <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">lesson 52</a> gives the steps.</p>
+
+<h2>PNC through COM signals and PNC through NmIf</h2>
+<p>The <span class="term">PNC state machine</span> is the same in both ways; what changed is how the PNC bits travel between ComM and the bus NMs, and which module computes <span class="term">EIRA</span> and <span class="term">ERA</span>.</p>
+<div class="steps">
+  <div class="card m-com"><p class="tag">4.x to R20-11</p><h3>COM signals only</h3><p>The bus NMs compute EIRA and ERA; ComM reads and writes COM signals.</p></div>
+  <div class="card m-nm"><p class="tag">R21-11</p><h3>Both, in transition</h3><p>The path through <span class="term">NmIf</span> appears as a draft; the COM signal path and its parameters are marked obsolete.</p></div>
+  <div class="card m-nm"><p class="tag">R22-11 and later</p><h3>NmIf only</h3><p>The NmIf path is valid; the COM signal path, <code class="term">ComMPncComSignal</code> and the bus NM parameters for EIRA and ERA are removed.</p></div>
+</div>
+<div class="cards">
+  <div class="card m-com"><p class="tag">Through COM signals · up to R20-11</p><h3>The bus NM computes, COM carries</h3><p><span class="term">CanNm</span> and <span class="term">UdpNm</span> apply the <span class="term">PNC filter mask</span>, run the <span class="term">PNC reset timer</span>s and pass a changed EIRA or ERA as a received PDU through PduR to COM. COM calls <code class="term">ComM_COMCbk_&lt;sn&gt;</code>; ComM reads the signal with <code class="term">Com_ReceiveSignal</code> in its next <span class="term">main function</span>. ComM writes its own requests with <code class="term">Com_SendSignal</code> into the NM <span class="term">user data</span>.</p></div>
+  <div class="card m-nm"><p class="tag">Through NmIf · R22-11 and later</p><h3>NmIf computes and calls ComM</h3><p>The bus NMs pass every received <span class="term">PNC bit vector</span> to NmIf with <code class="term">Nm_PncBitVectorRxIndication</code>. NmIf filters, keeps EIRA and ERA with their timers, and calls <code class="term">ComM_Nm_UpdateEIRA</code> and <code class="term">ComM_Nm_UpdateERA</code>. ComM passes its <span class="term">IRA</span> per channel with <code class="term">Nm_UpdateIRA</code>; a bus NM that sends an NM PDU fetches those bits with <code class="term">Nm_PncBitVectorTxIndication</code>.</p></div>
+</div>
+
+<div class="table-wrap">
+<table class="data map">
+<colgroup><col class="old"><col class="new"><col class="les"></colgroup>
+<thead><tr><th>Through COM signals (up to R20-11)</th><th>Through NmIf (R22-11 and later)</th><th>Lessons</th></tr></thead>
+<tbody>
+<tr class="group"><th colspan="3">Who decides</th></tr>
+<tr><td>Each bus NM computes its own EIRA (one for all channels of that bus) and an ERA per channel</td><td>NmIf computes EIRA and ERA for all buses</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr><td>Filter mask and reset time are bus NM settings; the mask holds for all channels of a bus</td><td>Filter mask per NmIf channel, one reset time in NmIf</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td>ComM writes its PNC bits into the user data I-PDU in COM</td><td>ComM hands its IRA to NmIf; the bus NM takes the bits when it sends</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr><td>COM is the courier between the bus NM and ComM</td><td>No courier: NmIf calls ComM directly</td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr class="group"><th colspan="3">APIs</th></tr>
+<tr><td><code>ComM_COMCbk_&lt;sn&gt;</code> and <code>Com_ReceiveSignal</code> on an EIRA or ERA signal</td><td><code>ComM_Nm_UpdateEIRA</code>, <code>ComM_Nm_UpdateERA</code></td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>, <a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr><td><code>Com_SendSignal</code> on the TX signal of a channel</td><td><code>Nm_UpdateIRA</code></td><td><a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr><td>The bus NM passes EIRA and ERA PDUs to PduR</td><td><code>Nm_PncBitVectorRxIndication</code> from the bus NM to NmIf</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr><td>The NM user data I-PDU from COM carries the PNC bits</td><td><code>Nm_PncBitVectorTxIndication</code> from the bus NM to NmIf</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr class="group"><th colspan="3">Configuration</th></tr>
+<tr><td><code>ComMPncComSignal</code> (RX: kind EIRA or ERA; TX: one per channel)</td><td>None</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnEiraCalcEnabled</code>, <code>UdpNmPnEiraCalcEnabled</code></td><td><code>NmPnEiraCalcEnabled</code> (<code>NmGlobalProperties</code>)</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnEraCalcEnabled</code></td><td><code>NmPnEraCalcEnabled</code> (<code class="term">NmChannelConfig</code>)</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnResetTime</code></td><td><code>NmPnResetTime</code> (<code>NmGlobalProperties</code>)</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnInfoOffset</code>, <code>CanNmPnInfoLength</code></td><td><code>NmPncBitVectorOffset</code> (<code>NmGlobalProperties</code>), <code>NmPncBitVectorLength</code> (<code>NmChannelConfig</code>)</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnFilterMaskByte</code></td><td><code>NmPnFilterMaskByte</code> (<code>NmChannelConfig</code>)</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnEiraRxNSduRef</code>, <code>CanNmPnEraRxNSduRef</code>, PduR routes and COM I-PDUs of EIRA and ERA</td><td>None</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code class="term">ComMPncId</code> 8 … 63</td><td><code>ComMPncId</code> 8 … 511 (since R21-11)</td><td><a href="../lessons/0040-why-partial-networking.html">40</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr><td><code>CanNmPnEnabled</code></td><td><code>CanNmPnEnabled</code> and <code>NmPnEnabled</code></td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>Unchanged in both: the PNC state machine (<a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>), the rule for the byte and bit of a PNC, the PNC IDs (<a href="../lessons/0040-why-partial-networking.html">40</a>), the gateway types and <code>ComMPncGatewayEnabled</code>, <code>ComMChannelPerPnc</code>, <code>ComMUserPerPnc</code>.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Both changes move a decision out of a module that did it implicitly. EcuM Fixed obeyed the RUN requests by itself; EcuM Flex only passes them on, and BswM decides by configured rules. The bus NMs computed the PNC arrays and COM carried them; NmIf now computes them for all buses and calls ComM directly. In both cases the values a project chose (RUN users, PNC IDs, bit vector layout, mask bytes) survive; their place in the configuration changes.</p>
+</div>
+
+<p class="source">Source: Specification of ECU State Manager with fixed state machine, 4.3.1, chapters 7 and 8; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 7, 8 and 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of Basic Software Mode Manager, R25-11</a>, chapter 10; Specification of Communication Manager, 4.3.1, R20-11, R21-11 and R22-11, chapters 7, 8 and 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapters 7.4, 8 and 10; Specification of CAN Network Management, R20-11, chapters 7.11 and 10.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script>
+document.querySelectorAll('a[href^="../lessons/"]').forEach((a) => {
+  const L = window.Course ? window.Course.LESSONS : [];
+  const i = L.findIndex((l) => a.getAttribute('href').endsWith(l.file));
+  if (i >= 0) a.title = 'Lesson ' + (i + 1) + ': ' + L[i].title;
+});
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

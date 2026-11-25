@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeat message request and node detection · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Repeat message request and node detection</h1>
+<p class="lede">A node that is awake but no longer needs the bus stays silent. One control bit in the <span class="term">NM PDU</span> makes every node on the bus speak up again for a while, so that each one can be seen by its <span class="term">Source Node Identifier</span>.</p>
+
+<p>Lesson 13 showed that a node in <span class="term">Ready Sleep State</span> sends no NM PDUs. From the bus alone, nobody can tell whether such a node is there. This lesson shows the bit that changes that and the feature built on it.</p>
+
+<h2>One bit that sends everyone back</h2>
+<p>The <span class="term">Repeat Message Request</span> (the control bit that asks every node to go to Repeat Message State) is one bit of the <span class="term">Control Bit Vector</span>. It works in two directions, on every node where the feature of the next section, node detection, is switched on:</p>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">sending it</p><h3>The node that asks</h3><p>A node in <span class="term">Normal Operation State</span> or Ready Sleep State gets a request to repeat. Its CanNm sets the bit and enters <span class="term">Repeat Message State</span>, so it sends NM PDUs with the bit set. In Repeat Message State, Prepare Bus-Sleep Mode or Bus-Sleep Mode the request is refused.</p></div>
+  <div class="card m-nm"><p class="tag">receiving it</p><h3>Every other node</h3><p>A node in Normal Operation State or Ready Sleep State that receives an NM PDU with the bit set enters Repeat Message State as well. There it sends NM PDUs again, even if it had released the network.</p></div>
+</div>
+<p>Each node stays in Repeat Message State for its <span class="term">Repeat Message Time</span>, then goes on as lesson 13 showed: to Normal Operation State if its network is requested, to Ready Sleep State if it is released. The node that asked clears the bit when it leaves Repeat Message State. Until then it keeps sending the bit in every NM PDU, so a single lost PDU does not stop the request.</p>
+<p>The request comes from above NM. <span class="term">NmIf</span> offers it as <span class="term">Nm_RepeatMessageRequest</span>, which ComM does not use; it is meant for extensions of the NM stack, for example an application that wants to know the nodes on the bus.</p>
+
+<h2>Node detection</h2>
+<p><span class="term">Node detection</span> (finding out which nodes are on the bus by making all of them send) is the use the specification names for this bit. It is an optional feature, switched on per channel. For it to work, the NM PDU must carry a Control Bit Vector (for the bit) and a Source Node Identifier (to tell the senders apart).</p>
+<p>While all nodes are in Repeat Message State, every one of them sends NM PDUs with its own Source Node Identifier. The asking node reads the identifier of each received NM PDU. NmIf can also report the first NM PDU that arrives with the bit set, once per stay in Repeat Message State. AUTOSAR does not define a list of present nodes; collecting the identifiers is the job of whoever asked.</p>
+<p>The Repeat Message Time decides how robust this is. It is normally a whole number <i>n</i> of <span class="term">Message Cycle Time</span>s, so each node sends about <i>n</i> NM PDUs in Repeat Message State; the procedure tolerates <i>n</i> − 1 lost PDUs per node. A Repeat Message Time of 0 means there is no Repeat Message State to speak of, and node detection is not possible.</p>
+
+<h2>Try it</h2>
+<p>Step through node detection on body CAN. At the start the gateway needs the bus, the Door ECU and the Light ECU are awake but in Ready Sleep State. Then switch the Light ECU to <span class="term">passive mode</span> (a configuration in which a node never sends NM PDUs; lesson 17) and run it again.</p>
+<div class="panel no-print" id="nd"></div>
+
+<table class="data">
+<thead><tr><th>CanNm is in</th><th>Repeat Message Request received</th><th>Repeat request from above</th></tr></thead>
+<tbody>
+<tr><td>Normal Operation State</td><td>enters Repeat Message State</td><td>sets the bit, enters Repeat Message State</td></tr>
+<tr><td>Ready Sleep State</td><td>enters Repeat Message State</td><td>sets the bit, enters Repeat Message State</td></tr>
+<tr><td>Repeat Message State</td><td>already there and sending; a note in the specification says the state is entered or restarted, no requirement says whether its time starts again</td><td>refused</td></tr>
+<tr><td>Prepare Bus-Sleep Mode, Bus-Sleep Mode</td><td>(as for any received NM PDU, lesson 13)</td><td>refused</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The bit reaches only nodes that are awake: in Prepare Bus-Sleep Mode or Bus-Sleep Mode an NM PDU is handled as any other NM PDU, without node detection. A passive node is never seen, because it never sends. Leaving Repeat Message State does not keep anyone awake: a node that had released the network goes back to Ready Sleep State and silence.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Repeat Message Request</span></td><td>Control bit that asks every node to go to Repeat Message State</td></tr>
+<tr><td><span class="term">node detection</span></td><td>Finding out which nodes are on the bus by making all of them send NM PDUs</td></tr>
+<tr><td><code class="term">Nm_RepeatMessageRequest</code></td><td>NmIf API that sets the Repeat Message Request for the next NM PDUs of a channel</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.2.1, 7.13, 8.3.13 and 10 (Repeat Message Time); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapters 7.5.1 and 8.4.2.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const actors = [
+    { id: 'g', label: 'Gateway', sub: 'node 0x10' },
+    { id: 'd', label: 'Door ECU', sub: 'node 0x21' },
+    { id: 'l', label: 'Light ECU', sub: 'node 0x22' }
+  ];
+  function story(passive) {
+    return [
+      { text: 'Start: the gateway is in Normal Operation State and sends NM PDUs. The Door ECU and the Light ECU are in Ready Sleep State: awake, kept awake by the gateway, but silent. On the bus only node 0x10 is visible.',
+        rows: [{ at: 'g', note: 'Normal Operation' }, { span: ['d', 'l'], note: passive ? 'Ready Sleep (Light ECU: passive mode)' : 'Ready Sleep, silent' }] },
+      { text: 'An application on the gateway asks NmIf to repeat. CanNm sets the Repeat Message Request in its Control Bit Vector and enters Repeat Message State.',
+        rows: [{ at: 'g', note: 'bit set · Repeat Message' }] },
+      { text: 'The gateway\'s next NM PDU carries the bit. Every node on body CAN receives it.',
+        rows: [{ from: 'g', to: 'd', label: 'NM PDU · 0x10 · repeat bit 1', kind: 'req' }, { from: 'g', to: 'l', label: '', kind: 'req' }] },
+      passive
+        ? { text: 'The Door ECU enters Repeat Message State. The Light ECU is configured passive: it cannot have node detection, so it ignores the bit and stays silent in Ready Sleep State.',
+            rows: [{ at: 'd', note: '→ Repeat Message' }, { at: 'l', note: 'ignores the bit' }] }
+        : { text: 'Both receivers are in Ready Sleep State, so both enter Repeat Message State and start sending NM PDUs again.',
+            rows: [{ at: 'd', note: '→ Repeat Message' }, { at: 'l', note: '→ Repeat Message' }] },
+      { text: passive ? 'Only the Door ECU answers, with its own Source Node Identifier.' : 'Each node sends with its own Source Node Identifier.',
+        rows: passive ? [{ from: 'd', to: 'g', label: 'NM PDU · 0x21', kind: 'res' }]
+          : [{ from: 'd', to: 'g', label: 'NM PDU · 0x21', kind: 'res' }, { from: 'l', to: 'g', label: 'NM PDU · 0x22', kind: 'res' }] },
+      { text: passive ? 'The gateway has seen 0x10 and 0x21. The Light ECU is on the bus and awake, but node detection cannot see it.' : 'The gateway reads the Source Node Identifier of every received NM PDU and now knows all three nodes.',
+        rows: [{ at: 'g', note: passive ? 'seen: 0x10, 0x21' : 'seen: 0x10, 0x21, 0x22' }] },
+      { text: 'After its Repeat Message Time each node leaves Repeat Message State. The gateway clears the bit and goes back to Normal Operation State (its network is requested). The Door ECU' + (passive ? '' : ' and the Light ECU') + ' had released the network, so ' + (passive ? 'it goes' : 'they go') + ' back to Ready Sleep State and silence.',
+        rows: [{ at: 'g', note: 'bit cleared · Normal Op.' }, { span: ['d', 'l'], note: 'Ready Sleep, silent again' }] }
+    ];
+  }
+  const s = Seq.create(document.getElementById('nd'), { actors, steps: story(false) });
+  const b1 = document.createElement('button');
+  b1.type = 'button';
+  b1.setAttribute('aria-pressed', 'false');
+  b1.textContent = 'Light ECU in passive mode';
+  b1.addEventListener('click', () => {
+    const on = b1.getAttribute('aria-pressed') !== 'true';
+    b1.setAttribute('aria-pressed', String(on));
+    s.set({ steps: story(on) });
+  });
+  s.buttons.appendChild(b1);
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A node in Ready Sleep State receives an NM PDU with the Repeat Message Request set. What does it do?',
+    options: ['It enters Repeat Message State and sends', 'It stays silent and only notes the sender', 'It requests the network for its users'],
+    answer: 0,
+    why: 'With node detection enabled, a node in Normal Operation or Ready Sleep State enters Repeat Message State on this bit and sends NM PDUs again.'
+  },
+  {
+    prompt: 'Why does the asking node keep the bit set for its whole Repeat Message Time?',
+    options: ['So a lost NM PDU does not stop the request', 'So the other nodes extend their timers', 'So the bus load reduction is switched off'],
+    answer: 0,
+    why: 'It sends the bit in every NM PDU until it leaves Repeat Message State, which makes the request tolerant to lost PDUs.'
+  },
+  {
+    prompt: 'Which node can node detection never find?',
+    options: ['A node configured in passive mode', 'A node in Normal Operation State', 'A node with a high node identifier'],
+    answer: 0,
+    why: 'A passive node never sends NM PDUs, so its Source Node Identifier never appears on the bus; node detection is not allowed together with passive mode.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

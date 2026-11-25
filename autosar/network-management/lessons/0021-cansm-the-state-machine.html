@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CanSM: one state machine per network · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>table.nw td:first-child code { white-space: nowrap; }</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+<svg class="defs" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs></svg>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>CanSM: one state machine per network</h1>
+<p class="lede"><span class="term">ComM</span> asks for a <span class="term">communication mode</span>; <span class="term">CanSM</span> makes it happen on the hardware. For every CAN network it runs one state machine that switches controllers, transceiver and the sending of PDUs, step by step, and reports the reached mode back.</p>
+
+<p>ComM talks to one <span class="term">bus state manager</span> per channel; on a CAN network that is CanSM. CanSM itself does not touch the hardware: it calls <span class="term">CanIf</span>, which passes the requests on to the <span class="term">Can driver</span> and the <span class="term">CanTrcv</span>.</p>
+
+<h2>What CanSM switches</h2>
+<div class="cards">
+  <div class="card m-drv"><p class="tag">in the microcontroller</p><h3>CAN controller</h3><p>The <span class="term">CAN controller</span> (the CAN hardware unit in the microcontroller) is set to <code>CAN_CS_STARTED</code>, <code>CAN_CS_STOPPED</code> or <code>CAN_CS_SLEEP</code>. A network may have more than one; CanSM switches all of them.</p></div>
+  <div class="card m-drv"><p class="tag">between controller and wires</p><h3>Transceiver</h3><p>The transceiver is set to <code>CANTRCV_TRCVMODE_NORMAL</code> to communicate, or <code>CANTRCV_TRCVMODE_STANDBY</code> to sleep while still detecting a wakeup on the bus.</p></div>
+  <div class="card m-if"><p class="tag">in CanIf</p><h3>PDU mode</h3><p>The <span class="term">PDU mode</span> (whether CanIf lets PDUs through for a controller) is <code>CANIF_ONLINE</code> for full communication and <code>CANIF_TX_OFFLINE</code> for silent communication: receiving only.</p></div>
+</div>
+<p>CanSM stores one network mode per network, with the same three values ComM uses: <code class="term">COMM_NO_COMMUNICATION</code>, <code class="term">COMM_SILENT_COMMUNICATION</code> and <code class="term">COMM_FULL_COMMUNICATION</code>. ComM requests one of them with <code class="term">CanSM_RequestComMode</code>; all of CanSM's work then happens in its <span class="term">main function</span>.</p>
+
+<h2>The main states</h2>
+<p>The state machine is called <code>CANSM_BSM</code>, and every configured CAN network has its own copy. Its states for the normal way up and down are:</p>
+<div class="table-wrap">
+<table class="data nw">
+<thead><tr><th>State</th><th>Network mode</th><th>Hardware</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CANSM_BSM_S_NOCOM</code></td><td><code>COMM_NO_COMMUNICATION</code></td><td>controllers asleep (or stopped), transceiver in standby</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_FULLCOM</code></td><td>on the way up</td><td>transceiver to normal, controllers stopped, then started</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_FULLCOM</code></td><td><code>COMM_FULL_COMMUNICATION</code></td><td>controllers started, PDU mode <code>CANIF_ONLINE</code></td></tr>
+<tr><td><code class="term">CANSM_BSM_S_SILENTCOM</code></td><td><code>COMM_SILENT_COMMUNICATION</code></td><td>controllers started, PDU mode <code>CANIF_TX_OFFLINE</code></td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_NOCOM</code></td><td>on the way down</td><td>controllers stopped and put to sleep, transceiver to standby</td></tr>
+</tbody>
+</table>
+</div>
+<p>The two pre-states are sub-state machines of their own. In each step CanSM calls CanIf, waits for the mode indication of the controller or transceiver, and only then takes the next step. If an indication does not come within a configured time, CanSM repeats the request and finally reports a runtime error.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 700 380" role="img" aria-labelledby="f1t">
+<title id="f1t">The CanSM state machine of one CAN network: NOT_INITIALIZED, PRE_NOCOM, NOCOM, PRE_FULLCOM, FULLCOM, SILENTCOM, and the side states WUVALIDATION, SILENTCOM_BOR and CHANGE_BAUDRATE, with the main transitions.</title>
+<rect x="150" y="10" width="400" height="42" class="d-state m-sm"/><text x="350" y="36" class="d-m d-c">CANSM_BSM_S_FULLCOM</text>
+<rect x="20" y="120" width="200" height="42" class="d-state m-sm"/><text x="120" y="146" class="d-m d-c">CANSM_BSM_S_PRE_FULLCOM</text>
+<rect x="480" y="120" width="200" height="42" class="d-state m-sm"/><text x="580" y="146" class="d-m d-c">CANSM_BSM_S_SILENTCOM</text>
+<rect x="250" y="120" width="200" height="42" class="d-box"/><text x="350" y="138" class="d-m d-c">CANSM_BSM_S_</text><text x="350" y="152" class="d-m d-c">CHANGE_BAUDRATE</text>
+<rect x="480" y="200" width="200" height="42" class="d-box"/><text x="580" y="218" class="d-m d-c">CANSM_BSM_S_</text><text x="580" y="232" class="d-m d-c">SILENTCOM_BOR</text>
+<rect x="20" y="200" width="200" height="42" class="d-box"/><text x="120" y="226" class="d-m d-c">CANSM_BSM_WUVALIDATION</text>
+<rect x="250" y="270" width="430" height="42" class="d-state m-sm"/><text x="465" y="296" class="d-m d-c">CANSM_BSM_S_PRE_NOCOM</text>
+<rect x="20" y="320" width="200" height="42" class="d-state m-sm"/><text x="120" y="346" class="d-m d-c">CANSM_BSM_S_NOCOM</text>
+<rect x="400" y="330" width="280" height="38" class="d-box"/><text x="540" y="353" class="d-m d-c">CANSM_BSM_S_NOT_INITIALIZED</text>
+
+<line x1="60" y1="320" x2="60" y2="164" class="d-ln" marker-end="url(#ah)"/>
+<text x="10" y="290" class="d-s">full</text><text x="10" y="302" class="d-s">request</text>
+<line x1="120" y1="120" x2="190" y2="54" class="d-ln" marker-end="url(#ah)"/>
+<text x="110" y="80" class="d-s">steps done</text>
+<line x1="510" y1="52" x2="540" y2="118" class="d-ln" marker-end="url(#ah)"/>
+<text x="470" y="80" class="d-s">silent request</text>
+<line x1="640" y1="120" x2="640" y2="54" class="d-ln" marker-end="url(#ah)"/>
+<text x="616" y="80" class="d-s">full request</text>
+<line x1="300" y1="52" x2="300" y2="268" class="d-ln" marker-end="url(#ah)"/>
+<text x="306" y="100" class="d-s">no-communication request</text>
+<line x1="600" y1="162" x2="600" y2="268" class="d-ln" marker-end="url(#ah)"/>
+<text x="606" y="190" class="d-s">no-com request</text>
+<line x1="540" y1="162" x2="540" y2="198" class="d-ln dash" marker-end="url(#ah)"/>
+<text x="470" y="186" class="d-s">bus-off</text>
+<line x1="270" y1="312" x2="222" y2="336" class="d-ln" marker-end="url(#ah)"/>
+<text x="236" y="318" class="d-s d-r">steps done</text>
+<line x1="540" y1="330" x2="540" y2="314" class="d-ln" marker-end="url(#ah)"/>
+<text x="546" y="324" class="d-s">CanSM_Init</text>
+<line x1="150" y1="320" x2="150" y2="244" class="d-ln dash" marker-end="url(#ah)"/>
+<text x="156" y="266" class="d-s">wakeup source started</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The CanSM state machine of one CAN network (simplified from the specification's Figure 7.1). The grey states are covered elsewhere: <code>CANSM_BSM_WUVALIDATION</code> starts the network to validate a wakeup (lesson 35), <code>CANSM_BSM_S_SILENTCOM_BOR</code> and the bus-off handling inside <code>CANSM_BSM_S_FULLCOM</code> belong to bus-off recovery (lesson 22), and <code>CANSM_BSM_S_CHANGE_BAUDRATE</code> changes the baud rate. After <code>CanSM_Init</code>, every network passes <code>CANSM_BSM_S_PRE_NOCOM</code> and ends in <code>CANSM_BSM_S_NOCOM</code>.</figcaption>
+</figure>
+
+<h2>The steps of the pre-states</h2>
+<div class="table-wrap">
+<table class="data nw">
+<thead><tr><th>Pre-state</th><th>Steps, in order</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CANSM_BSM_S_PRE_FULLCOM</code></td><td>transceiver <code>CANTRCV_TRCVMODE_NORMAL</code> → controllers <code>CAN_CS_STOPPED</code> → controllers <code>CAN_CS_STARTED</code></td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_NOCOM</code>, transceiver without partial networking (<code>ChassisCan</code>)</td><td>controllers <code>CAN_CS_STOPPED</code> → controllers <code>CAN_CS_SLEEP</code> → transceiver <code>CANTRCV_TRCVMODE_NORMAL</code> → transceiver <code>CANTRCV_TRCVMODE_STANDBY</code></td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_NOCOM</code>, transceiver with <span class="term">partial networking</span> (<code>BodyCan</code>)</td><td>clear the transceiver's wakeup flag → controllers stopped → transceiver normal → transceiver standby → controllers sleep → check the transceiver's wakeup flag</td></tr>
+</tbody>
+</table>
+</div>
+<p>The path with partial networking takes care of wakeups that the transceiver may have seen during shutdown; lesson 43 explains why. The way up is the same for both.</p>
+
+<h2>Reporting back: to ComM and to BswM</h2>
+<p>When a state is reached, CanSM reports it twice. ComM gets the new communication mode through <code class="term">ComM_CanSM_ModeIndication</code> and passes it on to its users and to <span class="term">BswM</span>. BswM also gets CanSM's own state directly, so that its rules can react to it (lesson 27).</p>
+<div class="table-wrap">
+<table class="data nw">
+<thead><tr><th>Transition</th><th>CanSM does, in this order</th></tr></thead>
+<tbody>
+<tr><td>into <code>CANSM_BSM_S_FULLCOM</code></td><td>PDU mode <code>CANIF_ONLINE</code>; reports <code>COMM_FULL_COMMUNICATION</code> to ComM; reports <code>CANSM_BSWM_FULL_COMMUNICATION</code> to BswM</td></tr>
+<tr><td>full to <code>CANSM_BSM_S_SILENTCOM</code></td><td>reports <code>CANSM_BSWM_SILENT_COMMUNICATION</code> to BswM; PDU mode <code>CANIF_TX_OFFLINE</code>; reports <code>COMM_SILENT_COMMUNICATION</code> to ComM</td></tr>
+<tr><td>into <code>CANSM_BSM_S_PRE_NOCOM</code></td><td>reports <code>CANSM_BSWM_NO_COMMUNICATION</code> to BswM, then runs the steps</td></tr>
+<tr><td>into <code>CANSM_BSM_S_NOCOM</code></td><td>stores the network mode; reports <code>COMM_NO_COMMUNICATION</code> to ComM if ComM had requested it</td></tr>
+</tbody>
+</table>
+</div>
+<p>On the usual way down, ComM requests silent communication when network management enters Prepare Bus-Sleep Mode, and no communication when it reaches Bus-Sleep Mode. A channel without network management goes from full straight to no communication.</p>
+
+<div class="older">
+<p>Up to R24-11 the mode indication is called <code>ComM_BusSM_ModeIndication</code> for every bus. R25-11's ComM specification names it <code>ComM_&lt;Bus&gt;SM_ModeIndication</code>, with <code>CanSM</code> as the prefix on CAN; the R25-11 CanSM specification still writes the old name. The states and steps of this lesson are the same in 4.4.0 and R20-11.</p>
+</div>
+
+<h2>Try it</h2>
+<p>CanSM on the example ECU's network <code>ChassisCan</code>, below ComM. Each controller or transceiver step takes 0.1 s here; the log shows every call to CanIf and every indication back. Timings are small example values on a real-time clock.</p>
+<div class="panel" id="sim"></div>
+<p>Things to try: request the channel and follow <code>CANSM_BSM_S_PRE_FULLCOM</code> in the log; release it and wait for the way down through <code>CANSM_BSM_S_SILENTCOM</code> and <code>CANSM_BSM_S_PRE_NOCOM</code>; let the Brake ECU wake the bus and watch where the first PDU goes.</p>
+
+<div class="note">
+<p><strong>Things to notice.</strong> ComM only names a mode; CanSM turns it into an ordered series of controller and transceiver modes, each confirmed before the next. Full and silent communication differ only in CanIf's PDU mode: the controller runs in both. ComM learns the result from CanSM's mode indication, not from its own request.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">CAN controller</span></td><td>The CAN hardware unit in the microcontroller; started, stopped or asleep</td></tr>
+<tr><td><span class="term">PDU mode</span></td><td>Whether CanIf passes PDUs of a controller: online, transmit offline (receive only), offline</td></tr>
+<tr><td><code class="term">CanSM_RequestComMode</code></td><td>The CanSM API with which ComM requests a communication mode for a CAN network</td></tr>
+<tr><td><code class="term">ComM_CanSM_ModeIndication</code></td><td>CanSM's report of the reached communication mode to ComM</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_NOCOM</code></td><td>CanSM state: the network has no communication</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_FULLCOM</code></td><td>CanSM pre-state on the way up: transceiver normal, controllers started</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_FULLCOM</code></td><td>CanSM state: full communication</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_SILENTCOM</code></td><td>CanSM state: silent communication, receiving only</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_NOCOM</code></td><td>CanSM pre-state on the way down: controllers asleep, transceiver in standby</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, chapter 7.2 (Figures 7.1, 7.3 to 7.5 and 7.7); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapter 8.4.5.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/cansim.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+CanSim.create(document.getElementById('sim'), {
+  show: ['cansm', 'comm', 'timeline', 'log'],
+  lanes: ['self', 'node', 'cansm', 'comm'],
+  controls: ['user', 'node', 'burst', 'run']
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What separates CANSM_BSM_S_FULLCOM from CANSM_BSM_S_SILENTCOM?',
+    options: ['The PDU mode in CanIf', 'The controller mode', 'The transceiver mode'],
+    answer: 0,
+    why: 'The controllers are started in both. Full communication uses <code>CANIF_ONLINE</code>, silent communication <code>CANIF_TX_OFFLINE</code>: receive only.'
+  },
+  {
+    prompt: 'What is the first step of CANSM_BSM_S_PRE_FULLCOM?',
+    options: ['Transceiver to normal mode', 'Controllers to started mode', 'PDU mode to online mode'],
+    answer: 0,
+    why: 'First the transceiver goes to <code>CANTRCV_TRCVMODE_NORMAL</code>, then the controllers are stopped and started. The PDU mode follows on entering full communication.'
+  },
+  {
+    prompt: 'How does ComM learn that the network has reached full communication?',
+    options: ['CanSM reports it with a mode indication', 'ComM reads it from its own request', 'BswM forwards it to ComM later'],
+    answer: 0,
+    why: 'CanSM calls <code>ComM_CanSM_ModeIndication</code> when <code>CANSM_BSM_S_FULLCOM</code> is reached; ComM then informs its users and BswM.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

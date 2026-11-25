@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAN wakeup end to end · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>CAN wakeup end to end</h1>
+<p class="lede">The Door ECU starts talking on body CAN while the gateway sleeps. Its <span class="term">CanTrcv</span> notices, EcuM checks that the wakeup was real, and ComM starts the channel and NM.</p>
+
+<p>Lesson 34 showed <span class="term">wakeup validation</span> as EcuM sees it. Here every module of the CAN path takes part: the transceiver and CAN drivers, <span class="term">CanIf</span>, <span class="term">CanSM</span>, EcuM with its callouts, <span class="term">ComM</span> and NM. The example is <code>ECUM_WKSOURCE_BODYCAN</code> of the gateway, which names channel <code>BodyCan</code>.</p>
+
+<h2>Detecting the wakeup</h2>
+<p>Before the sleep, CanSM put the CAN controller of body CAN to sleep and the transceiver to standby, and EcuM armed the transceiver as a wakeup source. Only in such a mode can the hardware report a wakeup. When another ECU sends on the bus, the transceiver signals it, by an interrupt or by polling.</p>
+<p>The integration code then calls <code class="term">EcuM_CheckWakeup</code> (EcuM's function for checking wakeup sources, called for example from the wakeup interrupt), which passes the source to its integrator hook. The hook calls <code class="term">CanIf_CheckWakeup</code> (CanIf asks the CAN controllers and transceivers configured for this wakeup source whether they woke up). CanIf asks the transceiver driver with <code class="term">CanTrcv_CheckWakeup</code> (the transceiver driver checks its hardware and reports a wakeup to EcuM), and the driver reports <code class="term">EcuM_SetWakeupEvent</code>. The source is now <span class="term">pending</span>.</p>
+
+<h2>Validating it on the bus</h2>
+<p>After the WakeupRestart sequence EcuM's main function starts the validation. The callout <code>EcuM_StartWakeupSources</code> calls <code class="term">CanSM_StartWakeupSource</code> (CanSM switches the transceiver to normal and starts the CAN controllers of the network, for validation only). CanSM enters its side state <code class="term">CANSM_BSM_WUVALIDATION</code> (the CanSM state in which transceiver and controller run for wakeup validation, without full communication): transceiver to normal, controller stopped, then started.</p>
+<p>The controller now receives frames. Stopping it has also changed CanIf's <span class="term">PDU mode</span>: CanIf sets a stopped controller to receive only (<code>CANIF_TX_OFFLINE</code>), so received frames go up to the upper modules while nothing is sent. For the validation CanIf also remembers the first valid <code class="term">CanIf_RxIndication</code> (the call with which the CAN driver hands a received frame to CanIf) on that controller. If validation by NM is configured, only NM PDUs count; otherwise any received frame of a configured Rx PDU does.</p>
+<p>An NM PDU received now reaches CanNm, which is still in <span class="term">Bus-Sleep Mode</span>. CanNm reports it with <code class="term">Nm_NetworkStartIndication</code>, and NmIf passes it on as <code class="term">ComM_Nm_NetworkStartIndication</code>. ComM switches to full communication on this indication only while <span class="term">communication allowed</span> is set. In the example BswM withdrew it before the sleep and sets it again only after the validation (lesson 49), so the indication has no effect here; the channel starts through the validated wakeup.</p>
+<p>In each main function cycle the callout <code>EcuM_CheckValidation</code> calls <code class="term">CanIf_CheckValidation</code> (CanIf confirms the wakeup to EcuM if it has stored a received frame since the wakeup). Once a frame is stored, CanIf calls <code>EcuM_ValidateWakeupEvent</code>. If the validation timeout runs out first, the callout <code>EcuM_StopWakeupSources</code> calls <code class="term">CanSM_StopWakeupSource</code> (CanSM switches the network back to no communication after a failed validation), and the gateway sleeps again. CanIf clears the stored frame when the controller goes to sleep.</p>
+
+<h2>Try it</h2>
+<p>Step through the night of the gateway, then try the two ways the validation can fail.</p>
+<div class="panel no-print">
+<div class="controls">
+  <label class="inline"><input type="radio" name="v" value="ok" checked> NM PDU of the Door ECU</label>
+  <label class="inline"><input type="radio" name="v" value="app"> only an application frame (validation by NM)</label>
+  <label class="inline"><input type="radio" name="v" value="none"> no frame at all</label>
+</div>
+<div id="seq"></div>
+</div>
+
+<h2>After the validation</h2>
+<p>EcuM tells ComM with <code class="term">ComM_EcuM_WakeUpIndication</code> and BswM with <code>ECUM_WKSTATUS_VALIDATED</code>. ComM moves channel BodyCan to <code class="term">COMM_NO_COM_REQUEST_PENDING</code>; as soon as BswM has set <span class="term">communication allowed</span>, it enters full communication. It asks CanSM for full communication, which leaves the validation state and sets the PDU mode online, and it starts NM with <code class="term">Nm_PassiveStartUp</code>. CanNm enters the <span class="term">Repeat Message State</span>. Lesson 36 shows how this passive start differs from an active one.</p>
+
+<div class="older">
+<p>The validation path (CanIf storing the first received frame, <code>EcuM_CheckValidation</code>, <code>CanIf_CheckValidation</code>, <code>EcuM_ValidateWakeupEvent</code>) is the same in <strong>4.4.0</strong> and <strong>R20-11</strong>. In those releases <code>EcuM_CheckWakeup</code> is itself the integrator callout (from R21-11 EcuM calls <code>EcuM_CheckWakeupHook</code>), and a transceiver driver that checks its wakeup asynchronously and finds none reports it with <code>EcuM_EndCheckWakeup</code>, which R21-11 removed.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The wakeup is reported from an interrupt, but validated in EcuM's main function. During validation the controller runs and receives; received frames go up, and CanIf also notes that something valid arrived. An NM PDU only makes CanNm report a network start, which ComM ignores while communication is not allowed. NM is started by ComM after the validation, not by the received frame.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">EcuM_CheckWakeup</code></td><td>EcuM's function to check wakeup sources, for example from a wakeup interrupt; it calls the integrator hook</td></tr>
+<tr><td><code class="term">CanIf_CheckWakeup</code></td><td>CanIf asks the controllers and transceivers configured for a wakeup source whether they woke up</td></tr>
+<tr><td><code class="term">CanTrcv_CheckWakeup</code></td><td>The transceiver driver checks its hardware and reports a wakeup with <code>EcuM_SetWakeupEvent</code></td></tr>
+<tr><td><code class="term">CanSM_StartWakeupSource</code></td><td>Called from <code>EcuM_StartWakeupSources</code>: transceiver to normal, controllers stopped and started, PDU mode receive only</td></tr>
+<tr><td><code class="term">CANSM_BSM_WUVALIDATION</code></td><td>CanSM side state in which transceiver and controller run for wakeup validation only</td></tr>
+<tr><td><code class="term">CanIf_RxIndication</code></td><td>The CAN driver hands a received frame to CanIf</td></tr>
+<tr><td><code class="term">CanIf_CheckValidation</code></td><td>Confirms the wakeup with <code>EcuM_ValidateWakeupEvent</code> if CanIf has stored a received frame since the wakeup</td></tr>
+<tr><td><code class="term">CanSM_StopWakeupSource</code></td><td>Called from <code>EcuM_StopWakeupSources</code>: the network goes back to no communication</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, section 9.2.3, figures 9.4 and 9.7; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">Specification of CAN Interface, R25-11</a>, sections 7.18.4 and 8.3.18–8.3.19; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, sections 7.2.4, 7.2.5, 7.2.19 and 8.3.5–8.3.6; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANTransceiverDriver.pdf">Specification of CAN Transceiver Driver, R25-11</a>, section 8.3.12; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, section 7.2.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const lanes = ['Can / CanTrcv', 'CanIf', 'Callouts', 'EcuM', 'CanSM', 'ComM', 'NmIf / CanNm'];
+  const W = 'ECUM_WKSOURCE_BODYCAN';
+  const detect = [
+    { ctx: 'ECU in HALT · wakeup interrupt (ISR)', from: 'Callouts', to: 'EcuM', call: 'EcuM_CheckWakeup(' + W + ')', text: 'The Door ECU sends on body CAN. The transceiver in standby sees the activity and raises its wakeup interrupt; integration code in the ISR calls EcuM_CheckWakeup.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckWakeupHook(' + W + ')', text: 'EcuM hands the source to the integrator hook, which knows which driver chain to ask.' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckWakeup(' + W + ')', text: 'CanIf looks for the controllers and transceivers configured with this wakeup source.' },
+    { from: 'CanIf', to: 'Can / CanTrcv', call: 'CanTrcv_CheckWakeup(Transceiver)', text: 'CanIf asks the transceiver driver of body CAN whether it woke up.' },
+    { from: 'Can / CanTrcv', to: 'EcuM', call: 'EcuM_SetWakeupEvent(' + W + ')', text: 'It did: the driver reports the wakeup. The source is pending and the validation timeout starts.' },
+    { ctx: 'WakeupRestart sequence', from: 'EcuM', note: 'leaves the sleep (lesson 30)', text: 'EcuM restores the normal MCU mode, disarms the source and lets the other tasks run again.' },
+    { ctx: 'EcuM_MainFunction', from: 'EcuM', to: 'Callouts', call: 'EcuM_StartWakeupSources(' + W + ')', text: 'The main function starts the validation: the callout switches the source on.' },
+    { from: 'Callouts', to: 'CanSM', call: 'CanSM_StartWakeupSource(BodyCan)', text: 'CanSM accepts (E_OK) and its state machine of BodyCan enters CANSM_BSM_WUVALIDATION.' },
+    { ctx: 'CanSM_MainFunction', from: 'CanSM', to: 'CanIf', call: 'CanIf_SetTrcvMode(…, CANTRCV_TRCVMODE_NORMAL)', text: 'First the transceiver goes to normal, so that frames reach the controller.' },
+    { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetControllerMode(…, CAN_CS_STOPPED)', text: 'A sleeping controller cannot be started directly: CanSM stops it first. Stopping sets the PDU mode of CanIf to receive only (CANIF_TX_OFFLINE).' },
+    { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetControllerMode(…, CAN_CS_STARTED)', text: 'Then CanSM starts it. The controller receives again; received frames go up, nothing is sent.' }
+  ];
+  const ok = [
+    { ctx: 'CAN reception (Can driver)', from: 'Can / CanTrcv', to: 'CanIf', call: 'CanIf_RxIndication(NM PDU of the Door ECU)', text: 'The first frame is an NM PDU of the Door ECU (node 0x21). CanIf stores the event for this controller ...' },
+    { from: 'CanIf', to: 'NmIf / CanNm', call: 'LSduR → CanNm_RxIndication(NM PDU)', text: '... and passes the frame up: the PDU mode is receive only. CanNm is still in Bus-Sleep Mode.' },
+    { from: 'NmIf / CanNm', to: 'ComM', call: 'ComM_Nm_NetworkStartIndication(BodyCan)', text: 'CanNm reports Nm_NetworkStartIndication, and NmIf passes it to ComM. Communication is not allowed yet, so ComM does nothing with it.' },
+    { ctx: 'EcuM_MainFunction', from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckValidation(' + W + ')', text: 'In its next cycle EcuM asks again.' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckValidation(' + W + ')', text: 'The callout asks CanIf, the validating module of CAN wakeups.' },
+    { from: 'CanIf', to: 'EcuM', call: 'EcuM_ValidateWakeupEvent(' + W + ')', text: 'A frame is stored, so CanIf confirms the wakeup. EcuM stops the timeout and reports ECUM_WKSTATUS_VALIDATED to BswM.' },
+    { from: 'EcuM', to: 'ComM', call: 'ComM_EcuM_WakeUpIndication(BodyCan)', text: 'The source names channel BodyCan: ComM moves the channel to COMM_NO_COM_REQUEST_PENDING.' },
+    { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', note: 'communication allowed: full communication', text: 'Once a BswM rule has set communication allowed, ComM enters COMM_FULL_COMMUNICATION, sub-state COMM_FULL_COM_NETWORK_REQUESTED.' },
+    { from: 'ComM', to: 'CanSM', call: 'CanSM_RequestComMode(BodyCan, COMM_FULL_COMMUNICATION)', text: 'ComM asks CanSM for full communication. CanSM leaves the validation state and sets the PDU mode online; from now on the gateway can also send.' },
+    { from: 'ComM', to: 'NmIf / CanNm', call: 'Nm_PassiveStartUp(BodyCan)', text: 'The wakeup came from the bus, so ComM starts NM passively. NmIf passes it on to CanNm.' },
+    { from: 'NmIf / CanNm', note: 'Repeat Message State', text: 'CanNm leaves Bus-Sleep Mode for the Repeat Message State and sends its own NM PDUs. Lesson 36 continues from here.' }
+  ];
+  const fail = (first) => [first,
+    { ctx: 'EcuM_MainFunction (each cycle)', from: 'EcuM', to: 'Callouts', call: 'EcuM_CheckValidation(' + W + ')', text: 'EcuM keeps asking, cycle after cycle.' },
+    { from: 'Callouts', to: 'CanIf', call: 'CanIf_CheckValidation(' + W + ')', text: 'CanIf has stored nothing, so it does not call EcuM_ValidateWakeupEvent.' },
+    { ctx: 'EcuM_MainFunction (later cycle)', from: 'EcuM', note: 'validation timeout expired', text: 'The validation timeout runs out. The source is expired and EcuM reports ECUM_WKSTATUS_EXPIRED to BswM. ComM never hears of it.' },
+    { from: 'EcuM', to: 'Callouts', call: 'EcuM_StopWakeupSources(' + W + ')', text: 'The callout switches the source off again.' },
+    { from: 'Callouts', to: 'CanSM', call: 'CanSM_StopWakeupSource(BodyCan)', text: 'CanSM leaves CANSM_BSM_WUVALIDATION through CANSM_BSM_S_PRE_NOCOM: controller and transceiver go back to sleep and standby. A BswM rule sends the ECU to sleep again.' }
+  ];
+  const app = { ctx: 'CAN reception (Can driver)', from: 'Can / CanTrcv', to: 'CanIf', call: 'CanIf_RxIndication(application frame)', text: 'A frame arrives, but it is not an NM PDU. With validation by NM configured, only NM PDUs count: CanIf stores nothing.' };
+  const none = { ctx: 'CAN reception (Can driver)', from: 'Can / CanTrcv', note: 'nothing received: it was a spike', text: 'The wakeup was a spike on the wires. No frame follows.' };
+  const story = (v) => detect.concat(v === 'ok' ? ok : fail(v === 'app' ? app : none));
+  const seq = Sequence.create(document.getElementById('seq'), { lanes, focus: ['EcuM', 'CanIf'], steps: story('ok') });
+  document.querySelectorAll('input[name="v"]').forEach((r) => r.addEventListener('change', () => seq.set({ steps: story(r.value) })));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'During validation the controller runs and receives an NM PDU. What does CanIf do with it?',
+    options: ['Stores the event and passes the PDU up', 'Stores the event and holds the PDU back', 'Drops it, as its PDU mode is still offline'],
+    answer: 0,
+    why: 'Stopping the controller set the PDU mode to receive only, so the NM PDU reaches CanNm, which reports a network start. ComM ignores it while communication is not allowed.'
+  },
+  {
+    prompt: 'Validation by NM is configured. Only an application frame arrives. What happens?',
+    options: ['The wakeup expires after the timeout', 'The wakeup is validated by that frame', 'ComM starts the channel at once'],
+    answer: 0,
+    why: 'With validation by NM only received NM PDUs count. Nothing is stored, the timeout expires and CanSM_StopWakeupSource switches the network off.'
+  },
+  {
+    prompt: 'Who starts CanNm after a validated CAN wakeup?',
+    options: ['ComM, with Nm_PassiveStartUp', 'CanIf, with the stored NM PDU', 'EcuM, with EcuM_CheckValidation'],
+    answer: 0,
+    why: 'EcuM tells ComM; ComM requests full communication from CanSM and calls Nm_PassiveStartUp, which NmIf passes to CanNm.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

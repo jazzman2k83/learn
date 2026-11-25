@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NM variants per channel · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.variants { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0 0 0.9rem; }
+@media (max-width: 34rem) { .variants { grid-template-columns: repeat(2, 1fr); } }
+.variants button { width: 100%; font-family: var(--mono); font-size: 0.8rem; }
+.panel .scroll { overflow-x: auto; }
+.panel .scroll svg { display: block; width: 100%; min-width: 34rem; height: auto; }
+#v-sm .arc { fill: none; stroke: var(--d-mute); stroke-width: 1.4; }
+#v-sm .arc.used { stroke: var(--accent); stroke-width: 2.2; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>NM variants per channel</h1>
+<p class="lede">Not every bus has network management, and not every ECU may keep a bus awake. Each <span class="term">channel</span> therefore says how <span class="term">ComM</span> works with network management on it, and that decides what happens after the last request is released.</p>
+
+<p>Lesson 7 ended in <code class="term">COMM_FULL_COM_READY_SLEEP</code>: no <span class="term">ComM user</span> needs the channel any more, and ComM waits until the channel may go down. What it waits for is set per channel by its <span class="term">NM variant</span> (the way a channel is handled with respect to network management: <code>FULL</code>, <code>PASSIVE</code>, <code>LIGHT</code>, <code>NONE</code>, <code>SLAVE_ACTIVE</code> or <code>SLAVE_PASSIVE</code>).</p>
+
+<h2>Two variants with AUTOSAR NM</h2>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">NM keeps the bus awake</p><h3><code>FULL</code></h3><p>With <code class="term">FULL</code>, AUTOSAR <span class="term">network management</span> (<span class="term">CanNm</span>, <span class="term">UdpNm</span>) runs on the channel. When a user requests full communication, ComM requests the network from <span class="term">NmIf</span>; on entering <code class="term">COMM_FULL_COM_READY_SLEEP</code> it releases it. While the network is requested, NM sends <span class="term">NM PDUs</span> (the network management messages an ECU sends cyclically while it needs the bus) and so keeps the bus awake. NM then decides when the bus may sleep: ComM goes to <code class="term">COMM_SILENT_COMMUNICATION</code> when NM prepares bus sleep and to <code class="term">COMM_NO_COMMUNICATION</code> at bus sleep.</p></div>
+  <div class="card m-nm"><p class="tag">NM follows the others</p><h3><code>PASSIVE</code></h3><p>With <code class="term">PASSIVE</code>, AUTOSAR NM runs, but in <span class="term">passive mode</span> (the NM of this ECU never sends NM PDUs itself). ComM never requests the network: a request takes the channel to full communication and at once on to <code class="term">COMM_FULL_COM_READY_SLEEP</code>. The ECU is not allowed to keep the bus awake; it stays awake while the other ECUs do and goes down with them, by the same NM indications as <code>FULL</code>.</p></div>
+</div>
+<p>Only these two variants give a synchronized shutdown: all ECUs on the bus go to sleep at the same moment, because network management decides it for all of them.</p>
+
+<h2>Four variants without AUTOSAR NM</h2>
+<p>On the other four variants ComM calls no NM service at all. Something else ends full communication.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Variant</th><th>Used for</th><th>Keeps the bus awake?</th><th>What takes the channel down</th></tr></thead>
+<tbody>
+<tr><td><code class="term">LIGHT</code></td><td>A bus without NM</td><td>Only while requested; there is no agreement with the other ECUs</td><td>A timeout in ComM: after the last release the channel stays in <code class="term">COMM_FULL_COM_READY_SLEEP</code> for a configured time, then goes straight to <code class="term">COMM_NO_COMMUNICATION</code></td></tr>
+<tr><td><code class="term">NONE</code></td><td>A bus without NM, and every internal channel</td><td>Yes, once requested</td><td>Nothing in ComM: the channel stays in <code>COMM_FULL_COM_READY_SLEEP</code> until the power of the ECU is switched off</td></tr>
+<tr><td><code class="term">SLAVE_ACTIVE</code></td><td>A slave on a bus with a master, for example a LIN slave</td><td>No, but its request can make the master wake the bus</td><td>The master: ComM goes to no communication when the <span class="term">bus state manager</span> reports bus sleep</td></tr>
+<tr><td><code class="term">SLAVE_PASSIVE</code></td><td>A slave that always follows its master, for example an Ethernet channel whose hardware complies with OA TC10</td><td>No; no ComM user and no <span class="term">PNC</span> may request this channel</td><td>The master, as for <code>SLAVE_ACTIVE</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>On <code>LIGHT</code> and <code>NONE</code> channels a request also keeps the channel in <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> for a configured minimum time, so that the channel does not toggle. <code>FULL</code> needs no such timer: NM already keeps a woken bus awake for a minimum time. <code>LIGHT</code> cannot synchronize the shutdown, so an ECU may wake up again and again because a message arrives from an ECU that goes to sleep later.</p>
+
+<h2>Try it</h2>
+<p>Pick a variant and step through what happens after the last ComM user releases the channel. The highlighted box is the current state of the ComM channel state machine; green arcs are the transitions taken so far.</p>
+<div class="panel no-print" id="vsim">
+<div class="variants" role="group" aria-label="NM variant">
+<button type="button" data-v="FULL" aria-pressed="true">FULL</button>
+<button type="button" data-v="PASSIVE" aria-pressed="false">PASSIVE</button>
+<button type="button" data-v="LIGHT" aria-pressed="false">LIGHT</button>
+<button type="button" data-v="NONE" aria-pressed="false">NONE</button>
+<button type="button" data-v="SLAVE_ACTIVE" aria-pressed="false">SLAVE_ACTIVE</button>
+<button type="button" data-v="SLAVE_PASSIVE" aria-pressed="false">SLAVE_PASSIVE</button>
+</div>
+<div class="scroll">
+<svg id="v-sm" viewBox="0 0 700 170" role="img" aria-label="ComM channel states: COMM_FULL_COM_NETWORK_REQUESTED and COMM_FULL_COM_READY_SLEEP inside COMM_FULL_COMMUNICATION, then COMM_SILENT_COMMUNICATION and COMM_NO_COMMUNICATION">
+<defs><marker id="v-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="6" y="8" width="344" height="100" class="d-frame"/>
+<text x="16" y="24" class="d-s">COMM_FULL_COMMUNICATION</text>
+<rect x="16" y="34" width="150" height="56" rx="6" class="d-state" data-s="NR"/>
+<text x="91" y="58" class="d-m d-c">COMM_FULL_COM_</text><text x="91" y="74" class="d-m d-c">NETWORK_REQUESTED</text>
+<rect x="190" y="34" width="150" height="56" rx="6" class="d-state" data-s="RS"/>
+<text x="265" y="58" class="d-m d-c">COMM_FULL_COM_</text><text x="265" y="74" class="d-m d-c">READY_SLEEP</text>
+<rect x="370" y="34" width="150" height="56" rx="6" class="d-state" data-s="SI"/>
+<text x="445" y="58" class="d-m d-c">COMM_SILENT_</text><text x="445" y="74" class="d-m d-c">COMMUNICATION</text>
+<rect x="544" y="34" width="150" height="56" rx="6" class="d-state" data-s="NO"/>
+<text x="619" y="58" class="d-m d-c">COMM_NO_</text><text x="619" y="74" class="d-m d-c">COMMUNICATION</text>
+<line x1="166" y1="62" x2="188" y2="62" class="arc" data-a="NR-RS" marker-end="url(#v-ah)"/>
+<line x1="340" y1="62" x2="368" y2="62" class="arc" data-a="RS-SI" marker-end="url(#v-ah)"/>
+<line x1="520" y1="62" x2="542" y2="62" class="arc" data-a="SI-NO" marker-end="url(#v-ah)"/>
+<path d="M265,90 C265,150 619,150 619,92" class="arc" data-a="RS-NO" marker-end="url(#v-ah)"/>
+<text x="442" y="140" class="d-s d-c">straight to no communication</text>
+</svg>
+</div>
+<p class="readout" id="v-text" aria-live="polite"></p>
+<div class="controls" style="margin:0.6rem 0 0">
+<button type="button" id="v-back">← Back</button>
+<button type="button" class="primary" id="v-next">Next →</button>
+<span class="legend" style="margin:0" id="v-count"></span>
+</div>
+</div>
+
+<h2>On the body gateway</h2>
+<p>All three channels of the example ECU run AUTOSAR NM: CanNm on <code>BodyCan</code> and <code>ChassisCan</code>, UdpNm on <code>Eth</code>. The gateway must be able to keep each of these buses awake for its own users, so all three channels are <code>FULL</code>. A door module that only reacts to the others could be <code>PASSIVE</code>; a LIN slave behind a LIN master would be <code>SLAVE_ACTIVE</code>.</p>
+
+<div class="older"><p>In 4.4.0 the variants are <code>FULL</code>, <code>LIGHT</code>, <code>LINSLAVE</code>, <code>NONE</code> and <code>PASSIVE</code>. <code>LINSLAVE</code> is the LIN slave case and behaves like <code>SLAVE_ACTIVE</code> today. R20-11 replaces it with <code>SLAVE_ACTIVE</code> and adds <code>SLAVE_PASSIVE</code> for Ethernet slaves; R20-11 already has the six variants of R25-11.</p></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Only <code>FULL</code> lets this ECU keep the bus awake through NM; with <code>PASSIVE</code> the ECU is on the bus only while the others keep it awake. Only <code>FULL</code> and <code>PASSIVE</code> shut the bus down together with the other ECUs. <code>LIGHT</code> skips <code>COMM_SILENT_COMMUNICATION</code>, and <code>NONE</code> never leaves full communication by itself.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">NM variant</span></td><td>How a ComM channel is handled with respect to network management; set per channel</td></tr>
+<tr><td><code class="term">FULL</code></td><td>AUTOSAR NM runs; ComM requests and releases the network, so the ECU can keep the bus awake</td></tr>
+<tr><td><code class="term">PASSIVE</code></td><td>AUTOSAR NM runs in passive mode; ComM never requests the network, the ECU follows the others</td></tr>
+<tr><td><code class="term">LIGHT</code></td><td>No NM; after the last release ComM waits a configured timeout, then switches the channel off</td></tr>
+<tr><td><code class="term">NONE</code></td><td>No NM; once requested, the channel stays in full communication until the ECU is switched off</td></tr>
+<tr><td><code class="term">SLAVE_ACTIVE</code></td><td>No NM; a slave (for example LIN) that may ask its master for communication; the master decides about sleep</td></tr>
+<tr><td><code class="term">SLAVE_PASSIVE</code></td><td>No NM; a slave (for example Ethernet with OA TC10 hardware) that always follows its master and is never requested</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.2 (channel state machine) and 7.6 (network management dependencies, Table 7.3), and the parameter ComMNmVariant in chapter 10; the same document of 4.4.0 and R20-11 for the older variants.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // Each story starts while a ComM user still requests the channel. a = transition taken into this step.
+  const STORIES = {
+    FULL: [
+      { s: 'NR', t: 'A ComM user requests the channel. ComM has requested the network from NmIf; NM sends NM PDUs and keeps the bus awake.' },
+      { s: 'RS', a: 'NR-RS', t: 'The last ComM user releases the channel. ComM releases the network at NmIf. This ECU stops sending NM PDUs, but other ECUs may still need the bus.' },
+      { s: 'SI', a: 'RS-SI', t: 'No ECU sends NM PDUs any more. NM prepares bus sleep and tells ComM: COMM_SILENT_COMMUNICATION, the channel only receives.' },
+      { s: 'NO', a: 'SI-NO', t: 'NM reaches bus sleep: COMM_NO_COMMUNICATION. All ECUs of the bus went to sleep at the same moment.' }
+    ],
+    PASSIVE: [
+      { s: 'RS', a: 'NR-RS', t: 'A ComM user requested the channel, but ComM did not request the network: the channel went through COMM_FULL_COM_NETWORK_REQUESTED straight to COMM_FULL_COM_READY_SLEEP.' },
+      { s: 'RS', t: 'The last ComM user releases the channel. Nothing changes: this ECU never kept the bus awake. It stays awake while the other ECUs send NM PDUs.' },
+      { s: 'SI', a: 'RS-SI', t: 'The other ECUs stop sending NM PDUs. NM prepares bus sleep: COMM_SILENT_COMMUNICATION.' },
+      { s: 'NO', a: 'SI-NO', t: 'NM reaches bus sleep: COMM_NO_COMMUNICATION, together with all other ECUs.' }
+    ],
+    LIGHT: [
+      { s: 'NR', t: 'A ComM user requests the channel. There is no NM; ComM keeps the channel requested for at least the configured minimum time.' },
+      { s: 'RS', a: 'NR-RS', t: 'The last ComM user releases the channel and the minimum time is over: COMM_FULL_COM_READY_SLEEP. ComM starts its light timeout.' },
+      { s: 'NO', a: 'RS-NO', t: 'The light timeout expires: straight to COMM_NO_COMMUNICATION, without silent communication. The other ECUs are not asked; one that still talks may wake this ECU again.' }
+    ],
+    NONE: [
+      { s: 'NR', t: 'A ComM user requests the channel. There is no NM; ComM keeps the channel requested for at least the configured minimum time.' },
+      { s: 'RS', a: 'NR-RS', t: 'The last ComM user releases the channel and the minimum time is over: COMM_FULL_COM_READY_SLEEP.' },
+      { s: 'RS', t: 'And there it stays. No NM indication and no timer takes a NONE channel down: it communicates until the power of the ECU is switched off.' }
+    ],
+    SLAVE_ACTIVE: [
+      { s: 'NR', t: 'A ComM user requests the channel. There is no NM; the request can make the master wake the bus.' },
+      { s: 'RS', a: 'NR-RS', t: 'The last ComM user releases the channel: COMM_FULL_COM_READY_SLEEP. Whether the bus sleeps is decided by the master.' },
+      { s: 'NO', a: 'RS-NO', t: 'The master puts the bus to sleep. The bus state manager reports bus sleep, and ComM goes to COMM_NO_COMMUNICATION.' }
+    ],
+    SLAVE_PASSIVE: [
+      { s: 'RS', a: 'NR-RS', t: 'The master started communication. No ComM user may request this channel, so it went straight on to COMM_FULL_COM_READY_SLEEP.' },
+      { s: 'RS', t: 'There is no last release here: the channel simply follows its master.' },
+      { s: 'NO', a: 'RS-NO', t: 'The master ends communication. The bus state manager reports bus sleep, and ComM goes to COMM_NO_COMMUNICATION.' }
+    ]
+  };
+  const root = document.getElementById('vsim');
+  const btns = Array.from(root.querySelectorAll('[data-v]'));
+  const states = Array.from(document.querySelectorAll('#v-sm [data-s]'));
+  const arcs = Array.from(document.querySelectorAll('#v-sm [data-a]'));
+  const text = document.getElementById('v-text');
+  const back = document.getElementById('v-back');
+  const next = document.getElementById('v-next');
+  const count = document.getElementById('v-count');
+  let v = 'FULL';
+  let i = 0;
+  function render() {
+    const story = STORIES[v];
+    const step = story[i];
+    states.forEach((r) => r.classList.toggle('on', r.dataset.s === step.s));
+    const used = story.slice(0, i + 1).map((x) => x.a).filter(Boolean);
+    arcs.forEach((a) => a.classList.toggle('used', used.indexOf(a.dataset.a) >= 0));
+    btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    text.textContent = v + ': ' + step.t;
+    back.disabled = i === 0;
+    next.textContent = i === story.length - 1 ? 'Start over' : 'Next →';
+    count.textContent = 'Step ' + (i + 1) + ' of ' + story.length;
+  }
+  btns.forEach((b) => b.addEventListener('click', () => { v = b.dataset.v; i = 0; render(); }));
+  back.addEventListener('click', () => { if (i > 0) { i--; render(); } });
+  next.addEventListener('click', () => { i = i === STORIES[v].length - 1 ? 0 : i + 1; render(); });
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'On which NM variant can this ECU keep the bus awake through NM?',
+    options: ['FULL', 'PASSIVE', 'SLAVE_PASSIVE'],
+    answer: 0,
+    why: 'Only on FULL does ComM request the network from NmIf, so that NM keeps sending NM PDUs. PASSIVE runs NM but never requests the network.'
+  },
+  {
+    prompt: 'What takes a LIGHT channel down after the last release?',
+    options: ['A timeout in ComM itself', 'The NM indication of bus sleep', 'A report from the bus master'],
+    answer: 0,
+    why: 'LIGHT has no NM. ComM waits a configured timeout in COMM_FULL_COM_READY_SLEEP and then goes straight to COMM_NO_COMMUNICATION.'
+  },
+  {
+    prompt: 'A channel stays in full communication until the ECU is switched off. Which variant is it?',
+    options: ['NONE', 'LIGHT', 'PASSIVE'],
+    answer: 0,
+    why: 'NONE has no NM and no timeout: nothing in ComM takes the channel down; the shutdown is by switching off the power.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

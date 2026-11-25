@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../assets/hub.js"></script><link rel="stylesheet" href="../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network and Mode Management in AUTOSAR Classic</title>
+<script src="assets/theme.js"></script>
+<link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../index.html">&larr; All courses</a><a class="learn-course" href="index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="A short interactive course">Network Management</p>
+<h1>Network and Mode Management in AUTOSAR Classic</h1>
+<p class="lede">How an <span class="term">ECU</span> of the AUTOSAR Classic Platform wakes up, keeps its buses awake exactly as long as someone needs them, coordinates them with the other ECUs and goes back to sleep: <span class="term">ComM</span>, network management, the bus state managers, <span class="term">EcuM</span>, <span class="term">BswM</span> and partial networking.</p>
+
+<div class="note">
+<p><strong>How to use it.</strong> Go through the <span data-count>58</span> lessons in order. Each takes a few minutes and needs only this browser. Many lessons have a state machine to drive, a timer to watch or a call sequence to step through.</p>
+<p><strong>Terms.</strong> The course uses the AUTOSAR terms throughout and explains each one where it is first used; each lesson ends with a table of the terms it introduces. Hover over (or tap) an underlined term to see its meaning, for example <span class="term">bus sleep</span>. The <a href="reference/words.html">Glossary</a> lists them all.</p>
+<p>You should know the basics of the AUTOSAR basic software (<span class="term">BSW</span>): layers, modules, I-PDUs. The <a href="https://jazzman2k83.github.io/learn/autosar/com/">COM course</a> covers I-PDUs, the PDU Router and I-PDU groups; this course builds on it.</p>
+<p><strong>Release.</strong> The course follows release R25-11. Where 4.4.0 or R20-11 behave differently, an "Older releases" box says so. Part 10 teaches the older ways in full: EcuM Fixed (4.3.1 and older) and partial networking through COM signals (up to R20-11).</p>
+</div>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 190" role="img" aria-labelledby="home-f1">
+<title id="home-f1">The example ECU of the course, a body gateway, connected to a body CAN, a chassis CAN and an Ethernet network. On each network other ECUs; the body CAN carries the partial network clusters Comfort and Lighting.</title>
+<rect x="250" y="60" width="140" height="70" class="m-comm"/>
+<text x="320" y="88" class="d-tb d-c">Body gateway</text>
+<text x="320" y="104" class="d-s d-c">the example ECU</text>
+<line x1="20" y1="30" x2="620" y2="30" class="d-ln"/><text x="22" y="22" class="d-s">Body CAN · PNCs Comfort and Lighting</text>
+<line x1="20" y1="160" x2="300" y2="160" class="d-ln"/><text x="22" y="178" class="d-s">Chassis CAN</text>
+<line x1="340" y1="160" x2="620" y2="160" class="d-ln dash"/><text x="618" y="178" class="d-s d-r">Ethernet · UdpNm</text>
+<line x1="320" y1="60" x2="320" y2="32" class="d-ln"/>
+<line x1="290" y1="130" x2="290" y2="158" class="d-ln"/>
+<line x1="350" y1="130" x2="350" y2="158" class="d-ln dash"/>
+<rect x="60" y="40" width="80" height="26" class="d-box"/><text x="100" y="57" class="d-s d-c">Door ECU</text>
+<rect x="500" y="40" width="80" height="26" class="d-box"/><text x="540" y="57" class="d-s d-c">Light ECU</text>
+<rect x="60" y="124" width="80" height="26" class="d-box"/><text x="100" y="141" class="d-s d-c">Brake ECU</text>
+<rect x="500" y="124" width="80" height="26" class="d-box"/><text x="540" y="141" class="d-s d-c">Head unit</text>
+<line x1="100" y1="40" x2="100" y2="32" class="d-ln"/><line x1="540" y1="40" x2="540" y2="32" class="d-ln"/>
+<line x1="100" y1="150" x2="100" y2="158" class="d-ln"/><line x1="540" y1="150" x2="540" y2="158" class="d-ln dash"/>
+</svg>
+</div>
+<figcaption><b>The whole course in one picture.</b> One gateway on three networks. Every lesson asks the same question on this ECU: which network is awake, why, and who decides that it may sleep.</figcaption>
+</figure>
+
+<div data-toc></div>
+
+<h2>Sheets to keep</h2>
+<ul>
+<li><a href="reference/at-a-glance.html">At a glance</a>: every module and feature on one page, with the lesson that explains it.</li>
+<li><a href="reference/words.html">Glossary</a>: every AUTOSAR term of the course, what it means, and the lessons that teach it.</li>
+<li><a href="reference/interfaces.html">Interfaces</a>: who calls whom, module by module.</li>
+<li><a href="reference/nm-timers.html">NM timers</a>: every network management timer on one sheet.</li>
+<li><a href="reference/older-and-newer-way.html">The older and the newer way</a>: EcuM Fixed and EcuM Flex, PNC through COM and through NmIf, side by side.</li>
+<li><a href="reference/release-differences.html">Release differences</a>: what is different in 4.4.0 and R20-11.</li>
+<li><a href="reference/flexray-and-lin.html">FlexRay and LIN</a>: how the other buses fit the same picture.</li>
+</ul>
+
+<p class="source">Facts are checked against the AUTOSAR specifications of release R25-11: the module specifications of ComM, Network Management Interface, CAN Network Management, UDP Network Management, CAN State Manager, Ethernet State Manager, ECU State Manager, BSW Mode Manager, CAN Interface, CAN Transceiver Driver, Ethernet Interface and Dcm, plus the Layered Software Architecture; for the older ways, the same documents of 4.2.2 to R24-11 and the specification of the ECU State Manager with fixed state machine (4.3.1). Each lesson names its source. Timings in the interactive parts are scaled so you can watch them.</p>
+
+</main>
+<script src="assets/course.js"></script>
+<script src="assets/glossary.js"></script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../about.html">About</a></footer>
+</body>
+</html>

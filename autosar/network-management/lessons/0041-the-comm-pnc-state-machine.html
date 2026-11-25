@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The ComM PNC state machine · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.drive { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .drive { grid-template-columns: 1fr; } }
+.drive button { width: 100%; text-align: left; padding: 0.5rem 0.7rem; line-height: 1.35; }
+.drive button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.drive button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+.drive button[aria-pressed="true"] small { color: var(--ink); }
+.meters { display: grid; gap: 0.35rem; font-family: var(--sans); font-size: 0.78rem; margin: 0.2rem 0 0.6rem; }
+.meters div { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.meters .bar { flex: 1 1 8rem; min-width: 8rem; height: 0.5rem; background: var(--sig-soft); position: relative; }
+.meters .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--warn); }
+.meters .lbl { width: 12rem; }
+table.pnct td:first-child code { overflow-wrap: normal; white-space: nowrap; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The ComM PNC state machine</h1>
+<p class="lede">For every <span class="term">PNC</span>, ComM keeps a small state machine of its own: is the PNC needed here, needed only by other ECUs, about to go, or off? Its state decides whether ComM requests the PNC's channels.</p>
+
+<p>Lesson 40 showed how PNC requests travel in the NM PDU. This lesson follows one PNC, Comfort, through the states of ComM on the gateway, and shows what each state does to the channel.</p>
+
+<h2>One state machine per PNC</h2>
+<p>ComM runs one <span class="term">PNC state machine</span> (the ComM state machine of one PNC: whether it is requested here, kept awake by others, preparing to sleep, or off) per PNC, no matter on how many channels the PNC lives. It has two main states:</p>
+<ul>
+<li><code class="term">COMM_PNC_NO_COMMUNICATION</code> (the PNC is off: nobody inside the ECU or outside requests it) is the state after power on.</li>
+<li><code class="term">COMM_PNC_FULL_COMMUNICATION</code> (the PNC is active; main state with three sub-states) has the sub-states
+<code class="term">COMM_PNC_REQUESTED</code> (a ComM user of this ECU requests the PNC),
+<code class="term">COMM_PNC_READY_SLEEP</code> (no user of this ECU requests it any more, but the PNC is still requested, by other ECUs or by this ECU's last NM PDUs) and
+<code class="term">COMM_PNC_PREPARE_SLEEP</code> (nobody requests the PNC any more; a timer runs before it is switched off).</li>
+</ul>
+<p>ComM reports every change of a PNC state to <span class="term">BswM</span>, whose rules can react, for example by switching the PNC's <span class="term">I-PDU group</span>s.</p>
+
+<h2>What moves the state machine</h2>
+<p>Three kinds of trigger move the state machine:</p>
+<div class="cards">
+  <div class="card m-app"><p class="tag">inside the ECU</p><h3>ComM users</h3><p>A user mapped to the PNC calls <code class="term">ComM_RequestComMode</code> with full or no communication. In the example, <code>UserComfort</code> is mapped to Comfort.</p></div>
+  <div class="card m-nm"><p class="tag">from the buses</p><h3>EIRA bits</h3><p>NmIf calls <code class="term">ComM_Nm_UpdateEIRA</code> whenever a bit of the <span class="term">EIRA</span> (one bit per PNC: 1 while any ECU, this one included, requests the PNC; lesson 42) changes.</p></div>
+  <div class="card m-comm"><p class="tag">inside ComM</p><h3>A timer</h3><p>The <span class="term">PNC prepare sleep timer</span> (the time a PNC stays in COMM_PNC_PREPARE_SLEEP before it is switched off) runs in the last sub-state.</p></div>
+</div>
+<p>On a <span class="term">PNC gateway</span> (an ECU that forwards PNC requests between channels, lesson 44) a fourth trigger joins in: the <span class="term">ERA</span> (the external requests per channel, one bit per PNC; lesson 42), reported with <code class="term">ComM_Nm_UpdateERA</code>. This lesson leaves the gateway role out. A wakeup can also start a PNC: with <code class="term">ComM_EcuM_PNCWakeUpIndication</code> (EcuM reports a wakeup that belongs to one PNC), or with <code class="term">ComM_EcuM_WakeUpIndication</code> when ComM is configured for a synchronous wakeup, the PNC goes from no communication straight to COMM_PNC_PREPARE_SLEEP. The prepare sleep timer then gives the other ECUs time to send their requests.</p>
+
+<figure class="fig wide" id="pncfig">
+<div class="scroll">
+<svg viewBox="0 0 640 300" role="img" aria-labelledby="f1t">
+<title id="f1t">The ComM PNC state machine. Main state COMM_PNC_FULL_COMMUNICATION holds COMM_PNC_REQUESTED, COMM_PNC_READY_SLEEP and COMM_PNC_PREPARE_SLEEP. Below is COMM_PNC_NO_COMMUNICATION. A user request leads to REQUESTED from every other state. Releasing all users leads from REQUESTED to READY_SLEEP. An EIRA bit of 0 leads from READY_SLEEP to PREPARE_SLEEP, an EIRA bit of 1 back. An EIRA bit of 1 leads from NO_COMMUNICATION to READY_SLEEP. A wakeup indication leads from NO_COMMUNICATION to PREPARE_SLEEP. When the prepare sleep timer expires, PREPARE_SLEEP leads to NO_COMMUNICATION.</title>
+<defs><marker id="ah41" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="20" y="22" width="600" height="176" class="d-frame"/>
+<text x="610" y="40" class="d-m d-r">COMM_PNC_FULL_COMMUNICATION</text>
+<rect x="40" y="56" width="220" height="40" class="d-state" data-st="REQ"/><text x="150" y="80" class="d-m d-c">COMM_PNC_REQUESTED</text>
+<rect x="40" y="140" width="220" height="40" class="d-state" data-st="RS"/><text x="150" y="164" class="d-m d-c">COMM_PNC_READY_SLEEP</text>
+<rect x="380" y="140" width="220" height="40" class="d-state" data-st="PS"/><text x="490" y="164" class="d-m d-c">COMM_PNC_PREPARE_SLEEP</text>
+<rect x="200" y="238" width="260" height="40" class="d-state" data-st="NO"/><text x="330" y="262" class="d-m d-c">COMM_PNC_NO_COMMUNICATION</text>
+<line x1="115" y1="96" x2="115" y2="138" class="d-ln" marker-end="url(#ah41)"/><text x="108" y="121" class="d-s d-r">all users NO</text>
+<line x1="185" y1="140" x2="185" y2="98" class="d-ln" marker-end="url(#ah41)"/><text x="192" y="121" class="d-s">a user FULL</text>
+<line x1="260" y1="153" x2="378" y2="153" class="d-ln" marker-end="url(#ah41)"/><text x="320" y="147" class="d-s d-c">EIRA bit 0</text>
+<line x1="380" y1="168" x2="262" y2="168" class="d-ln" marker-end="url(#ah41)"/><text x="320" y="184" class="d-s d-c">EIRA bit 1</text>
+<line x1="440" y1="140" x2="262" y2="84" class="d-ln" marker-end="url(#ah41)"/><text x="400" y="104" class="d-s">a user FULL</text>
+<line x1="560" y1="180" x2="462" y2="250" class="d-ln" marker-end="url(#ah41)"/><text x="534" y="238" class="d-s">timer expired</text>
+<polyline points="200,268 30,268 30,70 38,70" class="d-ln" marker-end="url(#ah41)"/><text x="36" y="290" class="d-s">a user FULL</text>
+<line x1="250" y1="238" x2="200" y2="182" class="d-ln" marker-end="url(#ah41)"/><text x="218" y="222" class="d-s d-r">EIRA bit 1</text>
+<line x1="400" y1="238" x2="450" y2="182" class="d-ln" marker-end="url(#ah41)"/><text x="436" y="212" class="d-s">wakeup indication</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The PNC state machine without the PNC gateway part. A user request wins from every state; the EIRA bit decides between ready sleep and prepare sleep; only the timer leads back to no communication. In the Try it panel below, the current state is highlighted.</figcaption>
+</figure>
+
+<h2>Try it</h2>
+<p>Drive the Comfort PNC of the gateway. <code>UserComfort</code> is the ComM user in the gateway; the Door ECU requests Comfort from outside through its NM PDUs. Times are scaled: the reset time after which a request that is no longer repeated counts as gone is 2 s here, the prepare sleep timer 3 s.</p>
+<div class="panel no-print" id="sim">
+<div class="drive">
+<button type="button" aria-pressed="false" id="bUser">UserComfort<small>requests COMM_NO_COMMUNICATION</small></button>
+<button type="button" aria-pressed="false" id="bDoor">Door ECU<small>does not request Comfort</small></button>
+<button type="button" id="bWake">Wakeup indication<small>EcuM reports a Comfort wakeup</small></button>
+</div>
+<div class="meters">
+<div><span class="lbl">EIRA bit of Comfort: <b id="eira">0</b></span><span class="bar" aria-hidden="true"><i id="mReset"></i></span><small>reset time</small></div>
+<div><span class="lbl">Prepare sleep timer</span><span class="bar" aria-hidden="true"><i id="mPrep"></i></span><small id="prepTxt">stopped</small></div>
+</div>
+<p class="readout" id="state"></p>
+<p class="readout" id="chan"></p>
+<ul class="log" id="log" aria-live="polite"></ul>
+</div>
+
+<h2>What the PNC state does to the channel</h2>
+<p>A PNC has no bus of its own: it lives on the channels it is mapped to, Comfort on <code>BodyCan</code> and <code>Eth</code> in the example. ComM treats a request that comes from a PNC state machine like a user request for those channels, with <span class="term">communication allowed</span> and <span class="term">communication inhibition</span> applying as usual.</p>
+<div class="table-wrap">
+<table class="data pnct">
+<thead><tr><th>PNC state</th><th>IRA bit sent to NmIf</th><th>Channel request from this PNC</th></tr></thead>
+<tbody>
+<tr><td><code class="term">COMM_PNC_REQUESTED</code></td><td>1</td><td>On entry, ComM requests <code class="term">COMM_FULL_COMMUNICATION</code> for every channel of the PNC, even if it is already requested; it can also be configured to call <code class="term">Nm_NetworkRequest</code> again, so that NM sends its PNC bits at once.</td></tr>
+<tr><td><code class="term">COMM_PNC_READY_SLEEP</code></td><td>0</td><td>On entry from COMM_PNC_REQUESTED, ComM releases the full communication request of the PNC. The channels stay in COMM_FULL_COMMUNICATION, which holds as long as the PNC is in <code class="term">COMM_PNC_FULL_COMMUNICATION</code>.</td></tr>
+<tr><td><code class="term">COMM_PNC_PREPARE_SLEEP</code></td><td>0</td><td>No request; the channels still stay in COMM_FULL_COMMUNICATION.</td></tr>
+<tr><td><code class="term">COMM_PNC_NO_COMMUNICATION</code></td><td>0</td><td>The PNC no longer holds the channels; they follow their own users and NM.</td></tr>
+</tbody>
+</table>
+</div>
+<p>ComM runs the PNC actions before the channel actions in each main function, so a channel always sees the latest PNC requests.</p>
+
+<h2>The path through NmIf</h2>
+<p>In R25-11 the PNC bits travel between ComM and the bus NMs only through <span class="term">NmIf</span>:</p>
+<ol>
+<li>When a PNC enters or leaves COMM_PNC_REQUESTED, ComM sets or clears its bit in the <span class="term">IRA</span> (Internal Request Array: the PNC bits this ECU requests on one channel) and passes the IRA of each affected channel with <code class="term">Nm_UpdateIRA</code>.</li>
+<li>CanNm or UdpNm fetches the internal requests from NmIf every time it sends an NM PDU and copies them into the PNC bit vector.</li>
+<li>NmIf combines the received PNC bits of all channels with the ones this ECU sends. When a bit of the result changes, it calls <code class="term">ComM_Nm_UpdateEIRA</code>. A bit drops back to 0 only when the request has not been repeated for the <span class="term">PNC reset timer</span> (the time after which a PNC request that no NM PDU has repeated counts as gone; lesson 42).</li>
+</ol>
+<p>This is why COMM_PNC_READY_SLEEP follows COMM_PNC_REQUESTED even when no other ECU wants the PNC: this ECU's own last NM PDUs still carry the bit, and the EIRA bit stays 1 until the reset time has passed.</p>
+
+<div class="older">
+<p>The state machine itself is the same in 4.4.0 and R20-11. The way the bits travel differs: up to R20-11 the bus NMs computed EIRA and ERA, and ComM read them and sent its own requests through COM signals; NmIf took no part. R21-11 added the NmIf path described here and R22-11 removed the COM path. Lesson 53 shows the older way.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> A local user request wins everywhere. Without a local request, only the EIRA bit decides, and the EIRA bit includes this ECU's own recent requests. The way back to no communication always passes COMM_PNC_PREPARE_SLEEP and its timer. While the PNC is in any sub-state of COMM_PNC_FULL_COMMUNICATION, its channels stay in full communication.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">PNC state machine</span></td><td>The ComM state machine of one PNC: main states COMM_PNC_NO_COMMUNICATION and COMM_PNC_FULL_COMMUNICATION, the latter with three sub-states</td></tr>
+<tr><td><code class="term">COMM_PNC_NO_COMMUNICATION</code></td><td>Main PNC state: the PNC is off; the state after power on</td></tr>
+<tr><td><code class="term">COMM_PNC_FULL_COMMUNICATION</code></td><td>Main PNC state: the PNC is active; its channels stay in full communication</td></tr>
+<tr><td><code class="term">COMM_PNC_REQUESTED</code></td><td>Sub-state: a ComM user of this ECU requests the PNC</td></tr>
+<tr><td><code class="term">COMM_PNC_READY_SLEEP</code></td><td>Sub-state: no local user requests the PNC, but its EIRA bit is still 1</td></tr>
+<tr><td><code class="term">COMM_PNC_PREPARE_SLEEP</code></td><td>Sub-state: the EIRA bit is 0; the prepare sleep timer runs before the PNC goes off</td></tr>
+<tr><td><span class="term">PNC prepare sleep timer</span></td><td>The time a PNC stays in COMM_PNC_PREPARE_SLEEP before COMM_PNC_NO_COMMUNICATION</td></tr>
+<tr><td><span class="term">IRA</span></td><td>Internal Request Array: the PNC bits this ECU requests on one channel, passed from ComM to NmIf</td></tr>
+<tr><td><code class="term">Nm_UpdateIRA</code></td><td>NmIf API: ComM passes the IRA of one channel</td></tr>
+<tr><td><code class="term">ComM_Nm_UpdateEIRA</code></td><td>ComM callback: NmIf reports a changed EIRA</td></tr>
+<tr><td><code class="term">ComM_Nm_UpdateERA</code></td><td>ComM callback: NmIf reports a changed ERA of one channel (PNC gateway)</td></tr>
+<tr><td><code class="term">ComM_EcuM_PNCWakeUpIndication</code></td><td>ComM API: EcuM reports a wakeup that belongs to one PNC</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.1.2, 7.1.3 and 7.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.4.2 and 7.4.3; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, section 7.11.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const RESET = 2000;  // ms, scaled PNC reset time
+  const PREP = 3000;   // ms, scaled prepare sleep timer
+  const NAMES = { NO: 'COMM_PNC_NO_COMMUNICATION', REQ: 'COMM_PNC_REQUESTED', RS: 'COMM_PNC_READY_SLEEP', PS: 'COMM_PNC_PREPARE_SLEEP' };
+  let st = 'NO';
+  let user = false;
+  let door = false;
+  let eira = 0;
+  let lastReq = 0;     // when the Comfort bit was last requested (internal or external)
+  let prepStart = 0;
+  const bUser = document.getElementById('bUser');
+  const bDoor = document.getElementById('bDoor');
+  const bWake = document.getElementById('bWake');
+  const log = document.getElementById('log');
+  const rects = Array.from(document.querySelectorAll('#pncfig [data-st]'));
+
+  function say(t) {
+    const li = document.createElement('li');
+    li.textContent = t;
+    log.prepend(li);
+    while (log.children.length > 12) log.lastChild.remove();
+  }
+  function go(to, why) {
+    if (to === st) return;
+    const from = st;
+    st = to;
+    say(why + ': ' + NAMES[from] + ' → ' + NAMES[to]);
+    say('BswM_ComM_CurrentPNCMode(Comfort, ' + NAMES[to] + ')');
+    if (to === 'REQ') {
+      say('Nm_UpdateIRA(BodyCan, PNC 16 = 1), Nm_UpdateIRA(Eth, PNC 16 = 1)');
+      say('BodyCan and Eth: COMM_FULL_COMMUNICATION requested by the PNC');
+    }
+    if (from === 'REQ') {
+      say('Nm_UpdateIRA(BodyCan, PNC 16 = 0), Nm_UpdateIRA(Eth, PNC 16 = 0)');
+      say('BodyCan and Eth: full communication request of the PNC released');
+    }
+    if (to === 'PS') prepStart = performance.now();
+  }
+  function raw() { return user && st === 'REQ' ? true : door; }
+  function step() {
+    const now = performance.now();
+    // NmIf side: EIRA bit with the PNC reset timer
+    if (raw() || (st === 'REQ')) lastReq = now;
+    const newEira = now - lastReq < RESET ? 1 : 0;
+    if (newEira !== eira) {
+      eira = newEira;
+      say('ComM_Nm_UpdateEIRA(PNC 16 = ' + eira + ')');
+    }
+    // ComM side: PNC state machine (user requests first, then EIRA)
+    if (user && st !== 'REQ') go('REQ', 'UserComfort requests');
+    else if (!user && st === 'REQ') go('RS', 'all users request no communication');
+    else if (st === 'NO' && eira) go('RS', 'EIRA bit 1');
+    else if (st === 'RS' && !eira) go('PS', 'EIRA bit 0');
+    else if (st === 'PS' && eira) go('RS', 'EIRA bit 1');
+    else if (st === 'PS' && now - prepStart >= PREP) go('NO', 'prepare sleep timer expired');
+    render(now);
+  }
+  function render(now) {
+    rects.forEach((r) => r.classList.toggle('on', r.dataset.st === st));
+    bUser.setAttribute('aria-pressed', String(user));
+    bUser.querySelector('small').textContent = user ? 'requests COMM_FULL_COMMUNICATION' : 'requests COMM_NO_COMMUNICATION';
+    bDoor.setAttribute('aria-pressed', String(door));
+    bDoor.querySelector('small').textContent = door ? 'sends NM PDUs with PNC 16 = 1' : 'does not request Comfort';
+    bWake.disabled = st !== 'NO';
+    document.getElementById('eira').textContent = String(eira);
+    const sinceReq = now - lastReq;
+    const reqNow = raw() || st === 'REQ';
+    document.getElementById('mReset').style.width = (eira && !reqNow ? Math.min(100, 100 * sinceReq / RESET) : 0) + '%';
+    const prep = st === 'PS' ? Math.min(1, (now - prepStart) / PREP) : 0;
+    document.getElementById('mPrep').style.width = (100 * prep) + '%';
+    document.getElementById('prepTxt').textContent = st === 'PS' ? 'running' : 'stopped';
+    document.getElementById('state').textContent = 'Comfort: ' + NAMES[st];
+    document.getElementById('chan').textContent = st === 'REQ' ? 'BodyCan and Eth: requested by the PNC (COMM_FULL_COMMUNICATION)'
+      : st === 'NO' ? 'BodyCan and Eth: not held by the PNC'
+      : 'BodyCan and Eth: not requested by the PNC, but kept in COMM_FULL_COMMUNICATION';
+  }
+  bUser.addEventListener('click', () => { user = !user; say('ComM_RequestComMode(UserComfort, ' + (user ? 'COMM_FULL_COMMUNICATION' : 'COMM_NO_COMMUNICATION') + ')'); step(); });
+  bDoor.addEventListener('click', () => { door = !door; say(door ? 'Door ECU: NM PDU with PNC 16 = 1' : 'Door ECU: no longer requests Comfort'); step(); });
+  bWake.addEventListener('click', () => { if (st === 'NO') { say('ComM_EcuM_PNCWakeUpIndication(Comfort)'); go('PS', 'wakeup indication'); step(); } });
+  lastReq = -RESET;
+  setInterval(step, 100);
+  render(performance.now());
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'UserComfort releases Comfort. No other ECU requests it. Which state follows COMM_PNC_REQUESTED?',
+    options: ['COMM_PNC_READY_SLEEP', 'COMM_PNC_PREPARE_SLEEP', 'COMM_PNC_NO_COMMUNICATION'],
+    answer: 0,
+    why: 'When all users request no communication, the PNC goes to COMM_PNC_READY_SLEEP. The EIRA bit still holds this ECU\'s own recent request until the reset time has passed.'
+  },
+  {
+    prompt: 'The PNC is in COMM_PNC_PREPARE_SLEEP and the Door ECU requests it again. Where does it go?',
+    options: ['COMM_PNC_READY_SLEEP', 'COMM_PNC_REQUESTED', 'It stays where it is'],
+    answer: 0,
+    why: 'An external request sets the EIRA bit to 1; the timer is stopped and the PNC goes back to COMM_PNC_READY_SLEEP. Only a local user leads to COMM_PNC_REQUESTED.'
+  },
+  {
+    prompt: 'How does ComM hand its own PNC requests to the bus NMs in R25-11?',
+    options: ['Nm_UpdateIRA per channel to NmIf', 'Com_SendSignal on a PNC signal', 'CanNm_NetworkRequest per PNC'],
+    answer: 0,
+    why: 'ComM passes the IRA of each channel to NmIf with Nm_UpdateIRA; the bus NM copies it into its NM PDUs. The COM signal path belongs to R20-11 and older.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

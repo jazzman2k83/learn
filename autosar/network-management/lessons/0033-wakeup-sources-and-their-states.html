@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wakeup sources and their states · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.srcs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .srcs { grid-template-columns: 1fr; } }
+.srcs button { width: 100%; text-align: left; padding: 0.5rem 0.65rem; line-height: 1.35; min-width: 0; }
+@media (max-width: 34rem) { .srcs button { overflow-wrap: anywhere; } }
+.card .tag, .card h3 code { overflow-wrap: anywhere; }
+#sim .controls button { max-width: 100%; overflow-wrap: anywhere; }
+#sim .scroll { overflow-x: auto; }
+.srcs button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.srcs button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+#sv .sub { font-size: 9px; }
+.vars { font-family: var(--mono); font-size: 0.78rem; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.8rem; margin: 0.6rem 0; }
+.tbar { height: 0.45rem; background: var(--sig-soft); position: relative; margin: 0.4rem 0; }
+.tbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--warn); }
+.log { font-family: var(--mono); font-size: 0.74rem; margin: 0.4rem 0 0; padding-left: 1.2rem; min-height: 3.6em; }
+.log li { margin: 0.1rem 0; overflow-wrap: anywhere; }
+#sv text { pointer-events: none; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Wakeup sources and their states</h1>
+<p class="lede">Everything that can start or wake the ECU, a CAN transceiver, a pin or a reset, is one wakeup source for <span class="term">EcuM</span>, with one bit of its own. Each wakeup source moves through four states, and EcuM reports every change to <span class="term">BswM</span>.</p>
+
+<p>This lesson shows how EcuM names its wakeup sources, how a driver reports a wakeup, and what the four states mean. Lesson 34 follows the validation step by step, lesson 35 a whole CAN wakeup, lesson 36 what ComM and NM make of it.</p>
+
+<h2>One bit per wakeup source</h2>
+<p>A <span class="term">wakeup source</span> (anything that EcuM knows as a reason why the ECU started or woke up: a bus, a pin, a timer, a reset) is one bit of the type <code class="term">EcuM_WakeupSourceType</code> (a 32-bit bit field with one bit per wakeup source). EcuM manages up to 32 of them. Its functions take and return such bit fields, so one call can name several sources at once.</p>
+<p>Five bit positions are predefined, for the reasons why the microcontroller starts: power cycle, hardware reset, internal reset, internal watchdog and external watchdog. All other wakeup sources are configured; the configuration tool gives each one a bit from 5 to 31. A configured wakeup source can also name the ComM <span class="term">channel</span>s it belongs to, and the <span class="term">PNC</span>s.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 680 205" role="img" aria-labelledby="f1t">
+<title id="f1t">The 32 bits of EcuM_WakeupSourceType. Bits 0 to 4 are predefined: power, reset, internal reset, internal watchdog, external watchdog. Bits 5 to 31 are configured; in the example ECU bit 5 is the body CAN transceiver and bit 6 the door pin.</title>
+<text x="6" y="30" class="d-s">predefined (bits 0–4)</text>
+<text x="116" y="50" class="d-s">configured (bits 5–31)</text>
+<g id="bits"></g>
+<line x1="136" y1="98" x2="136" y2="110" class="d-tick"/><text x="142" y="114" class="d-m">ECUM_WKSOURCE_DOOR_PIN (pin of the door)</text>
+<line x1="116" y1="98" x2="116" y2="130" class="d-tick"/><text x="122" y="134" class="d-m">ECUM_WKSOURCE_BODYCAN (transceiver of body CAN)</text>
+<line x1="76" y1="98" x2="76" y2="150" class="d-tick"/><text x="82" y="154" class="d-s">bits 2–4: internal reset, internal watchdog, external watchdog</text>
+<line x1="36" y1="98" x2="36" y2="170" class="d-tick"/><text x="42" y="174" class="d-m">ECUM_WKSOURCE_RESET</text>
+<line x1="16" y1="98" x2="16" y2="190" class="d-tick"/><text x="22" y="194" class="d-m">ECUM_WKSOURCE_POWER</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The wakeup sources of the example ECU in one bit field. Which bits the configured sources get is decided by the configuration tool; bits 5 and 6 are an example.</figcaption>
+</figure>
+
+<h2>Wakeup events</h2>
+<p>A driver that sees its hardware wake up, such as the <span class="term">CanTrcv</span> after activity on body CAN, reports a <span class="term">wakeup event</span> (the report that a wakeup source has woken up) to EcuM with <code class="term">EcuM_SetWakeupEvent</code> (the EcuM function a driver calls to report a wakeup; the source becomes pending or validated). The call ORs the given bits into EcuM's set of pending events. It may be called from an interrupt, from a task, and even before the OS runs, because drivers also report wakeups found during their initialization. Bits of a source that the selected <span class="term">sleep mode</span> does not allow are ignored.</p>
+<p>A driver reports a wakeup event once, and does not report it again until it has been armed again. Other modules read the result with <code>EcuM_GetPendingWakeupEvents</code>, <code>EcuM_GetValidatedWakeupEvents</code> and <code>EcuM_GetExpiredWakeupEvents</code>.</p>
+<p>Not every report is real: a spike on the CAN wires or a bouncing contact can look like a wakeup. Such a source is configured with <span class="term">wakeup validation</span> (a check that the wakeup was real, for example that a CAN message follows, within a configured time). A source configured without it counts as validated as soon as it is reported.</p>
+
+<h2>The four states</h2>
+<p>EcuM keeps one state per wakeup source and reports it to BswM as a <span class="term">mode request</span> through <code class="term">BswM_EcuM_CurrentWakeup</code> (EcuM's report of the new state of one or more wakeup sources to BswM). The states are the values of <code class="term">EcuM_WakeupStatusType</code> (the state of a wakeup source: none, pending, validated or expired):</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">ECUM_WKSTATUS_NONE</p><h3>None</h3><p>No wakeup event was detected, or it has been cleared with <code class="term">EcuM_ClearWakeupEvent</code> (clears the given sources from the pending, validated and expired events).</p></div>
+  <div class="card m-ecum"><p class="tag">ECUM_WKSTATUS_PENDING</p><h3>Pending</h3><p><span class="term">Pending</span> (reported, not yet validated): EcuM starts the source for validation and runs the <span class="term">validation timeout</span> (how long EcuM waits for the validation).</p></div>
+  <div class="card m-ecum"><p class="tag">ECUM_WKSTATUS_VALIDATED</p><h3>Validated</h3><p><span class="term">Validated</span> (the wakeup is confirmed): a source with channels is passed to ComM with <code class="term">ComM_EcuM_WakeUpIndication</code> (EcuM tells ComM that a channel has woken up).</p></div>
+  <div class="card m-ecum"><p class="tag">ECUM_WKSTATUS_EXPIRED</p><h3>Expired</h3><p><span class="term">Expired</span> (not validated in time): EcuM stops the source again.</p></div>
+</div>
+<p>EcuM handles the wakeup sources all the time in its <span class="term">main function</span>, in parallel to everything else, not only after a sleep. It does not decide what the ECU does about a state: BswM rules do. When a source is validated, a rule brings the ECU back to normal operation; when every source is back to none or expired, a rule prepares the sleep again and calls <code class="term">EcuM_GoDownHaltPoll</code>.</p>
+
+<h2>Try it</h2>
+<p>Pick a wakeup source of the example ECU and report, validate or clear it. The diagram shows the state of the chosen source, the list shows what EcuM calls. The validation timeout is scaled to 5 seconds.</p>
+<div class="panel no-print" id="sim">
+<div class="srcs" role="group" aria-label="Wakeup source">
+<button type="button" aria-pressed="true" data-src="0">ECUM_WKSOURCE_BODYCAN<small>with validation · channel BodyCan</small></button>
+<button type="button" aria-pressed="false" data-src="1">ECUM_WKSOURCE_DOOR_PIN<small>without validation · no channel</small></button>
+<button type="button" aria-pressed="false" data-src="2">ECUM_WKSOURCE_POWER<small>predefined · never validated</small></button>
+</div>
+<div class="scroll">
+<svg id="sv" viewBox="0 0 720 250" role="img" aria-label="Wakeup source states of the chosen source" style="display:block;width:100%;min-width:34rem;height:auto">
+<defs><marker id="a33" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<path d="M90,100 V24 H630 V40" class="d-ln" marker-end="url(#a33)"/>
+<text x="360" y="16" class="d-s d-c">EcuM_SetWakeupEvent [without validation]</text>
+<path d="M170,115 L228,75" class="d-ln" marker-end="url(#a33)"/>
+<text x="100" y="58" class="d-s">EcuM_SetWakeupEvent</text>
+<text x="100" y="72" class="d-s">[with validation]</text>
+<path d="M390,65 H548" class="d-ln" marker-end="url(#a33)"/>
+<text x="470" y="58" class="d-s d-c">EcuM_ValidateWakeupEvent</text>
+<path d="M370,90 L560,180" class="d-ln" marker-end="url(#a33)"/>
+<text x="470" y="155" class="d-s d-r">validation timeout expired</text>
+<path d="M550,215 H90 V152" class="d-ln dash" marker-end="url(#a33)"/>
+<text x="320" y="236" class="d-s d-c">EcuM_ClearWakeupEvent (from any state)</text>
+<g data-st="NONE"><rect x="10" y="100" width="160" height="50" rx="8" class="d-state"/><text x="90" y="122" class="d-tb d-c">none</text><text x="90" y="138" class="d-s d-c sub">ECUM_WKSTATUS_NONE</text></g>
+<g data-st="PENDING"><rect x="230" y="40" width="160" height="50" rx="8" class="d-state"/><text x="310" y="62" class="d-tb d-c">pending</text><text x="310" y="78" class="d-s d-c sub">ECUM_WKSTATUS_PENDING</text></g>
+<g data-st="VALIDATED"><rect x="550" y="40" width="160" height="50" rx="8" class="d-state"/><text x="630" y="62" class="d-tb d-c">validated</text><text x="630" y="78" class="d-s d-c sub">ECUM_WKSTATUS_VALIDATED</text></g>
+<g data-st="EXPIRED"><rect x="550" y="180" width="160" height="50" rx="8" class="d-state"/><text x="630" y="202" class="d-tb d-c">expired</text><text x="630" y="218" class="d-s d-c sub">ECUM_WKSTATUS_EXPIRED</text></g>
+</svg>
+</div>
+<div class="tbar" aria-hidden="true"><i id="tb"></i></div>
+<div class="controls">
+<button type="button" class="primary" id="bSet">EcuM_SetWakeupEvent</button>
+<button type="button" id="bVal">EcuM_ValidateWakeupEvent</button>
+<button type="button" id="bClr">EcuM_ClearWakeupEvent</button>
+</div>
+<div class="vars" aria-live="polite">
+<span>pending</span><span id="vP">0x00000000</span>
+<span>validated</span><span id="vV">0x00000000</span>
+<span>expired</span><span id="vE">0x00000000</span>
+</div>
+<p class="readout" id="why">No wakeup event yet. Report one for body CAN.</p>
+<ol class="log" id="log"></ol>
+</div>
+
+<h2>Reset reasons are wakeup sources too</h2>
+<p>The one type also says why the ECU <em>started</em>. During startup EcuM asks the MCU driver for the <span class="term">reset reason</span> (why the microcontroller started: power on, a reset, a watchdog) and maps it, by configuration, to a wakeup source. It remembers that source, so the main function handles it like any other wakeup event. If EcuM cannot tell the reset reason, it sets <code>ECUM_WKSOURCE_RESET</code>.</p>
+<p>The five predefined sources are never validated: a power cycle or a watchdog reset cannot be a spike on a wire. That is why <code>ECUM_WKSOURCE_POWER</code> in the simulation goes straight to validated.</p>
+<p>Some transceivers switch the power of the whole microcontroller and switch it on again on bus activity. For such hardware a wakeup on CAN looks like a power-on reset: the ECU runs through STARTUP, and the integrator code must ask the transceiver driver whether it caused the start, report the wakeup event, and validate it as usual. The CAN transceiver specification counts this case as a cold start, not as a wakeup.</p>
+
+<div class="older">
+<p>The four states, the predefined bits and the functions of this lesson are the same in <strong>4.4.0</strong> and <strong>R20-11</strong>. Two differences around them: those releases have <code>EcuM_EndCheckWakeup</code>, with which a driver that checks its source asynchronously reports that no wakeup was found (removed in R21-11), and the EcuM specification describes no Ethernet wakeup sequence yet (added in R21-11).</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> A wakeup source is just a bit, and one call can carry several bits. Whether a source is validated is a matter of configuration: without validation, reporting it already makes it validated. EcuM only reports the states; what the ECU does about them is decided by BswM rules.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">wakeup source</span></td><td>A reason EcuM knows for a start or wakeup (bus, pin, timer, reset), one bit of <code>EcuM_WakeupSourceType</code></td></tr>
+<tr><td><code class="term">EcuM_WakeupSourceType</code></td><td>The 32-bit bit field with one bit per wakeup source; bits 0–4 predefined, 5–31 configured</td></tr>
+<tr><td><span class="term">wakeup event</span></td><td>The report that a wakeup source has woken up</td></tr>
+<tr><td><code class="term">EcuM_SetWakeupEvent</code></td><td>Called by a driver to report a wakeup; the source becomes pending, or validated if it needs no validation</td></tr>
+<tr><td><code class="term">EcuM_WakeupStatusType</code></td><td>The state of a wakeup source: <code>ECUM_WKSTATUS_NONE</code>, <code>_PENDING</code>, <code>_VALIDATED</code> or <code>_EXPIRED</code></td></tr>
+<tr><td><span class="term">pending</span></td><td>Wakeup state: reported, not yet validated</td></tr>
+<tr><td><span class="term">validated</span></td><td>Wakeup state: the wakeup is confirmed</td></tr>
+<tr><td><span class="term">expired</span></td><td>Wakeup state: not validated before the validation timeout</td></tr>
+<tr><td><code class="term">EcuM_ClearWakeupEvent</code></td><td>Clears the given sources from the pending, validated and expired events</td></tr>
+<tr><td><code class="term">BswM_EcuM_CurrentWakeup</code></td><td>EcuM's report of the new state of wakeup sources to BswM</td></tr>
+<tr><td><span class="term">reset reason</span></td><td>Why the microcontroller started (power on, reset, watchdog); EcuM maps it to a wakeup source</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, sections 5.2, 7.3.2, 7.6.2–7.6.7, 8.2.3, 8.2.4, 8.3.5 and 8.4.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANTransceiverDriver.pdf">Specification of CAN Transceiver Driver, R25-11</a>, section 7.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // Figure 1: the 32 bit cells.
+  const NS = 'http://www.w3.org/2000/svg';
+  const g = document.getElementById('bits');
+  for (let b = 0; b < 32; b++) {
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', 6 + b * 20); r.setAttribute('y', 70); r.setAttribute('width', 20); r.setAttribute('height', 28);
+    r.setAttribute('class', b < 5 ? 'm-ecum' : (b === 5 ? 'm-drv' : (b === 6 ? 'm-app' : 'd-box')));
+    g.appendChild(r);
+    if (b < 7 || b === 31) {
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', 16 + b * 20); t.setAttribute('y', 89); t.setAttribute('class', 'd-s d-c');
+      t.textContent = String(b);
+      g.appendChild(t);
+    }
+  }
+})();
+
+(function () {
+  const TIMEOUT = 5000; // ms, scaled validation timeout
+  const SRC = [
+    { name: 'ECUM_WKSOURCE_BODYCAN', bit: 5, valid: true, ch: 'BodyCan' },
+    { name: 'ECUM_WKSOURCE_DOOR_PIN', bit: 6, valid: false, ch: null },
+    { name: 'ECUM_WKSOURCE_POWER', bit: 0, valid: false, ch: null, predefined: true }
+  ];
+  const st = SRC.map(() => ({ s: 'NONE', t0: 0 }));
+  let cur = 0, raf = 0;
+  const $ = (id) => document.getElementById(id);
+  const btns = Array.from(document.querySelectorAll('#sim [data-src]'));
+  const log = $('log');
+  const hex = (n) => '0x' + (n >>> 0).toString(16).toUpperCase().padStart(8, '0');
+
+  function say(lines) {
+    lines.forEach((l) => {
+      const li = document.createElement('li');
+      li.textContent = l;
+      log.appendChild(li);
+    });
+    while (log.children.length > 6) log.removeChild(log.firstChild);
+  }
+  function mask(state) {
+    return SRC.reduce((m, s, i) => (st[i].s === state ? m | (1 << s.bit) : m), 0);
+  }
+  function enter(i, state) {
+    const s = SRC[i];
+    st[i].s = state;
+    const out = ['BswM_EcuM_CurrentWakeup(' + s.name + ', ECUM_WKSTATUS_' + state + ')'];
+    if (state === 'PENDING') { st[i].t0 = performance.now(); out.push('EcuM_StartWakeupSources(' + s.name + ')'); }
+    if (state === 'VALIDATED' && s.ch) out.push('ComM_EcuM_WakeUpIndication(' + s.ch + ')');
+    if (state === 'EXPIRED') out.push('EcuM_StopWakeupSources(' + s.name + ')');
+    say(out);
+  }
+  function render() {
+    const s = st[cur].s;
+    document.querySelectorAll('#sv [data-st]').forEach((n) => n.querySelector('rect').classList.toggle('on', n.dataset.st === s));
+    btns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === cur)));
+    $('vP').textContent = hex(mask('PENDING'));
+    $('vV').textContent = hex(mask('VALIDATED'));
+    $('vE').textContent = hex(mask('EXPIRED'));
+    $('bVal').disabled = s !== 'PENDING';
+    $('bSet').disabled = s === 'VALIDATED' || s === 'EXPIRED';
+    $('bClr').disabled = s === 'NONE';
+    if (s !== 'PENDING') $('tb').style.width = '0';
+  }
+  function tick() {
+    let any = false;
+    st.forEach((x, i) => {
+      if (x.s !== 'PENDING') return;
+      const left = TIMEOUT - (performance.now() - x.t0);
+      if (left <= 0) {
+        enter(i, 'EXPIRED');
+        if (i === cur) $('why').textContent = 'Nothing validated ' + SRC[i].name + ' in time: it is expired, and EcuM stops the source again. A BswM rule can now send the ECU back to sleep.';
+        render();
+      } else {
+        any = true;
+        if (i === cur) $('tb').style.width = (100 * (1 - left / TIMEOUT)) + '%';
+      }
+    });
+    raf = any ? requestAnimationFrame(tick) : 0;
+  }
+  btns.forEach((b, i) => b.addEventListener('click', () => {
+    cur = i;
+    const s = SRC[i];
+    $('why').textContent = s.valid ? 'This source needs validation: a report makes it pending first.'
+      : s.predefined ? 'A predefined source: EcuM never validates it, so a report makes it validated at once.'
+      : 'Configured without validation: a report makes it validated at once.';
+    render();
+  }));
+  $('bSet').addEventListener('click', () => {
+    const s = SRC[cur];
+    say(['EcuM_SetWakeupEvent(' + s.name + ')']);
+    if (st[cur].s === 'PENDING') {
+      $('why').textContent = 'Reported again while pending: the bit is already set, and the validation timeout is not restarted.';
+    } else if (s.valid) {
+      enter(cur, 'PENDING');
+      $('why').textContent = s.name + ' is pending. EcuM starts the source for validation; the validation timeout runs. Validate it before the bar is full.';
+      if (!raf) raf = requestAnimationFrame(tick);
+    } else {
+      enter(cur, 'VALIDATED');
+      $('why').textContent = s.name + ' needs no validation, so the report itself makes it validated.' + (s.ch ? '' : ' It names no channel, so ComM is not told; BswM rules decide what follows.');
+    }
+    render();
+  });
+  $('bVal').addEventListener('click', () => {
+    const s = SRC[cur];
+    say(['EcuM_ValidateWakeupEvent(' + s.name + ')']);
+    enter(cur, 'VALIDATED');
+    $('why').textContent = 'Validated in time: the timeout stops, BswM hears it, and because the source names channel BodyCan, ComM is told that the channel woke up.';
+    render();
+  });
+  $('bClr').addEventListener('click', () => {
+    const s = SRC[cur];
+    say(['EcuM_ClearWakeupEvent(' + s.name + ')']);
+    enter(cur, 'NONE');
+    $('why').textContent = 'Cleared: the bit is removed from the pending, validated and expired events. The source can report a new wakeup.';
+    render();
+  });
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A driver reports a wakeup source that is configured without validation. Which state does it enter?',
+    options: ['Validated, at once', 'Pending, until checked', 'Expired, after a timeout'],
+    answer: 0,
+    why: 'Without validation, a call of EcuM_SetWakeupEvent also counts as EcuM_ValidateWakeupEvent: the source is validated at once.'
+  },
+  {
+    prompt: 'Who decides what the ECU does when a wakeup source has expired?',
+    options: ['BswM, by its configured rules', 'EcuM, by its own state machine', 'ComM, by its channel state machine'],
+    answer: 0,
+    why: 'EcuM only reports the new state to BswM with BswM_EcuM_CurrentWakeup. BswM rules decide, for example to sleep again.'
+  },
+  {
+    prompt: 'Why is ECUM_WKSOURCE_POWER never validated?',
+    options: ['A power cycle cannot be a spike', 'It has no bit in the bit field', 'ComM validates it on its own'],
+    answer: 0,
+    why: 'The five predefined sources are reset reasons. They cannot be spurious, so EcuM never runs validation for them.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

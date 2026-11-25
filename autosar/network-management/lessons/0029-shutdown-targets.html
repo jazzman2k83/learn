@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shutdown targets · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Shutdown targets</h1>
+<p class="lede">When <span class="term">BswM</span> decides that the ECU should stop, it first tells <span class="term">EcuM</span> where the ECU is to go: switched off, reset, or asleep. Then one call makes EcuM go there.</p>
+
+<p>This lesson shows the three destinations, how one is selected, how a cause is recorded, and what EcuM does on the way to off or reset.</p>
+
+<h2>Three shutdown targets</h2>
+<p>A <span class="term">shutdown target</span> (the state the ECU goes to when it leaves the <span class="term">UP phase</span>: OFF, RESET or SLEEP) is one of the states in which no code runs. Two of them come in several variants, configured per ECU.</p>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">ECUM_SHUTDOWN_TARGET_OFF</p><h3>OFF</h3><p>The ECU switches its own power off. Not every hardware design can do that. Only wakeup sources with integrated power control can wake an ECU that is off.</p></div>
+  <div class="card m-ecum"><p class="tag">ECUM_SHUTDOWN_TARGET_RESET</p><h3>RESET</h3><p>The ECU restarts. A <span class="term">reset mode</span> (one configured way to reset) says how: at least <code>ECUM_RESET_MCU</code> (through <code>Mcu_PerformReset</code>), <code>ECUM_RESET_WDG</code> (through <code>WdgM_PerformReset</code>) and <code>ECUM_RESET_IO</code> (by toggling an I/O line).</p></div>
+  <div class="card m-ecum"><p class="tag">ECUM_SHUTDOWN_TARGET_SLEEP</p><h3>SLEEP</h3><p>The ECU stays powered and waits for a <span class="term">wakeup</span>. A <span class="term">sleep mode</span> (a configured low-power mode of the microcontroller, lesson 30) says which one.</p></div>
+</div>
+<p>After a reset the shutdown target is the default from the configuration. Before BswM sends the ECU to sleep it must make sure that a SLEEP target has been selected.</p>
+
+<h2>Selecting a target and a cause</h2>
+<p><code class="term">EcuM_SelectShutdownTarget</code> (stores the target and its reset or sleep mode for the next shutdown) only stores the value; nothing is prepared yet. EcuM resolves no conflicts: if several callers select a target, the last one wins, so a project usually lets only one place do it. BswM calls it from an <span class="term">action list</span>; an SWC can call it through the RTE port <code>EcuM_ShutdownTarget</code>. That port has no operation to start a shutdown.</p>
+<p><code>EcuM_GetShutdownTarget</code> reads the target for the next shutdown. <code class="term">EcuM_GetLastShutdownTarget</code> (returns the target of the previous shutdown) tells software after startup where the ECU came from: from a sleep, a reset or off.</p>
+<p>A <span class="term">shutdown cause</span> (the recorded reason for a shutdown) is stored with <code>EcuM_SelectShutdownCause</code> and read with <code>EcuM_GetShutdownCause</code>. The standard values are <code>ECUM_CAUSE_UNKNOWN</code>, <code>ECUM_CAUSE_ECU_STATE</code> (the ECU state machine entered a state for shutdown), <code>ECUM_CAUSE_WDGM</code> (the Watchdog Manager detected a failure) and <code>ECUM_CAUSE_DCM</code> (<span class="term">Dcm</span> requests a shutdown because of a service request); the configuration can add more.</p>
+
+<h2>Going down: EcuM_GoDownHaltPoll</h2>
+<p><code class="term">EcuM_GoDownHaltPoll</code> takes the ECU to the selected target. Its parameter is the <span class="term">EcuM user</span> that calls it, normally BswM in an action list. For the targets RESET and OFF, only users allowed by configuration may call it; otherwise it returns <code>E_NOT_OK</code>. For RESET and OFF the call never returns. For SLEEP it returns <code>E_OK</code> when the ECU is awake again.</p>
+<p>With RESET or OFF the <span class="term">SHUTDOWN phase</span> runs in two parts, before and after the OS is shut down:</p>
+<ul>
+  <li>The <span class="term">OffPreOS sequence</span> (shutdown steps while the OS still runs): the callout <code>EcuM_OnGoOffOne</code> (a callout is a function the integrator fills in), then de-initialization of BswM and of the <span class="term">BSW Scheduler</span> (SchM), a check for wakeup events, and finally <code>ShutdownOS</code>.</li>
+  <li>The OS calls its shutdown hook, which calls <code>EcuM_Shutdown</code>. That starts the <span class="term">OffPostOS sequence</span> (the last steps after the OS has stopped): the callout <code>EcuM_OnGoOffTwo</code>, then <code>EcuM_AL_Reset</code> with the reset mode, or <code>EcuM_AL_SwitchOff</code>.</li>
+</ul>
+<p>A wakeup during shutdown is not lost. EcuM completes the shutdown and restarts at once: if the check in OffPreOS finds wakeup events, it selects RESET with the default reset mode. With the SchM already stopped, no validation can run any more, so the configuration decides which events count: all pending ones, or only those that need no validation.</p>
+
+<h2>Try it</h2>
+<p>Pick a target and step through the call sequence. Tick the wakeup box to see the target change during shutdown.</p>
+<div class="panel no-print">
+<div class="controls">
+  <label>Shutdown target<select id="tg"><option value="OFF">ECUM_SHUTDOWN_TARGET_OFF</option><option value="RESET" selected>ECUM_SHUTDOWN_TARGET_RESET</option><option value="SLEEP">ECUM_SHUTDOWN_TARGET_SLEEP</option></select></label>
+  <label>Reset mode<select id="rm"><option>ECUM_RESET_MCU</option><option>ECUM_RESET_WDG</option><option>ECUM_RESET_IO</option></select></label>
+  <label class="inline"><input type="checkbox" id="wk"> Wakeup on body CAN during shutdown</label>
+</div>
+<div id="seq"></div>
+</div>
+
+<div class="older">
+<p>Up to <strong>4.3.1</strong> EcuM Flex had three calls instead of one: <code class="term">EcuM_GoDown</code> (off or reset, with the module ID of the caller), <code>EcuM_GoHalt</code> and <code>EcuM_GoPoll</code> (the two kinds of sleep). <strong>4.4.0</strong> replaced them with <code>EcuM_GoDownHaltPoll</code>; in 4.4.0 its parameter is still the caller's module ID (<code>uint16 caller</code>), from <strong>R20-11</strong> it is an <code>EcuM_UserType</code>. In R20-11 and older the OffPreOS check always takes all pending wakeup events; the choice to consider only events that need no validation came in R21-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Selecting a target does nothing by itself; <code>EcuM_GoDownHaltPoll</code> acts on whatever was selected last. RESET and OFF never return; SLEEP returns after the wakeup. A wakeup during shutdown turns OFF into RESET, so the ECU starts again at once.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">shutdown target</span></td><td>Where the ECU goes when it leaves the UP phase: OFF, RESET (with a reset mode) or SLEEP (with a sleep mode)</td></tr>
+<tr><td><span class="term">reset mode</span></td><td>One configured way to reset the ECU, such as <code>ECUM_RESET_MCU</code></td></tr>
+<tr><td><code class="term">EcuM_SelectShutdownTarget</code></td><td>Stores the shutdown target and its mode for the next shutdown</td></tr>
+<tr><td><code class="term">EcuM_GetLastShutdownTarget</code></td><td>Returns the shutdown target of the previous shutdown</td></tr>
+<tr><td><span class="term">shutdown cause</span></td><td>The recorded reason for a shutdown, such as <code>ECUM_CAUSE_WDGM</code></td></tr>
+<tr><td><code class="term">EcuM_GoDownHaltPoll</code></td><td>Takes the ECU to the selected shutdown target</td></tr>
+<tr><td><span class="term">OffPreOS sequence</span></td><td>Shutdown steps while the OS still runs, ending with <code>ShutdownOS</code></td></tr>
+<tr><td><span class="term">OffPostOS sequence</span></td><td>The last steps after the OS has stopped: reset or switch off</td></tr>
+<tr><td><code class="term">EcuM_GoDown</code></td><td>Up to 4.3.1: the call for off or reset, replaced by <code>EcuM_GoDownHaltPoll</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 5.6, 7.4, 7.7, 8.3.2, 8.3.4 and 8.8.1.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const tg = document.getElementById('tg');
+  const rm = document.getElementById('rm');
+  const wk = document.getElementById('wk');
+  const lanes = ['BswM', 'EcuM', 'SchM', 'OS', 'Callouts'];
+  function story() {
+    const t = tg.value;
+    const mode = t === 'RESET' ? rm.value : t === 'SLEEP' ? 'sleep mode' : '0';
+    const s = [
+      { ctx: 'BswM action list (BswM main function task)', from: 'BswM', to: 'EcuM', call: 'EcuM_SelectShutdownTarget(ECUM_SHUTDOWN_TARGET_' + t + ', ' + mode + ')',
+        text: 'BswM selects the target' + (t === 'RESET' ? ' and the reset mode ' + rm.value : t === 'SLEEP' ? ' and a sleep mode' : '; the mode parameter is ignored for OFF') + '. EcuM only stores it.' },
+      { from: 'BswM', to: 'EcuM', call: 'EcuM_GoDownHaltPoll(user)', text: 'BswM, a user allowed by configuration, starts going down.' }
+    ];
+    if (t === 'SLEEP') {
+      s.push({ from: 'EcuM', note: 'GoSleep, then Halt or Poll (lesson 30)', text: 'With SLEEP, EcuM does not shut down the OS. It runs the GoSleep sequence and then halts or polls until a wakeup.' });
+      s.push({ from: 'EcuM', to: 'BswM', call: 'E_OK', ret: true, text: 'After the wakeup the call returns E_OK: the ECU has left the sleep again, and BswM continues.' });
+      return s;
+    }
+    s.push({ ctx: 'OffPreOS sequence', from: 'EcuM', to: 'Callouts', call: 'EcuM_OnGoOffOne()', text: 'The first callout of the shutdown: integrator code runs here.' });
+    s.push({ from: 'EcuM', to: 'BswM', call: 'BswM_Deinit()', text: 'BswM is de-initialized: from here on no rules run.' });
+    s.push({ from: 'EcuM', to: 'SchM', call: 'SchM_Deinit()', text: 'The BSW Scheduler stops: no main functions run any more, so no wakeup can be validated now.' });
+    s.push({ from: 'EcuM', note: 'check for wakeup events', text: wk.checked ? 'A wakeup event of ECUM_WKSOURCE_BODYCAN is pending (a frame on body CAN during shutdown).' : 'No wakeup event is pending: the target stays ' + t + '.' });
+    if (wk.checked) s.push({ from: 'EcuM', note: 'EcuM_SelectShutdownTarget(ECUM_SHUTDOWN_TARGET_RESET, default)', text: 'EcuM selects RESET with the default reset mode, so the ECU starts again at once and the wakeup is not lost.' });
+    s.push({ from: 'EcuM', to: 'OS', call: 'ShutdownOS()', text: 'The last action of OffPreOS, in this OS task.' });
+    s.push({ ctx: 'OS shutdown hook', from: 'OS', to: 'EcuM', call: 'EcuM_Shutdown()', text: 'The OS calls its shutdown hook, which calls EcuM_Shutdown. It never returns.' });
+    s.push({ ctx: 'OffPostOS sequence', from: 'EcuM', to: 'Callouts', call: 'EcuM_OnGoOffTwo()', text: 'The last callout before the ECU stops.' });
+    const reset = wk.checked || t === 'RESET';
+    s.push({ from: 'EcuM', to: 'Callouts', call: reset ? 'EcuM_AL_Reset(' + (wk.checked ? 'default reset mode' : rm.value) + ')' : 'EcuM_AL_SwitchOff()',
+      text: reset ? 'Target RESET: the callout resets the ECU' + (wk.checked ? ' with the default reset mode; the startup follows at once.' : ' in the selected way.') : 'Target OFF: the callout switches the ECU off.' });
+    return s;
+  }
+  const seq = Sequence.create(document.getElementById('seq'), { lanes, focus: ['EcuM'], steps: story() });
+  function update() { rm.disabled = tg.value !== 'RESET'; wk.disabled = tg.value === 'SLEEP'; seq.set({ steps: story() }); }
+  [tg, rm, wk].forEach((e) => e.addEventListener('change', update));
+  update();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'What does EcuM_SelectShutdownTarget do by itself?',
+    options: ['Stores the target for later use', 'Starts the SHUTDOWN phase at once', 'Resets the ECU in the given mode'],
+    answer: 0,
+    why: 'It only stores the value. <code>EcuM_GoDownHaltPoll</code> acts on the target selected last.'
+  },
+  {
+    prompt: 'The target is OFF, and a CAN wakeup arrives during OffPreOS. What happens?',
+    options: ['EcuM switches to RESET and restarts', 'EcuM ignores the wakeup and goes off', 'EcuM stops the shutdown and stays up'],
+    answer: 0,
+    why: 'EcuM completes the shutdown and restarts at once: with wakeup events pending it selects RESET with the default reset mode.'
+  },
+  {
+    prompt: 'When does EcuM_GoDownHaltPoll return?',
+    options: ['Only for SLEEP, after the wakeup', 'For every target, after shutdown', 'Never, for any of the targets'],
+    answer: 0,
+    why: 'For RESET and OFF the call does not return. For SLEEP it returns E_OK when the ECU has left the sleep.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

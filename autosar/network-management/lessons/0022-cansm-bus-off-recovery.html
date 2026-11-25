@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CanSM: bus-off recovery · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.bor-state { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-family: var(--sans); font-size: 0.85rem; margin: 0.6rem 0 0; }
+table.nw td code { white-space: nowrap; }
+.bor-state b { font-family: var(--mono); font-weight: 400; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>CanSM: bus-off recovery</h1>
+<p class="lede">After too many transmission errors a <span class="term">CAN controller</span> switches itself off the bus. <span class="term">CanSM</span> restarts it, first quickly, then more slowly if the errors keep coming, and tells ComM, BswM and the diagnostics what happened.</p>
+
+<svg class="defs" aria-hidden="true"><defs><marker id="a22" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker></defs></svg>
+
+<h2>What a bus-off is</h2>
+<p>Every CAN controller counts its transmission errors. When the count gets too high, the controller enters <span class="term">bus-off</span> (a controller state after too many transmission errors in which it disconnects itself from the bus). A broken wire, a short circuit or a wrong baud rate are typical causes. The controller then neither sends nor acknowledges frames, so a faulty node cannot disturb the others for ever.</p>
+<p>The Can driver reports the event to <span class="term">CanIf</span>, and CanIf passes it on to CanSM with <code>CanSM_ControllerBusOff</code>. CanIf also switches the PDU mode of that controller to transmit offline at once: from now on it refuses transmit requests from above and clears its transmit buffers, while reception stays possible.</p>
+<p>The rest is <span class="term">bus-off recovery</span> (CanSM restarts the controller after a bus-off, first after a short time, level 1, later after a long time, level 2, and reports the event to DEM). It runs inside the full communication state of lesson 21, in its own small sub state machine.</p>
+
+<h2>The recovery cycle</h2>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f22t">
+<title id="f22t">The bus-off recovery cycle inside CanSM full communication: S_NO_BUS_OFF, on bus-off to S_RESTART_CC, when the controller has started to S_TX_OFF, after the recovery time to S_BUS_OFF_CHECK, and when the check passes back to S_NO_BUS_OFF. A new bus-off during the check goes back to S_RESTART_CC.</title>
+<rect x="20" y="30" width="170" height="48" class="d-state m-sm"/><text x="105" y="52" class="d-m d-c">S_NO_BUS_OFF</text><text x="105" y="68" class="d-s d-c">transmitting normally</text>
+<rect x="450" y="30" width="170" height="48" class="d-state m-sm"/><text x="535" y="52" class="d-m d-c">S_RESTART_CC</text><text x="535" y="68" class="d-s d-c">controller restarted</text>
+<rect x="450" y="170" width="170" height="48" class="d-state m-sm"/><text x="535" y="192" class="d-m d-c">S_TX_OFF</text><text x="535" y="208" class="d-s d-c">waits L1 or L2 time</text>
+<rect x="20" y="170" width="170" height="48" class="d-state m-sm"/><text x="105" y="192" class="d-m d-c">S_BUS_OFF_CHECK</text><text x="105" y="208" class="d-s d-c">did sending work?</text>
+<line x1="190" y1="54" x2="448" y2="54" class="d-ln" marker-end="url(#a22)"/>
+<text x="320" y="46" class="d-s d-c">bus-off: SILENT to ComM, DEM pre-failed</text>
+<line x1="535" y1="78" x2="535" y2="168" class="d-ln" marker-end="url(#a22)"/>
+<text x="545" y="128" class="d-s">controller started</text>
+<line x1="450" y1="194" x2="192" y2="194" class="d-ln" marker-end="url(#a22)"/>
+<text x="320" y="186" class="d-s d-c">time over: transmit on, FULL to ComM</text>
+<line x1="105" y1="170" x2="105" y2="80" class="d-ln" marker-end="url(#a22)"/>
+<text x="10" y="128" class="d-s">check passed:</text><text x="10" y="141" class="d-s">DEM passed</text>
+<path d="M190,178 L450,70" class="d-ln dash" marker-end="url(#a22)"/>
+<text x="330" y="140" class="d-s d-c">bus-off again</text>
+<text x="330" y="236" class="d-s d-c">all inside CANSM_BSM_S_FULLCOM</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Follow the arrows clockwise. A bus-off during the check (dashed) starts the next round, and that round counts as one more bus-off in a row without a successful recovery.</figcaption>
+</figure>
+<p>On the bus-off, CanSM first tells BswM (<code>CANSM_BSWM_BUS_OFF</code>), then ComM: the channel is now in <span class="term">COMM_SILENT_COMMUNICATION</span>. It reports the event to <span class="term">DEM</span> (Diagnostic Event Manager: stores diagnostic events such as a bus-off) as pre-failed. If the network has several controllers, CanSM stops the others too. Then it restarts the controller and waits until the controller reports that it has started.</p>
+<p>The controller is running again, but CanSM keeps the transmit path closed for a while: the recovery time. Only after that time, counted from the bus-off, does it switch CanIf back to online, report full communication to BswM and then <span class="term">COMM_FULL_COMMUNICATION</span> to ComM. Frames, including the <span class="term">NM PDU</span>, go out again.</p>
+
+<h2>Level 1, level 2 and the counter</h2>
+<div class="cards">
+  <div class="card m-sm"><p class="tag">short wait</p><h3>Level 1</h3><p>For the first bus-offs in a row, CanSM waits only the short level 1 time before sending again. A single disturbance costs very little.</p></div>
+  <div class="card m-sm"><p class="tag">long wait</p><h3>Level 2</h3><p>CanSM counts the bus-offs without a successful recovery in between. Once that count reaches a configured threshold, it waits the long level 2 time instead, so a node with a permanent fault blocks the bus only now and then. Whether the bus-off that has just happened already counts, the specification does not say; the simulation below counts it.</p></div>
+  <div class="card m-sm"><p class="tag">reset</p><h3>The check</h3><p>After sending is switched on again, CanSM checks whether the recovery worked. When the check passes, DEM gets passed and the count of bus-offs in a row starts again from zero.</p></div>
+</div>
+<p>The check can work in two ways, chosen in the configuration. Either CanSM simply waits a configured time after switching transmission on; if no new bus-off came in that time, the recovery counts as successful. The time must be long enough that frames are really sent in it, for example longer than the period of the fastest cyclic I-PDU. Or CanSM asks CanIf with <code>CanIf_GetTxConfirmationState</code> whether a transmit confirmation has arrived since the restart, for every controller of the network, and passes the check as soon as one has.</p>
+<p>Instead of the two fixed times, a network can also get its wait time from a callout function after each bus-off.</p>
+
+<h2>What ComM, BswM and DEM see</h2>
+<div class="table-wrap">
+<table class="data nw">
+<thead><tr><th>Moment</th><th>BswM gets</th><th>ComM gets</th><th>DEM gets</th></tr></thead>
+<tbody>
+<tr><td>bus-off</td><td><code>CANSM_BSWM_BUS_OFF</code></td><td><span class="term">COMM_SILENT_COMMUNICATION</span></td><td>pre-failed</td></tr>
+<tr><td>recovery time over, transmit on</td><td><code>CANSM_BSWM_FULL_COMMUNICATION</code></td><td><span class="term">COMM_FULL_COMMUNICATION</span></td><td>—</td></tr>
+<tr><td>check passed</td><td>—</td><td>—</td><td>passed</td></tr>
+</tbody>
+</table>
+</div>
+<p>ComM's own state does not change: its users still request full communication, and the mode it wants for the channel stays full communication. Only the mode the bus actually has, as indicated by CanSM, is silent for a while; ComM passes that indicated mode on to its users and to <span class="term">BswM</span>. A bus-off does not end communication, it pauses sending.</p>
+<p>CanSM reports to DEM at every bus-off and at every successful check. DEM decides through its debouncing how many pre-failed reports in a row make a stored fault; CanSM itself stores nothing.</p>
+<p>A bus-off can also happen while the channel is in silent communication (for example while the network is going to sleep). CanSM then only restarts the controller and reports pre-failed to DEM; sending stays off, as silent communication requires.</p>
+
+<h2>Try it</h2>
+<p>Press <strong>Start</strong>, then <strong>Inject bus-off</strong>. Switch on "Fault stays" to see what a permanent fault does: every time sending starts again, the next bus-off follows. In this example level 1 waits 1 s, level 2 waits 4 s, level 2 starts with the third bus-off in a row, and the time check lasts 2 s. Times are scaled.</p>
+<div class="panel no-print" id="bor">
+<div class="controls">
+<label class="inline"><input type="checkbox" id="fault"> Fault stays on the bus</label>
+<label>Recovery check <select id="mode"><option value="time">wait the check time</option><option value="poll">poll transmit confirmation</option></select></label>
+</div>
+<div id="tl"></div>
+<div class="bor-state"><span>CanSM: <b id="st">S_NO_BUS_OFF</b></span><span>bus-offs in a row: <b id="cnt">0</b></span><span>next recovery: <b id="lvl">level 1</b></span></div>
+<ul class="log" id="log" aria-live="polite"></ul>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> During recovery ComM's request stays full communication; only the indicated mode drops to silent. With a lasting fault the waits get long after the threshold, and the count goes back to zero only after a successful check. With transmit confirmation polling, a working bus passes the check as soon as the first frame is confirmed.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">bus-off</span></td><td>A CAN controller state after too many transmission errors: it disconnects itself from the bus</td></tr>
+<tr><td><span class="term">bus-off recovery</span></td><td>CanSM restarts the controller after a bus-off, first after a short time (level 1), later after a long time (level 2), and reports to DEM</td></tr>
+<tr><td><span class="term">DEM</span></td><td>Diagnostic Event Manager: stores diagnostic events and errors, such as a bus-off reported by CanSM</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, sections 7.2.21 and 7.2.23 (bus-off recovery), 7.3.4 (production error); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">Specification of CAN Interface, R25-11</a>, section 7.19 (PDU channel modes) and 9.12 (bus-off recovery).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const DUR = 24, L1 = 1, L2 = 4, THR = 3, ENSURED = 2, POLL_OK = 0.4, FAULT = 0.3;
+  const $ = (id) => document.getElementById(id);
+  const faultBox = $('fault'), modeSel = $('mode'), logEl = $('log');
+  let st, count, since, comm, commSince, txOnAt, checkEnd, nextFault, lastDem;
+  const NAMES = { NO: 'S_NO_BUS_OFF', OFF: 'S_TX_OFF', CHECK: 'S_BUS_OFF_CHECK' };
+  const SPAN = { NO: 'f-res', OFF: 'f-err', CHECK: 'f-ev' };
+  const SHORT = { NO: 'no bus-off', OFF: 'restart, tx off', CHECK: 'check' };
+
+  const tl = Timeline.create($('tl'), {
+    lanes: [{ id: 'bus', label: 'CAN controller' }, { id: 'sm', label: 'CanSM' }, { id: 'comm', label: 'ComM (indicated)' }, { id: 'dem', label: 'DEM' }],
+    duration: DUR, axis: 4,
+    onTick: tick,
+    onReset: init
+  });
+
+  function log(t, text) {
+    const li = document.createElement('li');
+    li.textContent = t.toFixed(1) + ' s  ' + text;
+    logEl.prepend(li);
+    while (logEl.children.length > 12) logEl.lastChild.remove();
+  }
+  function show() {
+    $('st').textContent = st === 'OFF' ? 'S_RESTART_CC → S_TX_OFF' : NAMES[st];
+    $('cnt').textContent = String(count);
+    $('lvl').textContent = (count + 1 < THR ? 'level 1' : 'level 2') + (st === 'OFF' ? ' (this one: ' + (count < THR ? 'level 1' : 'level 2') + ')' : '');
+  }
+  function setState(t, s) {
+    tl.span('sm', since, t, SPAN[st], SHORT[st]);
+    st = s; since = t;
+  }
+  function setComm(t, m) {
+    tl.span('comm', commSince, t, comm === 'FULL' ? 'f-res' : 'f-ev', comm);
+    comm = m; commSince = t;
+  }
+  function dem(t, text, cls) {
+    tl.markAt('dem', t, t - lastDem > 3 ? text : '', cls);
+    lastDem = t;
+  }
+  function busOff(t) {
+    if (st === 'OFF') { log(t, 'No frames are sent while transmission is off, so no new bus-off can occur.'); return; }
+    tl.markAt('bus', t, 'bus-off', 'k-err');
+    count++;
+    const level = count < THR ? 1 : 2;
+    setState(t, 'OFF');
+    setComm(t, 'SILENT');
+    txOnAt = t + (level === 1 ? L1 : L2);
+    nextFault = Infinity;
+    log(t, 'CanSM_ControllerBusOff → BswM_CanSM_CurrentState(CANSM_BSWM_BUS_OFF), ComM_CanSM_ModeIndication(BodyCan, COMM_SILENT_COMMUNICATION)');
+    log(t, 'Dem_SetEventStatus(CANSM_E_BUS_OFF, DEM_EVENT_STATUS_PRE_FAILED); CanIf_SetControllerMode(CAN_CS_STARTED). Bus-off ' + count + ' in a row: level ' + level + ', wait ' + (level === 1 ? L1 : L2) + ' s');
+    dem(t, 'pre-failed', 'k-err');
+    show();
+  }
+  function tick(prev, now) {
+    if (st === 'OFF' && now >= txOnAt) {
+      const t = txOnAt;
+      setState(t, 'CHECK');
+      setComm(t, 'FULL');
+      tl.markAt('bus', t, '', 'tick');
+      checkEnd = t + (modeSel.value === 'poll' ? POLL_OK : ENSURED);
+      nextFault = faultBox.checked ? t + FAULT : Infinity;
+      log(t, 'Recovery time over: CanIf_SetPduMode(CANIF_ONLINE), BswM_CanSM_CurrentState(CANSM_BSWM_FULL_COMMUNICATION), ComM_CanSM_ModeIndication(BodyCan, COMM_FULL_COMMUNICATION)');
+      show();
+    }
+    if (st === 'CHECK') {
+      if (nextFault <= now) { busOff(nextFault); }
+      else if (!faultBox.checked && now >= checkEnd) {
+        const t = checkEnd;
+        setState(t, 'NO');
+        log(t, (modeSel.value === 'poll' ? 'CanIf_GetTxConfirmationState returns CANIF_TX_RX_NOTIFICATION' : 'Check time over without a bus-off') + ': Dem_SetEventStatus(CANSM_E_BUS_OFF, DEM_EVENT_STATUS_PASSED); count back to 0');
+        dem(t, 'passed', 'k-res');
+        count = 0;
+        show();
+      }
+    }
+    if (st === 'NO' && faultBox.checked && nextFault <= now) busOff(nextFault);
+    if (now >= DUR) { tl.span('sm', since, DUR, SPAN[st], SHORT[st]); tl.span('comm', commSince, DUR, comm === 'FULL' ? 'f-res' : 'f-ev', comm); since = commSince = DUR; }
+  }
+  function init() {
+    st = 'NO'; count = 0; since = 0; comm = 'FULL'; commSince = 0; nextFault = Infinity; lastDem = -10;
+    logEl.replaceChildren();
+    show();
+  }
+  faultBox.addEventListener('change', () => {
+    if (faultBox.checked && st !== 'OFF') nextFault = tl.now() + FAULT;
+    if (!faultBox.checked) nextFault = Infinity;
+  });
+  tl.buttons.append(
+    Timeline.button('Start', () => tl.start(), true),
+    Timeline.button('Inject bus-off', () => { if (!tl.finished()) { busOff(tl.now()); tl.start(); } })
+  );
+  init();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A bus-off occurs on BodyCan while a user requests full communication. What does ComM get from CanSM?',
+    options: ['COMM_SILENT_COMMUNICATION, later FULL again', 'COMM_NO_COMMUNICATION until a new request', 'Nothing, ComM is not told about a bus-off'],
+    answer: 0,
+    why: 'CanSM indicates silent communication at the bus-off and full communication again when it switches transmission back on. ComM keeps the user request.'
+  },
+  {
+    prompt: 'When does CanSM switch from the level 1 time to the level 2 time?',
+    options: ['After enough bus-offs in a row without success', 'After the first bus-off reported to DEM ever', 'When ComM requests silent communication'],
+    answer: 0,
+    why: 'CanSM counts bus-offs without a passed recovery check; when that count reaches the configured threshold, the long level 2 time applies. A passed check resets the count.'
+  },
+  {
+    prompt: 'What does transmission confirmation polling change?',
+    options: ['The check passes at the first confirmed frame', 'The controller restarts without any waiting', 'DEM stores a fault at the very first bus-off'],
+    answer: 0,
+    why: 'Instead of waiting a fixed check time, CanSM asks CanIf whether a transmit confirmation has arrived for each controller, and passes the check as soon as one has.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

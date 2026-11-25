@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UdpNm: NM on Ethernet · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.pkt .cell.m-nm { background: var(--m-nm-soft); border-color: var(--m-nm); }
+.pkt .cell.m-comm { background: var(--m-comm-soft); border-color: var(--m-comm); }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>UdpNm: NM on Ethernet</h1>
+<p class="lede"><span class="term">UdpNm</span> runs the same algorithm as <span class="term">CanNm</span>, with the same states, timers and <span class="term">NM PDU</span>. What changes is the way down: the NM PDU travels as the payload of a UDP packet, through the socket layer instead of <span class="term">CanIf</span>.</p>
+
+<p>On the example ECU, the channel <code>Eth</code> (network handle 2) connects the gateway to the Head unit, with UdpNm as its bus NM. This lesson lists what stays as on body CAN and checks each difference against the UdpNm specification.</p>
+
+<h2>The same algorithm</h2>
+<p>UdpNm is a decentralized NM like CanNm: every node decides from the NM PDUs it sends and receives. It has the same three modes (<span class="term">Network Mode</span> with <span class="term">Repeat Message State</span>, <span class="term">Normal Operation State</span> and <span class="term">Ready Sleep State</span>; <span class="term">Prepare Bus-Sleep Mode</span>; <span class="term">Bus-Sleep Mode</span>), the same timers (<span class="term">NM-Timeout Time</span>, <span class="term">Repeat Message Time</span>, <span class="term">Wait Bus-Sleep Time</span>, <span class="term">Message Cycle Time</span>) and the same NM PDU layout: <span class="term">Source Node Identifier</span> and <span class="term">Control Bit Vector</span> in byte 0 and byte 1 by default, then <span class="term">user data</span> and the <span class="term">PNC bit vector</span>. The Ethernet NM PDU is not limited to 8 bytes; its length is configured.</p>
+<p>Most optional features exist on both: <span class="term">immediate transmission</span>s, <span class="term">node detection</span>, user data through the API or through COM, <span class="term">passive mode</span>, <span class="term">communication control</span>, remote sleep, <span class="term">car wakeup</span>, <span class="term">state change notification</span> and partial networking. Above them, <span class="term">NmIf</span> calls <code class="term">UdpNm_NetworkRequest</code> where it would call <code>CanNm_NetworkRequest</code>, and ComM does not notice the difference.</p>
+
+<h2>What is different</h2>
+<figure class="fig">
+<div class="scroll">
+<svg viewBox="0 0 640 250" role="img" aria-labelledby="f1t">
+<title id="f1t">Two stacks side by side. Left, body CAN: ComM, NmIf, CanNm, CanIf, CAN driver. Right, Ethernet: ComM, NmIf, UdpNm, SoAd, TcpIp, EthIf, Ethernet driver.</title>
+<text x="160" y="16" class="d-tb d-c">BodyCan</text><text x="480" y="16" class="d-tb d-c">Eth</text>
+<rect x="60" y="26" width="200" height="28" class="m-comm"/><text x="160" y="45" class="d-t d-c">ComM</text>
+<rect x="60" y="58" width="200" height="28" class="m-nm"/><text x="160" y="77" class="d-t d-c">NmIf</text>
+<rect x="60" y="90" width="200" height="28" class="m-nm"/><text x="160" y="109" class="d-t d-c">CanNm</text>
+<rect x="60" y="122" width="200" height="28" class="m-if"/><text x="160" y="141" class="d-t d-c">CanIf</text>
+<rect x="60" y="154" width="200" height="28" class="m-drv"/><text x="160" y="173" class="d-t d-c">CAN driver</text>
+<rect x="380" y="26" width="200" height="28" class="m-comm"/><text x="480" y="45" class="d-t d-c">ComM</text>
+<rect x="380" y="58" width="200" height="28" class="m-nm"/><text x="480" y="77" class="d-t d-c">NmIf</text>
+<rect x="380" y="90" width="200" height="28" class="m-nm"/><text x="480" y="109" class="d-t d-c">UdpNm</text>
+<rect x="380" y="122" width="200" height="28" class="m-soad"/><text x="480" y="141" class="d-t d-c">SoAd</text>
+<rect x="380" y="154" width="200" height="28" class="m-ip"/><text x="480" y="173" class="d-t d-c">TcpIp</text>
+<rect x="380" y="186" width="200" height="28" class="m-if"/><text x="480" y="205" class="d-t d-c">EthIf</text>
+<rect x="380" y="218" width="200" height="28" class="m-drv"/><text x="480" y="237" class="d-t d-c">Ethernet driver</text>
+<text x="320" y="113" class="d-s d-c">same algorithm</text>
+<text x="320" y="145" class="d-s d-c">different way down</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The upper layers are the same on both channels. Below the bus NM, CanNm talks to CanIf; UdpNm talks to SoAd, which uses the TCP/IP stack.</figcaption>
+</figure>
+<div class="table-wrap">
+<table class="data compare">
+<thead><tr><th></th><th>CanNm on body CAN</th><th>UdpNm on Ethernet</th></tr></thead>
+<tbody>
+<tr><td>Layer below</td><td>CanIf: CanNm sends through it and gets <code>CanNm_RxIndication</code> from it</td><td><span class="term">SoAd</span> (Socket Adaptor: maps PDUs to sockets of the TCP/IP stack): UdpNm sends with <code class="term">SoAd_IfTransmit</code> and receives through <code class="term">UdpNm_SoAdIfRxIndication</code></td></tr>
+<tr><td>On the wire</td><td>the NM PDU is one CAN frame</td><td>the NM PDU is the payload of an <span class="term">NM packet</span> (an Ethernet frame with an IP and a UDP header around the NM PDU)</td></tr>
+<tr><td>Reaching every node</td><td>every frame reaches every node of the bus</td><td>all UdpNm instances of one NM cluster use the same UDP receive port; the addressing of the packets is part of the SoAd socket configuration</td></tr>
+<tr><td>Bus load reduction</td><td>optional</td><td>not specified for UdpNm</td></tr>
+<tr><td>Transmit confirmation</td><td>a real confirmation from CanIf, or optionally an immediate one; with partial networking a transmit timeout can be monitored</td><td>no real confirmation is available from SoAd or TcpIp: each accepted transmit request counts as sent; no transmit timeout monitoring</td></tr>
+<tr><td>First NM PDU after wakeup</td><td>as in lesson 14</td><td>optionally repeated in every main function until SoAd accepts it, because the transmission path may not be ready yet</td></tr>
+</tbody>
+</table>
+</div>
+<p>The last row is the one that matters most in practice. On Ethernet, <span class="term">EthSM</span> has to enable the transmission path before anything can be sent (lessons 23 and 24). If UdpNm starts Network Mode quickly, SoAd may refuse its first NM PDU. UdpNm then simply asks again in its next main function: always for the burst of immediate transmissions, and for the first NM PDU when the option to retry it is switched on.</p>
+
+<div class="pkt-label">An NM packet on Eth (NM PDU with the default layout)</div>
+<div class="pkt">
+<div class="cell m-eth"><b>Ethernet</b>header</div>
+<div class="cell m-ip"><b>IP</b>header</div>
+<div class="cell m-soad"><b>UDP</b>NM port</div>
+<div class="cell m-nm"><b>byte 0</b>Source Node Id</div>
+<div class="cell m-nm"><b>byte 1</b>Control Bit Vector</div>
+<div class="cell m-comm"><b>bytes 2 …</b>PNC bit vector</div>
+<div class="cell m-com grow"><b>bytes …</b>user data</div>
+</div>
+
+<h2>Try it</h2>
+<p>Step through the first NM PDU on <code>Eth</code> after ComM has requested the network, with immediate transmissions configured. The Head unit stands for the whole other ECU.</p>
+<div class="panel no-print" id="seq"></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Nothing above UdpNm changes on Ethernet: the same states, timers and NmIf calls as on CAN. The differences all sit at the bottom edge of UdpNm: SoAd instead of CanIf, no real transmit confirmation, no bus load reduction, and a first NM PDU that may have to wait for the transmission path.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">UdpNm</span></td><td>UDP Network Management: the bus NM for Ethernet, with the algorithm of CanNm</td></tr>
+<tr><td><code class="term">UdpNm_NetworkRequest</code></td><td>UdpNm API that NmIf calls to request an Ethernet network</td></tr>
+<tr><td><span class="term">NM packet</span></td><td>An Ethernet frame with IP and UDP header that carries one NM PDU</td></tr>
+<tr><td><code class="term">SoAd_IfTransmit</code></td><td>SoAd API with which UdpNm sends an NM PDU</td></tr>
+<tr><td><code class="term">UdpNm_SoAdIfRxIndication</code></td><td>Callback with which SoAd hands a received NM PDU to UdpNm</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>, chapters 1, 2, 4, 7.1, 7.2, 7.4, 7.6, 7.7 and 7.9; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.7, 7.8 and 7.12 (for the comparison).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Sequence.create(document.getElementById('seq'), {
+  lanes: ['NmIf', 'UdpNm', 'SoAd', 'TcpIp, EthIf', 'Head unit'],
+  focus: ['UdpNm'],
+  steps: [
+    { ctx: 'ComM main function (task)', from: 'NmIf', to: 'UdpNm', call: 'UdpNm_NetworkRequest(2)', text: 'ComM has requested Eth through NmIf. NmIf calls UdpNm with network handle 2.' },
+    { ctx: 'UdpNm main function (task)', from: 'UdpNm', note: 'Bus-Sleep → Repeat Message', text: 'UdpNm enters Network Mode in Repeat Message State and starts the immediate transmissions.' },
+    { from: 'UdpNm', to: 'SoAd', call: 'SoAd_IfTransmit(NM PDU)', text: 'UdpNm hands its first NM PDU to SoAd.' },
+    { from: 'SoAd', to: 'UdpNm', call: 'E_NOT_OK', ret: true, text: 'SoAd refuses: EthSM has not enabled the transmission path yet (lesson 23).' },
+    { ctx: 'UdpNm main function (task)', from: 'UdpNm', to: 'SoAd', call: 'SoAd_IfTransmit(NM PDU)', text: 'In its next main function UdpNm asks again. It must get all its immediate transmissions accepted before it goes on with the Message Cycle Time.' },
+    { from: 'SoAd', to: 'UdpNm', call: 'E_OK', ret: true, text: 'Now the path is ready and SoAd accepts the NM PDU.' },
+    { from: 'UdpNm', note: 'accepted = sent', text: 'No real confirmation will come from SoAd or the TCP/IP stack, so UdpNm treats the accepted request as a successful transmission.' },
+    { from: 'SoAd', to: 'TcpIp, EthIf', call: 'UDP datagram', text: 'SoAd passes the NM PDU to the TCP/IP stack as the payload of a UDP datagram for the NM port.' },
+    { from: 'TcpIp, EthIf', to: 'Head unit', call: 'NM packet', text: 'The TCP/IP stack adds the IP header, EthIf and the driver send the Ethernet frame: the NM packet.' },
+    { ctx: 'Head unit: SoAd receive', from: 'Head unit', note: 'UdpNm_SoAdIfRxIndication', text: 'On the Head unit, SoAd hands the NM PDU to its UdpNm with UdpNm_SoAdIfRxIndication. A Head unit in Network Mode restarts its NM-Timeout Time, exactly as a CAN node would.' }
+  ]
+});
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module does UdpNm hand its NM PDUs to?',
+    options: ['SoAd, the Socket Adaptor', 'CanIf, as on a CAN bus', 'EthIf, directly to the driver'],
+    answer: 0,
+    why: 'UdpNm transmits with SoAd_IfTransmit and receives through UdpNm_SoAdIfRxIndication. SoAd uses the TCP/IP stack.'
+  },
+  {
+    prompt: 'Which CanNm feature does the UdpNm specification not have?',
+    options: ['Bus load reduction', 'Node detection', 'Communication control'],
+    answer: 0,
+    why: 'UdpNm specifies node detection, communication control, user data, passive mode and more, but no bus load reduction mechanism.'
+  },
+  {
+    prompt: 'SoAd refuses UdpNm\'s first NM PDU right after a wakeup. Why can this happen?',
+    options: ['The transmission path is not ready yet', 'The other nodes are still in Bus-Sleep', 'UdpNm is still in Prepare Bus-Sleep'],
+    answer: 0,
+    why: 'EthSM may not have enabled the transmission path yet. UdpNm then repeats the request in its next main function.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

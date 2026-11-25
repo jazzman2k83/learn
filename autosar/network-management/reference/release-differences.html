@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Differences between releases · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+table.rel { table-layout: fixed; min-width: 40rem; }
+table.rel td, table.rel th { overflow-wrap: anywhere; }
+table.rel col.topic { width: 19%; }
+table.rel col.rel3 { width: 27%; }
+table.rel col.rel2 { width: 40.5%; }
+table.rel col.les { width: 5rem; }
+table.cfg { table-layout: fixed; min-width: 36rem; }
+table.cfg td, table.cfg th { overflow-wrap: anywhere; }
+table.cfg col.find { width: 34%; }
+table.cfg col.since { width: 15%; }
+table.cfg col.read { width: 43%; }
+table.cfg col.les { width: 5rem; }
+#none { margin-top: 1rem; }
+@media print {
+  .no-print { display: none; }
+  section.mod[hidden], table tr[hidden] { display: revert !important; }
+  table.rel, table.cfg { min-width: 0; }
+  #none { display: none; }
+}
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker="Sheet">Network Management</p>
+<h1>Differences between releases</h1>
+<p class="lede">The course follows release R25-11. Many ECUs still run on 4.4.0 or R20-11, and some on 4.3.1 or older with <span class="term">EcuM Fixed</span>. The state machines of <span class="term">ComM</span>, <span class="term">CanNm</span> and <span class="term">CanSM</span> work the same in all of them; what moved is mainly <span class="term">partial networking</span>, a few EcuM functions and where some configuration parameters live. This sheet lists every difference that touches the course, module by module.</p>
+
+<div class="controls no-print">
+<label>Show the differences of
+<select id="rel">
+<option value="all">every older release</option>
+<option value="440">4.4.0</option>
+<option value="2011">R20-11</option>
+<option value="431">4.3.1 and older (EcuM Fixed)</option>
+</select>
+</label>
+</div>
+<p class="small no-print" id="shown" aria-live="polite"></p>
+
+<section class="same">
+<h2>The same in 4.4.0, R20-11 and R25-11</h2>
+<p>These parts of the course work the same in all three releases: the <span class="term">ComM user</span>s and channels, the channel state machine with its sub-states, <span class="term">communication allowed</span>, the Dcm interface (<code class="term">ComM_DCM_ActiveDiagnostic</code>), <span class="term">communication inhibition</span> (apart from what is stored over a reset, below); the <span class="term">CanNm</span> states, the NM timers, <span class="term">node detection</span>, <span class="term">passive mode</span> and <span class="term">Remote Sleep Indication</span>; the CanSM states and <span class="term">bus-off recovery</span>; the wakeup sources and <span class="term">wakeup validation</span> through <code class="term">CanIf_CheckValidation</code>; <span class="term">passive wakeup</span> on a <span class="term">coordinated channel</span>; nested sub-buses and the <span class="term">NM Coordinator Sleep Ready Bit</span>; the <span class="term">PNC state machine</span> and the rule for the byte and bit of a PNC. Some rules only moved: from R25-11 on, CanNm refers to the NM protocol specification for the immediate transmissions and the <span class="term">Wait Bus-Sleep Time</span> instead of stating them itself, without a change in behaviour.</p>
+</section>
+
+<section class="mod">
+<h2>ComM</h2>
+<div class="table-wrap">
+<table class="data rel">
+<colgroup><col class="topic"><col class="rel3"><col class="rel3"><col class="rel3"><col class="les"></colgroup>
+<thead><tr><th>Topic</th><th>4.4.0</th><th>R20-11</th><th>R25-11</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="440 2011"><td>How ComM learns of PNC requests and sends its own</td><td colspan="2">Through COM signals. COM calls <code class="term">ComM_COMCbk_&lt;sn&gt;</code> when an <span class="term">EIRA</span> or <span class="term">ERA</span> signal changes; ComM reads it with <code class="term">Com_ReceiveSignal</code> in its next <span class="term">main function</span> and writes its own PNC bits into the NM <span class="term">user data</span> with <code class="term">Com_SendSignal</code>. The signals are configured in <code class="term">ComMPncComSignal</code>.</td><td>Through <span class="term">NmIf</span>: NmIf calls <code class="term">ComM_Nm_UpdateEIRA</code> and <code class="term">ComM_Nm_UpdateERA</code>, ComM passes its <span class="term">IRA</span> per channel with <code class="term">Nm_UpdateIRA</code>. Draft in R21-11, which marks the COM signal path obsolete; R22-11 removes it.</td><td><a href="../lessons/0004-one-request-from-top-to-bottom.html">4</a>, <a href="../lessons/0041-the-comm-pnc-state-machine.html">41</a>, <a href="../lessons/0050-a-pnc-request-across-the-gateway.html">50</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr data-r="440 2011"><td>Name of the mode indication from the <span class="term">bus state manager</span></td><td colspan="2"><code class="term">ComM_BusSM_ModeIndication</code> (the name up to R24-11).</td><td><code>ComM_&lt;Bus&gt;SM_ModeIndication</code>, on CAN <code>ComM_CanSM_ModeIndication</code>. The CanSM specification of R25-11 still writes <code>ComM_BusSM_ModeIndication</code>; it is the same function.</td><td><a href="../lessons/0021-cansm-the-state-machine.html">21</a>, <a href="../lessons/0058-the-full-state-machines.html">58</a></td></tr>
+<tr data-r="440"><td><span class="term">NM variant</span>s</td><td><span class="term">FULL</span>, <span class="term">LIGHT</span>, <span class="term">NONE</span>, <span class="term">PASSIVE</span> and <code>LINSLAVE</code> for a LIN slave. The LIN slave transitions of the channel state machine are written for <code>LINSLAVE</code>.</td><td colspan="2"><code class="term">SLAVE_ACTIVE</code> takes the place of <code>LINSLAVE</code>; <code class="term">SLAVE_PASSIVE</code> is new, for Ethernet hardware that follows OA TC10. Both since R20-11.</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a>, <a href="../lessons/0058-the-full-state-machines.html">58</a></td></tr>
+<tr data-r="440"><td>Communication mode of a PNC</td><td>No function for it.</td><td colspan="2"><code>ComM_GetCurrentPNCComMode</code> returns the communication mode of the PNC that a user is assigned to (since R20-11).</td><td><a href="../lessons/0005-comm-users-and-channels.html">5</a></td></tr>
+<tr data-r="440 2011"><td><span class="term">Wake up inhibition</span> and <span class="term">ECU group classification</span> after a reset</td><td colspan="2">The requirement says that the wake up inhibition status must be stored non-volatile, with no condition. ComM stores the ECU group classification through NvM too; there is no switch for it.</td><td>Stored only if it was changed at runtime and <code>ComMNoWakeUpInhibitionNvmStorage</code> or the new <code>ComMEcuGroupClassificationNvMStorage</code> is TRUE. Where nothing is stored, the configured values apply.</td><td><a href="../lessons/0011-communication-inhibition.html">11</a></td></tr>
+<tr data-r="440 2011"><td>Range of a <span class="term">PNC ID</span></td><td colspan="2">8 to 63.</td><td>8 to 511 (since R21-11).</td><td><a href="../lessons/0040-why-partial-networking.html">40</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440"><td>A PNC without <span class="term">PNC gateway</span> type on a gateway ECU</td><td>Not covered: the rules for a PNC on an ECU without PNC gateway only look at <code>ComMPncGatewayEnabled</code>.</td><td colspan="2">Such a PNC follows the same rules as on an ECU without PNC gateway (added in R19-11).</td><td><a href="../lessons/0044-the-pnc-gateway.html">44</a></td></tr>
+<tr data-r="440 2011"><td>Transmission-only PNCs</td><td colspan="2">No.</td><td><code>ComMChannelPerTxOnlyPnc</code>: channels on which a PNC is only sent as an internal request (since R21-11).</td><td><a href="../lessons/0044-the-pnc-gateway.html">44</a></td></tr>
+<tr data-r="440 2011"><td><span class="term">Synchronized PNC shutdown</span></td><td>No.</td><td>Draft, with other functions: <code>Nm_ForwardSynchronizedPncShutdown</code> without parameters, <code>ComM_Nm_ForwardSynchronizedPncShutdown</code> with only the channel, and <code>CanNm_RequestSynchronizedPncShutdown</code> and <code>UdpNm_RequestSynchronizedPncShutdown</code> with channel and PNC ID.</td><td><code class="term">ComM_Nm_ForwardSynchronizedPncShutdown</code> with a PNC bit vector, <code class="term">CanNm_ActivateTxPnShutdownMsg</code> and its siblings, <code>Nm_PncBitVectorTxConfirmation</code>. The functions changed in R21-11 and R22-11.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a></td></tr>
+<tr data-r="440 2011"><td><span class="term">PN learning</span> and <span class="term">dynamic PNC-to-channel mapping</span></td><td>No.</td><td>Draft: <code>Nm_PnLearningRequest</code>, <code>CanNm_PnLearningRequest</code>, <code>UdpNm_PnLearningRequest</code>, <code>ComM_Nm_PncLearningBitIndication</code>, <code>ComM_Nm_RepeatMessageLeftIndication</code>.</td><td>Valid since R22-11; <code>UdpNm_PnLearningRequest</code> is still a draft in R25-11.</td><td><a href="../lessons/0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="mod">
+<h2>NmIf</h2>
+<div class="table-wrap">
+<table class="data rel">
+<colgroup><col class="topic"><col class="rel3"><col class="rel3"><col class="rel3"><col class="les"></colgroup>
+<thead><tr><th>Topic</th><th>4.4.0</th><th>R20-11</th><th>R25-11</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="440 2011"><td>Who computes <span class="term">EIRA</span> and <span class="term">ERA</span></td><td colspan="2">CanNm and UdpNm: they apply the <span class="term">PNC filter mask</span>, run the <span class="term">PNC reset timer</span>s and pass EIRA and ERA as received PDUs through PduR to COM. <span class="term">NmIf</span> has no part in partial networking.</td><td>NmIf: the bus NMs pass each received <span class="term">PNC bit vector</span> up with <code class="term">Nm_PncBitVectorRxIndication</code>; NmIf filters, keeps EIRA and ERA with their timers and calls ComM. Draft in R21-11, valid since R22-11.</td><td><a href="../lessons/0019-nmif-the-dispatcher.html">19</a>, <a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0053-pnc-through-com-signals.html">53</a></td></tr>
+<tr data-r="440"><td><code>Nm_RepeatMessageIndication</code></td><td>Only the network handle.</td><td colspan="2">Also <code>pnLearningBitSet</code>, added with PN learning in R20-11.</td><td><a href="../lessons/0016-repeat-message-request-and-node-detection.html">16</a></td></tr>
+<tr data-r="440"><td>NM state changes to BswM</td><td>Not forwarded to BswM. With <code>NmStateReportEnabled</code>, NmIf only writes the state into a COM signal (<code>NmStateReportSignalRef</code>).</td><td colspan="2">NmIf calls <code>BswM_Nm_StateChangeNotification</code>; BswM can use it as the mode request <code>BswMNmStateChangeNotification</code> (since R20-11).</td><td><a href="../lessons/0018-remote-sleep-car-wakeup-and-user-data.html">18</a>, <a href="../lessons/0027-bswm-as-the-glue.html">27</a></td></tr>
+<tr data-r="440 2011"><td><span class="term">Shutdown timer</span>s of a <span class="term">coordinated shutdown</span></td><td colspan="2">One timer for every currently awake channel of the <span class="term">NM coordination cluster</span> (this wording stays up to R24-11).</td><td>One timer for every currently awake, <span class="term">actively coordinated channel</span>. On the example gateway this makes no difference.</td><td><a href="../lessons/0038-coordinated-shutdown-and-shutdown-timers.html">38</a></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="mod">
+<h2>CanNm and UdpNm</h2>
+<div class="table-wrap">
+<table class="data rel">
+<colgroup><col class="topic"><col class="rel3"><col class="rel3"><col class="rel3"><col class="les"></colgroup>
+<thead><tr><th>Topic</th><th>4.4.0</th><th>R20-11</th><th>R25-11</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="440 2011"><td>Between <span class="term">CanNm</span> and <span class="term">CanIf</span></td><td colspan="2">Direct: CanNm sends with <code>CanIf_Transmit</code>, CanIf calls <code>CanNm_RxIndication</code> and <code>CanNm_TxConfirmation</code>.</td><td>Through <span class="term">LSduR</span>: CanNm sends with <code>LSduR_CanNmTransmit</code> (since R24-11); CanIf names LSduR as its upper layer.</td><td><a href="../lessons/0002-the-modules-and-their-layers.html">2</a>, <a href="../lessons/0015-the-nm-pdu.html">15</a>, <a href="../lessons/0047-power-on-to-full-communication.html">47</a></td></tr>
+<tr data-r="440"><td><span class="term">Control Bit Vector</span></td><td>Bits 1, 2, 5 and 7 reserved.</td><td colspan="2">Bit 1 is the <span class="term">PN Shutdown Request Bit</span>, bit 5 the <span class="term">Partial Network Learning Bit</span> (both since R20-11, for the drafts of that release); bits 2 and 7 reserved.</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a>, <a href="../lessons/0057-the-nm-pdu-bit-by-bit.html">57</a></td></tr>
+<tr data-r="440 2011"><td>Where the <span class="term">PNC bit vector</span> lies in the <span class="term">NM PDU</span></td><td colspan="2">Configured in each bus NM as the PN info range: <code>CanNmPnInfoOffset</code> and <code>CanNmPnInfoLength</code> (UdpNm: the same with <code>UdpNm</code>). In 4.4.0 both range from 1 to 7, in R20-11 from 1 to 63.</td><td>Configured in NmIf: <code>NmPncBitVectorOffset</code> for all channels, <code>NmPncBitVectorLength</code> per channel.</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a>, <a href="../lessons/0040-why-partial-networking.html">40</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440"><td>Staying in <span class="term">Prepare Bus-Sleep Mode</span></td><td>Always left after the <span class="term">Wait Bus-Sleep Time</span>.</td><td colspan="2">Optional <code>CanNmStayInPbsEnabled</code>: Prepare Bus-Sleep Mode is then left only at power off or a restart (since R19-11).</td><td><a href="../lessons/0013-the-cannm-states.html">13</a></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="mod">
+<h2>EthSM</h2>
+<div class="table-wrap">
+<table class="data rel">
+<colgroup><col class="topic"><col class="rel3"><col class="rel3"><col class="rel3"><col class="les"></colgroup>
+<thead><tr><th>Topic</th><th>4.4.0</th><th>R20-11</th><th>R25-11</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="440"><td>Full communication with wakeup request</td><td><span class="term">EthSM</span> does not handle <code class="term">COMM_FULL_COMMUNICATION_WITH_WAKEUP_REQUEST</code>.</td><td colspan="2">Handled; R20-11 reworked the EthSM state machine.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+<tr data-r="440 2011"><td>Silent communication on Ethernet</td><td colspan="2">Not passed to the Ethernet controller.</td><td>Optional (<code>EthSMForwardSilentCommunicationEnabled</code>, since R21-11): on the way to <code class="term">ETHSM_STATE_WAIT_OFFLINE</code> for <code class="term">COMM_SILENT_COMMUNICATION</code>, EthSM sets the controller to <code>ETH_MODE_ACTIVE_TX_OFFLINE</code>.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a></td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">CanSM has no difference in behaviour; its configuration differs in one parameter (last section).</p>
+</section>
+
+<section class="mod">
+<h2>EcuM Flex</h2>
+<div class="table-wrap">
+<table class="data rel">
+<colgroup><col class="topic"><col class="rel3"><col class="rel3"><col class="rel3"><col class="les"></colgroup>
+<thead><tr><th>Topic</th><th>4.4.0</th><th>R20-11</th><th>R25-11</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="440 2011"><td><span class="term">RUN request</span>s reported to <span class="term">BswM</span></td><td>Last RUN released: <code class="term">BswM_EcuM_RequestedState</code>(POST_RUN, <code>ECUM_RUNSTATUS_RELEASED</code>); last POST_RUN released: (SHUTDOWN, <code>ECUM_RUNSTATUS_RELEASED</code>). The first request is not reported.</td><td>First request: (<code>ECUM_STATE_APP_RUN</code>, <code>ECUM_RUNSTATUS_REQUESTED</code>); last RUN released: (<code>ECUM_STATE_APP_RUN</code>, …RELEASED); last POST_RUN released: (<code>ECUM_STATE_APP_POST_RUN</code>, …RELEASED).</td><td>The same three reports with <code>ECUM_STATE_RUN</code> and <code>ECUM_STATE_POST_RUN</code>.</td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a></td></tr>
+<tr data-r="440"><td>Parameter of <code class="term">EcuM_GoDownHaltPoll</code></td><td><code>uint16 caller</code>: the module ID of the caller.</td><td colspan="2"><code>EcuM_UserType UserID</code>: the <span class="term">EcuM user</span>.</td><td><a href="../lessons/0029-shutdown-targets.html">29</a></td></tr>
+<tr data-r="440 2011"><td>Wakeup events in the <span class="term">OffPreOS sequence</span></td><td colspan="2">All pending wakeup events count.</td><td>Optional (<code>EcuMIgnoreWakeupEvValOffPreOS</code>, since R21-11): only wakeup events that need no validation count.</td><td><a href="../lessons/0029-shutdown-targets.html">29</a></td></tr>
+<tr data-r="440 2011"><td><code class="term">EcuM_CheckWakeup</code></td><td colspan="2">The integrator callout itself.</td><td>An EcuM function that calls the integrator callout <code>EcuM_CheckWakeupHook</code> (since R21-11).</td><td><a href="../lessons/0030-sleep-halt-and-poll.html">30</a>, <a href="../lessons/0035-can-wakeup-end-to-end.html">35</a>, <a href="../lessons/0048-woken-by-another-ecu.html">48</a></td></tr>
+<tr data-r="440 2011"><td>Woken up, but no <span class="term">wakeup event</span></td><td colspan="2">No rule for it.</td><td>When all CheckWakeupTimers have run out without a wakeup event, EcuM goes back to the <span class="term">GoSleep sequence</span> and reports <code>ECUM_E_WAKEUP_TIMEOUT</code> (since R21-11).</td><td><a href="../lessons/0030-sleep-halt-and-poll.html">30</a></td></tr>
+<tr data-r="440 2011"><td><code>EcuM_EndCheckWakeup</code></td><td colspan="2">Exists: a module that checks its <span class="term">wakeup source</span> asynchronously reports with it that the source did not wake the ECU.</td><td>Removed in R21-11.</td><td><a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a></td></tr>
+<tr data-r="440 2011"><td>Wakeup over Ethernet</td><td colspan="2">EcuM describes no Ethernet wakeup sequence.</td><td>An Ethernet wakeup sequence, including the passive wakeup of an ECU with an Ethernet switch (since R21-11).</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a>, <a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="mod">
+<h2>4.3.1 and older: EcuM Fixed</h2>
+<p><a href="older-and-newer-way.html">The older and the newer way</a> maps every EcuM Fixed concept to its counterpart in EcuM Flex and BswM.</p>
+<div class="table-wrap">
+<table class="data rel">
+<colgroup><col class="topic"><col class="rel2"><col class="rel2"><col class="les"></colgroup>
+<thead><tr><th>Topic</th><th>4.3.1 and older</th><th>R25-11</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="431"><td>EcuM variant</td><td><span class="term">EcuM Fixed</span> (its own specification, marked obsolete in 4.3.1) or <span class="term">EcuM Flex</span>.</td><td>Only EcuM Flex. 4.4.0 removed EcuM Fixed.</td><td><a href="../lessons/0025-the-ecum-phases.html">25</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr data-r="431"><td>Who decides shutdown</td><td>EcuM Fixed itself: no <span class="term">RUN request</span> left, every ComM channel idle (<code class="term">ComM_GetState</code>) and <code class="term">EcuMRunMinimumDuration</code> over.</td><td>A BswM rule; its <span class="term">action list</span> calls <code class="term">EcuM_GoDownHaltPoll</code>.</td><td><a href="../lessons/0028-run-and-post-run-requests.html">28</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr data-r="431"><td><code>ComM_GetState</code></td><td>Exists; EcuM Fixed polls it.</td><td>Removed in 4.4.0.</td><td><a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr data-r="431"><td><code class="term">ComM_CommunicationAllowed</code></td><td>EcuM Fixed calls it for the channels of <code class="term">EcuMComMCommunicationAllowedList</code>.</td><td>A BswM action list calls it.</td><td><a href="../lessons/0009-communication-allowed-and-bswm.html">9</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+<tr data-r="431"><td>Shutdown calls of EcuM Flex</td><td><code class="term">EcuM_GoDown</code>(caller), <code>EcuM_GoHalt</code>, <code>EcuM_GoPoll</code>.</td><td><code>EcuM_GoDownHaltPoll</code> (since 4.4.0).</td><td><a href="../lessons/0029-shutdown-targets.html">29</a>, <a href="../lessons/0052-ecum-fixed-and-flex-side-by-side.html">52</a></td></tr>
+<tr data-r="431"><td><span class="term">TTII</span></td><td>EcuM Fixed only.</td><td>No equivalent; the <span class="term">alarm clock</span> covers timed wakeups.</td><td><a href="../lessons/0031-the-alarm-clock.html">31</a>, <a href="../lessons/0051-ecum-fixed.html">51</a></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="mod">
+<h2>Reading a configuration written for 4.4.0 or R20-11</h2>
+<p>These containers and parameters tell you which release a configuration comes from, and what they are in R25-11. Most of them belong to the PNC path through COM signals; <a href="../lessons/0054-reading-an-older-pnc-configuration.html">lesson 54</a> fills them in for the example gateway.</p>
+<div class="table-wrap">
+<table class="data cfg">
+<colgroup><col class="find"><col class="since"><col class="read"><col class="les"></colgroup>
+<thead><tr><th>You find</th><th>Release</th><th>Read it as (R25-11)</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr data-r="440 2011"><td><code>ComMPncEnabled</code> in <code>ComMConfigSet</code></td><td>up to R24-11</td><td><code>ComMPncEnabled</code> per channel, in <code class="term">ComMChannel</code>. One value for the whole ECU becomes one value per channel.</td><td><a href="../lessons/0055-configuration-map-comm-and-nm.html">55</a></td></tr>
+<tr data-r="440 2011"><td><code class="term">ComMPncComSignal</code> with <code>ComMPncComSignalDirection</code>, <code>…Kind</code>, <code>…ChannelRef</code>, <code>…Ref</code></td><td>up to R21-11</td><td>Nothing: ComM gets EIRA and ERA from NmIf and passes its requests with <code>Nm_UpdateIRA</code>. The COM signals, COM I-PDUs and PduR routes of EIRA and ERA go too.</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnEiraCalcEnabled</code>, <code>UdpNmPnEiraCalcEnabled</code></td><td>up to R21-11</td><td><code>NmPnEiraCalcEnabled</code> in <code>NmGlobalProperties</code>: one switch for all buses.</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnEraCalcEnabled</code> (per channel)</td><td>up to R21-11</td><td><code>NmPnEraCalcEnabled</code> in <code class="term">NmChannelConfig</code>.</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnResetTime</code>, <code>UdpNmPnResetTime</code></td><td>up to R21-11</td><td><code>NmPnResetTime</code> in <code>NmGlobalProperties</code>.</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnInfoOffset</code> (in <code>CanNmPnInfo</code>)</td><td>up to R21-11</td><td><code>NmPncBitVectorOffset</code> in <code>NmGlobalProperties</code>, range 0 to 63.</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnInfoLength</code></td><td>up to R21-11</td><td><code>NmPncBitVectorLength</code> in <code>NmChannelConfig</code>: now per channel.</td><td><a href="../lessons/0015-the-nm-pdu.html">15</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440"><td><code>CanNmPnInfoOffset</code> or <code>CanNmPnInfoLength</code> limited to 1 … 7</td><td>4.4.0</td><td>An NM PDU of at most 8 bytes; R20-11 allows 1 … 63.</td><td><a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnFilterMaskByte</code> with <code>…Index</code> and <code>…Value</code> (one set for all channels)</td><td>up to R21-11</td><td><code>NmPnFilterMaskByte</code> in <code>NmChannelConfig</code>: now per channel.</td><td><a href="../lessons/0042-eira-and-era.html">42</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code>CanNmPnEiraRxNSduRef</code>, <code>CanNmPnEraRxNSduRef</code></td><td>up to R21-11</td><td>Nothing: EIRA and ERA are no longer PDUs.</td><td><a href="../lessons/0053-pnc-through-com-signals.html">53</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440 2011"><td><code class="term">ComMPncId</code> with values up to 63</td><td>up to R20-11</td><td>The same parameter; R21-11 widens the range to 511.</td><td><a href="../lessons/0040-why-partial-networking.html">40</a>, <a href="../lessons/0054-reading-an-older-pnc-configuration.html">54</a></td></tr>
+<tr data-r="440"><td><code>ComMNmVariant</code> = <code>LINSLAVE</code></td><td>up to R19-11</td><td><code class="term">SLAVE_ACTIVE</code>.</td><td><a href="../lessons/0008-nm-variants-per-channel.html">8</a></td></tr>
+<tr data-r="440 2011"><td><code>ComMChannelPerPnc</code> with 1 … 256 entries, <code>ComMManageReference</code> with at most one</td><td>up to R20-11</td><td><code>ComMChannelPerPnc</code> 0 … 255 and <code>ComMManageReference</code> 0 … * since R21-11.</td><td><a href="../lessons/0044-the-pnc-gateway.html">44</a>, <a href="../lessons/0055-configuration-map-comm-and-nm.html">55</a></td></tr>
+<tr data-r="2011"><td><code>CanNmSynchronizedPncShutdownEnabled</code>, <code>CanNmDynamicPncToChannelMappingEnabled</code>, <code>ComMSynchronizedPncShutdownEnabled</code></td><td>R20-11 (draft)</td><td>The draft features of lessons 45 and 46; check the R25-11 parameters of the feature before you take a value over.</td><td><a href="../lessons/0045-synchronized-pnc-shutdown.html">45</a>, <a href="../lessons/0046-pn-learning-and-dynamic-mapping.html">46</a></td></tr>
+<tr data-r="440"><td><code>CanNmWaitBusSleepTime</code> or <code>UdpNmNodeId</code> required (multiplicity 1)</td><td>4.4.0</td><td>Optional (0..1): <code>CanNmWaitBusSleepTime</code> since R19-11, <code>UdpNmNodeId</code> since R20-11.</td><td><a href="../lessons/0055-configuration-map-comm-and-nm.html">55</a></td></tr>
+<tr data-r="440"><td><code>CanSMIcomSupport</code></td><td>up to R19-11</td><td>Removed; not part of this course.</td><td><a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+<tr data-r="440"><td><code>EcuMComMChannelRef</code> with at most one channel per wakeup source</td><td>4.4.0</td><td>0 … * since R20-11: a wakeup source may name several ComM channels.</td><td><a href="../lessons/0033-wakeup-sources-and-their-states.html">33</a>, <a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+<tr data-r="440 2011"><td><code>EcuMDefaultSleepModeRef</code>, <code>EcuMDefaultResetModeRef</code> optional</td><td>up to R23-11</td><td>Both required (multiplicity 1) since R24-11.</td><td><a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+<tr data-r="440 2011"><td>No <code>EcuMIgnoreWakeupEvValOffPreOS</code>, <code>EthSMForwardSilentCommunicationEnabled</code>, <code>EthSMTcpIpUsed</code></td><td>4.4.0, R20-11</td><td>New parameters (R21-11, R21-11, R23-11); set them when you move the configuration forward. <code>EthSMWakeupSleepOnDatalineEnabled</code> is new in R20-11, so a 4.4.0 configuration lacks it too.</td><td><a href="../lessons/0023-ethsm-from-offline-to-online.html">23</a>, <a href="../lessons/0029-shutdown-targets.html">29</a>, <a href="../lessons/0056-configuration-map-state-managers-and-ecum.html">56</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>What survives a move from the COM signal path: the PNC IDs, the offset and length of the PNC bit vector, the filter mask bytes and the reset time keep their values and only change their container. <code>ComMPncGatewayEnabled</code>, <code>ComMPncGatewayType</code>, <code>ComMChannelPerPnc</code> and <code>ComMUserPerPnc</code> keep their names.</p>
+</section>
+
+<p id="none" class="small" hidden>No difference listed for this release.</p>
+
+<p class="source">Sources: the specifications of Communication Manager, Network Management Interface, CAN Network Management, UDP Network Management, Ethernet State Manager, CAN State Manager, ECU State Manager and Basic Software Mode Manager in releases <a href="https://www.autosar.org/fileadmin/standards/R18-10_R4.4.0_R1.5.0/CP/AUTOSAR_SWS_COMManager.pdf">4.4.0</a>, R19-11, <a href="https://www.autosar.org/fileadmin/standards/R20-11/CP/AUTOSAR_SWS_COMManager.pdf">R20-11</a>, R21-11, R22-11, R23-11, R24-11 and <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">R25-11</a>: document change history, chapter 8 (API) and chapter 10 (configuration); the <a href="https://www.autosar.org/fileadmin/standards/classic/4-3-1/AUTOSAR_SWS_ECUStateManagerFixed.pdf">Specification of ECU State Manager with fixed state machine, 4.3.1</a>; the <a href="https://www.autosar.org/fileadmin/standards/R25-11/FO/AUTOSAR_FO_PRS_NetworkManagementProtocol.pdf">Network Management Protocol, R25-11</a>, Control Bit Vector. Only differences that touch this course are listed.</p>
+
+<nav class="course" data-nav></nav>
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script>
+(function () {
+  const lessons = window.Course ? window.Course.LESSONS : [];
+  document.querySelectorAll('td a[href^="../lessons/"]').forEach((a) => {
+    const i = lessons.findIndex((l) => a.getAttribute('href').endsWith(l.file));
+    if (i >= 0) a.title = 'Lesson ' + (i + 1) + ': ' + lessons[i].title;
+  });
+
+  const sel = document.getElementById('rel');
+  const shown = document.getElementById('shown');
+  const none = document.getElementById('none');
+  const same = document.querySelector('section.same');
+  const NAME = { all: 'every older release', '440': '4.4.0', '2011': 'R20-11', '431': '4.3.1 and older' };
+
+  function apply() {
+    const v = sel.value;
+    let n = 0;
+    document.querySelectorAll('section.mod').forEach((sec) => {
+      let k = 0;
+      sec.querySelectorAll('tr[data-r]').forEach((tr) => {
+        const ok = v === 'all' || tr.dataset.r.split(' ').includes(v);
+        tr.hidden = !ok;
+        if (ok) k++;
+      });
+      sec.hidden = k === 0;
+      n += k;
+    });
+    same.hidden = v === '431';
+    none.hidden = n > 0;
+    shown.textContent = v === 'all'
+      ? n + ' differences, every release.'
+      : n + ' differences between ' + NAME[v] + ' and R25-11.';
+  }
+  sel.addEventListener('change', apply);
+  apply();
+})();
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

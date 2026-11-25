@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComM users and channels · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.users { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 0 0 0.9rem; }
+@media (max-width: 34rem) { .users { grid-template-columns: 1fr; } }
+.users button { width: 100%; text-align: left; padding: 0.55rem 0.7rem; line-height: 1.35; font-family: var(--mono); }
+.users button small { display: block; font-family: var(--sans); font-size: 0.72rem; color: var(--muted); }
+.users button[aria-pressed="true"] small { color: var(--on-brand); }
+.chans { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.5rem; }
+.chan { border: 1px solid var(--rule); border-left: 4px solid var(--m-comm); background: var(--paper); padding: 0.5rem 0.7rem; font-family: var(--sans); font-size: 0.8rem; }
+.chan b { font-family: var(--mono); font-weight: 600; }
+.chan .mode { font-family: var(--mono); font-size: 0.75rem; display: block; margin-top: 0.25rem; overflow-wrap: anywhere; }
+.chan.full { background: var(--good-soft); border-left-color: var(--good); }
+.chan small { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 0.15rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>ComM users and channels</h1>
+<p class="lede"><span class="term">ComM</span> does not know SWCs or functions. It knows users, each of which asks for full or no communication, and channels, one per network. The configuration maps each user to channels or to PNCs, and per channel the highest request wins.</p>
+
+<p>Lesson 4 followed one request of <code>UserComfort</code> down to the bus. This lesson looks at the requests themselves: who may make them, what they can ask for, and how ComM combines them.</p>
+
+<h2>Users and channels</h2>
+<div class="cards">
+  <div class="card m-app"><p class="tag">who asks</p><h3>ComM user</h3><p>A <span class="term">ComM user</span> (a logical requester of communication in ComM; an SWC, a function of it or a BSW module) is a configured entry with a handle. It is mapped statically, at configuration time, either to one or more channels or to one or more <span class="term">PNC</span> entries.</p></div>
+  <div class="card m-comm"><p class="tag">what is switched</p><h3>Channel</h3><p>A <span class="term">channel</span> (one network the ECU is connected to, identified by its network handle) has its own state machine in ComM and its own main function. The body gateway has <code>BodyCan</code> (0), <code>ChassisCan</code> (1) and <code>Eth</code> (2).</p></div>
+</div>
+<p>A user asks for a <span class="term">communication mode</span> (the mode ComM requests for a channel). There are three: <code class="term">COMM_FULL_COMMUNICATION</code> (the channel sends and receives) is the highest, <code class="term">COMM_NO_COMMUNICATION</code> (it neither sends nor receives) the lowest, and between them <code class="term">COMM_SILENT_COMMUNICATION</code> (it receives but does not send). A user may request only full or no communication; silent communication is used by ComM itself on the way to sleep.</p>
+<p>The user makes its request with <code class="term">ComM_RequestComMode</code> (the ComM API with which a user requests full or no communication). ComM does not queue requests: the latest request of a user replaces the one before, even if that one was not finished yet.</p>
+
+<h2>Mapping: to channels or to PNCs</h2>
+<p>The example uses both kinds of mapping:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>User</th><th>Mapped to</th><th>Channels it affects</th></tr></thead>
+<tbody>
+<tr><td><code>UserComfort</code></td><td>PNC Comfort (16)</td><td><code>BodyCan</code>, <code>Eth</code> (the channels of the PNC)</td></tr>
+<tr><td><code>UserLighting</code></td><td>PNC Lighting (17)</td><td><code>BodyCan</code></td></tr>
+<tr><td><code>UserChassis</code></td><td>channel <code>ChassisCan</code></td><td><code>ChassisCan</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>A user mapped to a PNC reaches the channels through the PNC: a PNC request counts like a user request on each channel of the PNC. So a user may not be mapped to a PNC and also to a channel of that same PNC; the channel is already covered. A user mapped to channels switches exactly those channels and no others.</p>
+
+<h2>The highest requested mode wins</h2>
+<p>Per channel ComM keeps one target mode. If at least one of the requests on that channel asks for full communication, the target is full communication; only when all of them ask for no communication is the target no communication. The users do not see this arbitration: each user only sees its own request and the mode it gets.</p>
+<p>The target is not yet the actual mode. Switching a bus takes time (lesson 4), and an inhibition (lesson 11) may hold it back. The actual mode follows the target as soon as the bus state manager reports it.</p>
+
+<h2>Try it</h2>
+<p>Request and release the users and watch the target mode of each channel.</p>
+<div class="panel no-print" id="sim">
+<div class="users">
+<button type="button" aria-pressed="false" data-u="0">UserComfort<small>COMM_NO_COMMUNICATION</small></button>
+<button type="button" aria-pressed="false" data-u="1">UserLighting<small>COMM_NO_COMMUNICATION</small></button>
+<button type="button" aria-pressed="false" data-u="2">UserChassis<small>COMM_NO_COMMUNICATION</small></button>
+</div>
+<div class="chans" id="chans"></div>
+<p class="readout" id="why"></p>
+</div>
+
+<h2>The ports on the RTE</h2>
+<p>An SWC does not call <code>ComM_RequestComMode</code> directly. ComM is a service on the <span class="term">RTE</span> and provides two ports for each user:</p>
+<div class="cards">
+  <div class="card m-rte"><p class="tag">client-server</p><h3>UR_{user}: ComM_UserRequest</h3><p>Operations <code>RequestComMode</code>, <code>GetRequestedComMode</code>, <code>GetCurrentComMode</code>, <code>GetMaxComMode</code> and <code>GetCurrentPNCComMode</code>. The user handle is a port-defined argument of the port, so the SWC never passes it: <code>UR_UserComfort</code> always means <code>UserComfort</code>.</p></div>
+  <div class="card m-rte"><p class="tag">mode switch</p><h3>UM_{user}: ComM_CurrentMode</h3><p>A <span class="term">mode switch port</span> (a port through which a module tells an SWC its current mode, and the RTE can start runnables on a change). Its mode group <code>currentMode</code> has the modes of <code>ComMMode</code>: full, silent and no communication. ComM switches it when the mode of the user's channels changes.</p></div>
+</div>
+<p>For a user with several channels whose modes differ, ComM reports the lowest of them, both on the mode switch port and in <code>GetCurrentComMode</code>. That is the mode the user can rely on for all of its channels.</p>
+
+<div class="older">
+<p><code>GetCurrentPNCComMode</code> (the current mode of the PNC of a PNC user) is new in R20-11; 4.4.0 has no <code>ComM_GetCurrentPNCComMode</code>. The ports <code>UR_{user}</code> and <code>UM_{user}</code> and <code>ComM_RequestComMode</code> are the same in 4.4.0, R20-11 and R25-11.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> <code>UserComfort</code> and <code>UserLighting</code> are mapped to different PNCs, yet both end on <code>BodyCan</code>: while one of them still requests full communication, releasing the other leaves the channel requested. A user can ask for full or no communication only. The requested mode and the current mode of a channel are two different things.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">ComM user</span></td><td>A logical requester of communication, mapped statically to channels or to PNCs</td></tr>
+<tr><td><span class="term">channel</span></td><td>One network the ECU is connected to, with its network handle and its own ComM state machine</td></tr>
+<tr><td><span class="term">communication mode</span></td><td>COMM_NO_COMMUNICATION, COMM_SILENT_COMMUNICATION or COMM_FULL_COMMUNICATION</td></tr>
+<tr><td><code class="term">ComM_RequestComMode</code></td><td>The API with which a user requests full or no communication</td></tr>
+<tr><td><code class="term">COMM_FULL_COMMUNICATION</code></td><td>The channel sends and receives; the highest mode</td></tr>
+<tr><td><code class="term">COMM_SILENT_COMMUNICATION</code></td><td>The channel receives but does not send; not requestable by users</td></tr>
+<tr><td><code class="term">COMM_NO_COMMUNICATION</code></td><td>The channel neither sends nor receives; the lowest mode</td></tr>
+<tr><td><span class="term">mode switch port</span></td><td>A port through which a module tells an SWC its current mode</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapters 7 (introduction), 7.3, 7.10.3 and 8.7.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const users = [
+    { n: 'UserComfort', via: 'PNC Comfort', ch: ['BodyCan', 'Eth'] },
+    { n: 'UserLighting', via: 'PNC Lighting', ch: ['BodyCan'] },
+    { n: 'UserChassis', via: null, ch: ['ChassisCan'] }
+  ];
+  const chans = [['BodyCan', 0], ['ChassisCan', 1], ['Eth', 2]];
+  const full = [false, false, false];
+  const box = document.getElementById('chans');
+  const why = document.getElementById('why');
+  const btns = Array.from(document.querySelectorAll('#sim [data-u]'));
+  const FULL = 'COMM_FULL_COMMUNICATION', NO = 'COMM_NO_COMMUNICATION';
+  function render(last) {
+    btns.forEach((b, i) => { b.setAttribute('aria-pressed', String(full[i])); b.querySelector('small').textContent = full[i] ? FULL : NO; });
+    box.replaceChildren();
+    chans.forEach(([c, h]) => {
+      const req = users.filter((u, i) => full[i] && u.ch.includes(c)).map((u) => u.n + (u.via ? ' (via ' + u.via + ')' : ''));
+      const d = document.createElement('div');
+      d.className = 'chan' + (req.length ? ' full' : '');
+      d.innerHTML = '<b>' + c + '</b> · channel ' + h + '<span class="mode">' + (req.length ? FULL : NO) + '</span><small>' +
+        (req.length ? 'requested by ' + req.join(', ') : 'no request for full communication') + '</small>';
+      box.appendChild(d);
+    });
+    if (last === undefined) { why.textContent = 'All users request ' + NO + ', so every channel targets ' + NO + '.'; return; }
+    const u = users[last];
+    const left = u.ch.filter((c) => users.some((v, i) => full[i] && v.ch.includes(c)));
+    why.textContent = full[last]
+      ? u.n + ' requests ' + FULL + (u.via ? ' for ' + u.via + ', so for ' : ' for ') + u.ch.join(' and ') + '.'
+      : u.n + ' requests ' + NO + '.' + (left.length ? ' ' + left.join(' and ') + ' stays at ' + FULL + ': another user still requests it, and the highest mode wins.' : ' No other request is left on ' + u.ch.join(' and ') + '.');
+  }
+  btns.forEach((b, i) => b.addEventListener('click', () => { full[i] = !full[i]; render(i); }));
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'UserComfort and UserLighting request full; then UserLighting releases. What is the target of BodyCan?',
+    options: ['COMM_FULL_COMMUNICATION', 'COMM_SILENT_COMMUNICATION', 'COMM_NO_COMMUNICATION'],
+    answer: 0,
+    why: 'UserComfort still requests full communication through PNC Comfort, which uses BodyCan; the highest requested mode wins.'
+  },
+  {
+    prompt: 'Which modes may a ComM user request?',
+    options: ['Full and no communication only', 'Full, silent and no communication', 'Silent and no communication only'],
+    answer: 0,
+    why: 'COMM_SILENT_COMMUNICATION is used by ComM itself on the way to sleep; users request only full or no communication.'
+  },
+  {
+    prompt: 'A user has two channels, one in full and one in no communication. What does its mode port show?',
+    options: ['The lowest: COMM_NO_COMMUNICATION', 'The highest: COMM_FULL_COMMUNICATION', 'The mode of its first channel only'],
+    answer: 0,
+    why: 'If the modes of a user\'s channels differ, ComM indicates the lowest mode to the user.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

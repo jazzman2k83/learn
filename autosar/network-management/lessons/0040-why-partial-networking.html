@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why partial networking · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.reqs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .reqs { grid-template-columns: 1fr; } }
+.reqs button { width: 100%; text-align: left; padding: 0.5rem 0.7rem; line-height: 1.35; }
+.reqs button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.reqs button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+.reqs button[aria-pressed="true"] small { color: var(--ink); }
+.bits { display: flex; gap: 0; margin: 0.3rem 0 0.2rem; font-family: var(--mono); font-size: 0.75rem; flex-wrap: wrap; }
+.bits span { border: 1px solid var(--rule); background: var(--paper); width: 2.6rem; text-align: center; padding: 0.25rem 0; margin-right: -1px; }
+.bits span.on { background: var(--m-nm-soft); border-color: var(--m-nm); font-weight: 700; }
+.bits span small { display: block; font-family: var(--sans); font-size: 0.6rem; color: var(--muted); font-weight: 400; }
+.ecuawake { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0 0; }
+.calc { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; font-family: var(--sans); font-size: 0.8rem; margin-top: 1rem; border-top: 1px solid var(--rule); padding-top: 0.8rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Why partial networking</h1>
+<p class="lede">Plain <span class="term">network management</span> wakes and keeps awake whole buses. With <span class="term">partial networking</span>, the ECUs on a bus are grouped by function, and only the groups somebody needs are woken and kept awake.</p>
+
+<p>This lesson explains the idea, how a request for a group travels in the NM PDU, and how the number of a group decides its bit. The next lessons show what ComM and NmIf do with these requests.</p>
+
+<h2>Whole buses, or parts of them</h2>
+<p>Without partial networking, one ECU that needs body CAN keeps every ECU on body CAN awake: each of them sees NM PDUs and stays in Network Mode. For a car that is parked or only partly in use this wastes current: when the driver adjusts the seat, the light functions need not run.</p>
+<p>A <span class="term">PNC</span> is a logical group of ECUs that have to be active at the same time to realize a distributed function. ComM offers its users the option to wake such a cluster and keep it awake, instead of a whole bus. That gives two things:</p>
+<div class="cards">
+  <div class="card m-drv"><p class="tag">less current</p><h3>Unneeded ECUs keep sleeping</h3><p>An ECU whose PNCs nobody requests can stay in a low-power mode while the bus carries traffic for others. On CAN this needs transceivers that only wake for relevant NM PDUs, the <span class="term">selective wakeup</span> (the transceiver wakes only on a frame that requests one of its PNCs) of lesson 43.</p></div>
+  <div class="card m-comm"><p class="tag">partial operation</p><h3>Functions run on their own</h3><p>A function such as Comfort runs with just the ECUs it needs. Through a <span class="term">PNC gateway</span> (an ECU that forwards PNC requests from one bus to others, lesson 44) a PNC can even span several buses.</p></div>
+</div>
+<p>In the example, body CAN carries two PNCs: Comfort and Lighting. The <code>BodyControl</code> SWC requests them through its ComM users <code>UserComfort</code> and <code>UserLighting</code>. On this page the Door ECU takes part in Comfort and the Light ECU in Lighting.</p>
+
+<h2>Requests travel in the NM PDU</h2>
+<p>The requests for PNCs are exchanged in the <span class="term">NM PDU</span> that the ECUs send anyway. Part of it is the <span class="term">PNC bit vector</span>: one bit per PNC, set to 1 when the sender requests that PNC. Every ECU that requests at least one PNC keeps sending NM PDUs with its bits, and the others read them.</p>
+<p>One bit of the <span class="term">Control Bit Vector</span> tells whether an NM PDU carries this information at all: the <span class="term">Partial Network Information Bit</span> (PNI; set to 1 when partial networking is enabled for the sender's NM channel, so the NM PDU carries a PNC bit vector). An ECU with partial networking ignores NM PDUs whose PNI bit is 0, unless it is configured to stay awake on every NM PDU, as a gateway often is. If the PNI bit is 1, the ECU only reacts to the PNC bits that matter to it.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 154" role="img" aria-labelledby="f1t">
+<title id="f1t">The first three bytes of an NM PDU of the gateway on body CAN. Byte 0 is the Source Node Identifier 0x10, byte 1 the Control Bit Vector with the Partial Network Information Bit in bit 6, byte 2 is byte 0 of the PNC bit vector: bit 0 is PNC 16 Comfort, bit 1 is PNC 17 Lighting.</title>
+<text x="20" y="22" class="d-s">NM PDU byte</text>
+<text x="105" y="22" class="d-s d-c">0</text><text x="230" y="22" class="d-s d-c">1</text><text x="430" y="22" class="d-s d-c">2</text>
+<rect x="40" y="30" width="130" height="40" class="m-nm"/><text x="105" y="48" class="d-t d-c">Source Node Id.</text><text x="105" y="63" class="d-m d-c">0x10</text>
+<rect x="170" y="30" width="120" height="40" class="m-nm"/><text x="230" y="48" class="d-t d-c">Control Bit Vector</text><text x="230" y="63" class="d-m d-c">PNI = 1</text>
+<rect x="290" y="30" width="280" height="40" class="m-app"/><text x="430" y="48" class="d-t d-c">PNC bit vector, byte 0</text><text x="430" y="63" class="d-s d-c">one bit per PNC</text>
+<text x="580" y="54" class="d-s">…</text>
+<rect x="290" y="90" width="35" height="24" class="d-box"/><text x="307" y="106" class="d-m d-c">7</text>
+<rect x="325" y="90" width="35" height="24" class="d-box"/><text x="342" y="106" class="d-m d-c">6</text>
+<rect x="360" y="90" width="35" height="24" class="d-box"/><text x="377" y="106" class="d-m d-c">5</text>
+<rect x="395" y="90" width="35" height="24" class="d-box"/><text x="412" y="106" class="d-m d-c">4</text>
+<rect x="430" y="90" width="35" height="24" class="d-box"/><text x="447" y="106" class="d-m d-c">3</text>
+<rect x="465" y="90" width="35" height="24" class="d-box"/><text x="482" y="106" class="d-m d-c">2</text>
+<rect x="500" y="90" width="35" height="24" class="d-ok"/><text x="517" y="106" class="d-m d-c">1</text>
+<rect x="535" y="90" width="35" height="24" class="d-ok"/><text x="552" y="106" class="d-m d-c">0</text>
+<line x1="290" y1="70" x2="290" y2="90" class="d-ln mute"/><line x1="570" y1="70" x2="570" y2="90" class="d-ln mute"/>
+<line x1="517" y1="114" x2="517" y2="122" class="d-ln mute"/><text x="522" y="132" class="d-s d-r">PNC 17 Lighting</text>
+<line x1="552" y1="114" x2="552" y2="136" class="d-ln mute"/><text x="557" y="146" class="d-s d-r">PNC 16 Comfort</text>
+<text x="280" y="106" class="d-s d-r">bit</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The gateway's NM PDU on body CAN, first three bytes. The PNC bit vector starts after the two system bytes; its first bit is PNC 16. Which bytes follow (more PNC bytes, user data) depends on the configuration.</figcaption>
+</figure>
+
+<h2>PNC IDs and their bits</h2>
+<p>Every PNC has a <span class="term">PNC ID</span> (the number of a PNC, 8 to 511; it fixes the byte and bit of the PNC in the PNC bit vector). ComM supports up to 504 PNCs. The position follows from the ID:</p>
+<ul>
+<li>byte in the PNC bit vector = (PNC ID div 8) − offset of the PNC bit vector</li>
+<li>bit in that byte = PNC ID mod 8</li>
+</ul>
+<p>The offset is the number of NM PDU bytes in front of the PNC bit vector. So the ID divided by 8 is simply the number of the NM PDU byte, and the remainder the bit in it. On body CAN and Ethernet the gateway uses an offset of 2: byte 0 holds the <span class="term">Source Node Identifier</span>, byte 1 the Control Bit Vector. That gives:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>PNC</th><th>PNC ID</th><th>ID div 8 − 2</th><th>ID mod 8</th><th>NM PDU byte</th></tr></thead>
+<tbody>
+<tr><td>Comfort</td><td>16</td><td>byte 0 of the PNC bit vector</td><td>bit 0</td><td>2</td></tr>
+<tr><td>Lighting</td><td>17</td><td>byte 0 of the PNC bit vector</td><td>bit 1</td><td>2</td></tr>
+</tbody>
+</table>
+</div>
+<p>With an offset of 2, IDs 8 to 15 would fall into byte 1, the Control Bit Vector: on these buses the smallest usable ID is 16.</p>
+
+<h2>Try it</h2>
+<p>Request the PNCs from the gateway and watch its PNC bit vector and the ECUs on body CAN. Below, type any PNC ID to see where its bit lands.</p>
+<div class="panel no-print" id="sim">
+<div class="reqs">
+<button type="button" aria-pressed="false" data-pnc="0">UserComfort<small>no request for Comfort</small></button>
+<button type="button" aria-pressed="false" data-pnc="1">UserLighting<small>no request for Lighting</small></button>
+</div>
+<p class="small">Gateway NM PDU on body CAN, bytes 0 to 2:</p>
+<p class="readout" id="hex"></p>
+<div class="bits" id="bits" aria-label="Bits of PNC bit vector byte 0"></div>
+<div class="ecuawake" id="ecus"></div>
+<p class="readout" id="why"></p>
+<div class="calc"><label for="pid">PNC ID</label> <input type="number" id="pid" min="8" max="511" value="16"> <label for="off">offset</label> <input type="number" id="off" min="0" max="63" value="2"> <span id="pos" class="readout" style="margin:0"></span></div>
+</div>
+
+<h2>Who requests a PNC</h2>
+<p>Inside an ECU, <span class="term">ComM user</span>s request PNCs just as they request channels: <code>UserComfort</code> is mapped to Comfort, <code>UserLighting</code> to Lighting. For each PNC, ComM runs a <span class="term">PNC state machine</span> (one state machine per PNC in ComM that decides whether the PNC is requested, kept awake by others, or off; lesson 41) and passes its own requests to NmIf, which writes them into the NM PDUs. In the other direction NmIf collects the bits that arrive from the other ECUs and hands ComM the result, the <span class="term">EIRA</span> (the external and internal PNC requests combined, one bit per PNC; lesson 42).</p>
+
+<div class="older">
+<p>In 4.4.0 and R20-11 a PNC ID ranges only from 8 to 63 (4.4.0: up to 56 PNCs), and the position of the PNC information in the NM PDU is configured in each bus NM instead of in NmIf. Up to R20-11 the PNC bits also reach ComM in another way, through COM signals; lesson 53 shows that path.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Partial networking adds no new message: the requests ride in the NM PDUs that keep the bus awake anyway. A PNC is a number, and the number is its place: byte = ID div 8 in the NM PDU, bit = ID mod 8. An ECU only reacts to the PNC bits that concern it, so the others can sleep.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Partial Network Information Bit</span></td><td>Bit of the Control Bit Vector: 1 when the sender has partial networking enabled and the NM PDU carries a PNC bit vector</td></tr>
+<tr><td><span class="term">PNC ID</span></td><td>The number of a PNC, 8 to 511; ID div 8 and ID mod 8 give its byte and bit</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.1.1, 7.1.2 and 10.2.8; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.4.1 and 7.4.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, sections 7.6 and 7.11.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const pncs = [
+    { name: 'Comfort', id: 16, ecu: 'Door ECU', bit: 0 },
+    { name: 'Lighting', id: 17, ecu: 'Light ECU', bit: 1 }
+  ];
+  const req = [false, false];
+  const btns = Array.from(document.querySelectorAll('#sim [data-pnc]'));
+  const hex = document.getElementById('hex');
+  const bits = document.getElementById('bits');
+  const ecus = document.getElementById('ecus');
+  const why = document.getElementById('why');
+  const h = (v) => '0x' + v.toString(16).toUpperCase().padStart(2, '0');
+
+  function render() {
+    btns.forEach((b, i) => {
+      b.setAttribute('aria-pressed', String(req[i]));
+      b.querySelector('small').textContent = req[i] ? 'requests ' + pncs[i].name + ' (PNC ' + pncs[i].id + ')' : 'no request for ' + pncs[i].name;
+    });
+    const v = req.reduce((acc, r, i) => acc | (r ? 1 << pncs[i].bit : 0), 0);
+    hex.textContent = 'byte 0 SNI ' + h(0x10) + ' · byte 1 CBV ' + h(0x40) + ' (PNI = 1) · byte 2 PNC bits ' + h(v);
+    let html = '';
+    for (let b = 7; b >= 0; b--) {
+      const p = pncs.find((x) => x.bit === b);
+      html += '<span class="' + ((v >> b) & 1 ? 'on' : '') + '">' + ((v >> b) & 1) + '<small>PNC ' + (16 + b) + '</small></span>';
+    }
+    bits.innerHTML = html;
+    ecus.innerHTML = pncs.map((p, i) => '<span class="state-pill ' + (req[i] ? 'on' : 'off') + '">' + p.ecu + ': ' + (req[i] ? 'awake for ' + p.name : 'may sleep') + '</span>').join('');
+    const on = pncs.filter((p, i) => req[i]).map((p) => p.name);
+    why.textContent = on.length
+      ? 'The gateway sends NM PDUs with ' + on.join(' and ') + ' set. Only the ECUs of ' + (on.length > 1 ? 'these PNCs' : 'this PNC') + ' have to stay awake.'
+      : 'No PNC is requested: no bit is set, and with selective wakeup the Door ECU and the Light ECU can sleep.';
+  }
+  btns.forEach((b, i) => b.addEventListener('click', () => { req[i] = !req[i]; render(); }));
+  render();
+
+  const pid = document.getElementById('pid');
+  const off = document.getElementById('off');
+  const pos = document.getElementById('pos');
+  function calc() {
+    const id = Math.round(Number(pid.value));
+    const o = Math.round(Number(off.value));
+    if (!(id >= 8 && id <= 511) || !(o >= 0 && o <= 63)) { pos.textContent = 'PNC IDs range from 8 to 511, offsets from 0 to 63.'; return; }
+    const byte = Math.floor(id / 8) - o;
+    pos.textContent = byte < 0
+      ? 'ID div 8 = ' + Math.floor(id / 8) + ' is in front of the PNC bit vector (byte ' + Math.floor(id / 8) + ' of the NM PDU): not usable with offset ' + o + '.'
+      : 'byte ' + byte + ' of the PNC bit vector, bit ' + (id % 8) + ' = NM PDU byte ' + Math.floor(id / 8) + ', bit ' + (id % 8);
+  }
+  pid.addEventListener('input', calc);
+  off.addEventListener('input', calc);
+  calc();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A PNC has the ID 21 and the PNC bit vector offset is 2. Where is its bit?',
+    options: ['Byte 0 of the vector, bit 5', 'Byte 2 of the vector, bit 1', 'Byte 1 of the vector, bit 5'],
+    answer: 0,
+    why: '21 div 8 = 2, minus the offset 2 gives byte 0 of the PNC bit vector; 21 mod 8 = 5 gives bit 5. In the NM PDU that is byte 2.'
+  },
+  {
+    prompt: 'An ECU with partial networking receives an NM PDU with the PNI bit 0. It is not set to stay awake on every NM PDU. What does it do?',
+    options: ['It ignores that NM PDU', 'It treats all its PNCs as requested', 'It wakes every PNC of the bus'],
+    answer: 0,
+    why: 'Without the PNI bit the NM PDU carries no PNC information, and an ECU with partial networking drops it unless it is configured to stay awake on all NM PDUs.'
+  },
+  {
+    prompt: 'What is the main point of partial networking?',
+    options: ['Only the ECUs needed by a function wake', 'Every NM PDU gets a higher priority', 'A bus can sleep while it carries data'],
+    answer: 0,
+    why: 'The ECUs of a requested PNC wake and stay awake; the ECUs of other PNCs can stay in a low-power mode.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

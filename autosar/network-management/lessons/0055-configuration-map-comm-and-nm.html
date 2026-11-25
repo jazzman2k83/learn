@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration map: ComM and NM · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.cfg-controls { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: end; margin-bottom: 0.8rem; }
+.cfg-controls .mods { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.cfg-controls label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.68rem; color: var(--muted); }
+table.cfg { font-size: 0.8rem; }
+table.cfg td { padding: 0.3rem 0.5rem; }
+table.cfg td.n { font-family: var(--mono); font-size: 0.74rem; overflow-wrap: anywhere; min-width: 11rem; }
+table.cfg td.n.c { font-weight: 700; }
+table.cfg td.mu, table.cfg td.id { font-family: var(--mono); font-size: 0.72rem; white-space: nowrap; }
+table.cfg tr.mod td { background: var(--head); font-family: var(--sans); font-weight: 700; }
+table.cfg tr.hit td.n { background: var(--warn-soft); }
+.cfg-count { font-size: 0.78rem; color: var(--muted); margin: 0.3rem 0 0; }
+@media (max-width: 34rem) { table.cfg td.id { display: none; } table.cfg th.id { display: none; } }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Configuration map: ComM and NM</h1>
+<p class="lede">Every feature of the earlier lessons is switched on, sized and timed somewhere in the configuration of <span class="term">ComM</span>, <span class="term">NmIf</span>, <span class="term">CanNm</span> and <span class="term">UdpNm</span>. This page is the map: where each setting lives, how often it may appear, and which lesson explains what it does.</p>
+
+<p>The names on this page are the names a configuration tool shows. They are defined in chapter 10 of each module's specification. Each entry there has an identifier such as <code>ECUC_ComM_00568</code>; the map below gives it, so you can look the entry up.</p>
+
+<h2>How a module configuration is built</h2>
+<p>A module's configuration is a tree. At the top is the module (<code>ComM</code>, <code>Nm</code>, <code>CanNm</code>, <code>UdpNm</code>). Below it are <span class="term">configuration containers</span> (named groups of settings, which can hold further containers), and in them the <span class="term">configuration parameters</span> (single settings with a type and a range: a Boolean, a number of seconds, an enumeration, or a reference to a container of another module). Each container and parameter has a <span class="term">multiplicity</span> (how many times it may exist below its parent): <code>1</code> means exactly once, <code>0..1</code> optional, <code>1..*</code> at least once, <code>0..255</code> up to 255 times.</p>
+<p>A container with a multiplicity above one is the configuration of one thing per instance: one <code class="term">ComMChannel</code> per <span class="term">channel</span>, one <code class="term">ComMUser</code> per <span class="term">ComM user</span>, one <code class="term">CanNmChannelConfig</code> per CAN channel with CanNm. The channels of all these modules are tied together by references to the <code>ComMChannel</code>: every NM and every <span class="term">bus state manager</span> channel names the ComM channel it belongs to.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 690 240" role="img" aria-labelledby="f1t">
+<title id="f1t">The references between the modules. NmChannelConfig, CanNmChannelConfig and UdpNmChannelConfig each reference one ComMChannel. ComMUserPerChannel in the channel references a ComMUser; ComMPnc references ComMChannels and ComMUsers.</title>
+<rect x="10" y="50" width="150" height="44" class="d-state m-comm"/>
+<text x="85" y="70" class="d-m d-c">ComMUser</text><text x="85" y="85" class="d-s d-c">UserComfort · …</text>
+<rect x="260" y="50" width="170" height="44" class="d-state m-comm"/>
+<text x="345" y="70" class="d-m d-c">ComMChannel</text><text x="345" y="85" class="d-s d-c">BodyCan · ChassisCan · Eth</text>
+<rect x="530" y="50" width="150" height="44" class="d-state m-comm"/>
+<text x="605" y="70" class="d-m d-c">ComMPnc</text><text x="605" y="85" class="d-s d-c">Comfort 16 · Lighting 17</text>
+<line x1="260" y1="78" x2="162" y2="78" class="d-ln" marker-end="url(#ah)"/>
+<text x="211" y="112" class="d-s d-c">ComMUserPerChannel</text>
+<line x1="530" y1="78" x2="432" y2="78" class="d-ln" marker-end="url(#ah)"/>
+<text x="481" y="112" class="d-s d-c">ComMChannelPerPnc</text>
+<polyline points="605,50 605,24 85,24 85,48" class="d-ln dash" marker-end="url(#ah)"/>
+<text x="345" y="18" class="d-s d-c">ComMUserPerPnc</text>
+<rect x="10" y="180" width="200" height="44" class="d-state m-nm"/>
+<text x="110" y="200" class="d-m d-c">NmChannelConfig</text><text x="110" y="215" class="d-s d-c">NmComMChannelRef</text>
+<rect x="245" y="180" width="200" height="44" class="d-state m-nm"/>
+<text x="345" y="200" class="d-m d-c">CanNmChannelConfig</text><text x="345" y="215" class="d-s d-c">CanNmComMNetworkHandleRef</text>
+<rect x="480" y="180" width="200" height="44" class="d-state m-nm"/>
+<text x="580" y="200" class="d-m d-c">UdpNmChannelConfig</text><text x="580" y="215" class="d-s d-c">UdpNmComMNetworkHandleRef</text>
+<line x1="110" y1="180" x2="290" y2="96" class="d-ln" marker-end="url(#ah)"/>
+<line x1="345" y1="180" x2="345" y2="96" class="d-ln" marker-end="url(#ah)"/>
+<line x1="580" y1="180" x2="400" y2="96" class="d-ln" marker-end="url(#ah)"/>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The ComM channel is the anchor. A user belongs to a channel through a <code>ComMUserPerChannel</code> container inside the channel, or to a PNC through <code>ComMUserPerPnc</code> inside the PNC; each NM channel names its ComM channel.</figcaption>
+</figure>
+<svg class="defs" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs></svg>
+
+<h2>ComM</h2>
+<p><code>ComMGeneral</code> holds the switches that apply to the whole module: <span class="term">partial networking</span> (<code>ComMPncSupport</code>), the <span class="term">PNC gateway</span>, <span class="term">synchronized PNC shutdown</span>, the inhibition features and the minimum time a channel stays requested (<code>ComMTMinFullComModeDuration</code>, used only with the <span class="term">NM variants</span> <code class="term">LIGHT</code> and <code class="term">NONE</code>). <code>ComMConfigSet</code> holds the instances: users, channels and PNCs.</p>
+<ul class="tree">
+<li class="c"><b>ComM</b>
+<ul>
+<li class="c"><b>ComMGeneral</b> <span class="m">1</span></li>
+<li class="c"><b>ComMConfigSet</b> <span class="m">1</span>
+<ul>
+<li class="c"><b>ComMUser</b> <span class="m">0..65535</span></li>
+<li class="c hl"><b>ComMChannel</b> <span class="m">1..256</span> <span class="d">ComMBusType, ComMChannelId, ComMPncEnabled, …</span>
+<ul>
+<li class="c"><b>ComMNetworkManagement</b> <span class="m">1</span> <span class="d">ComMNmVariant, ComMNmLightTimeout, ComMPncNmRequest</span></li>
+<li class="c"><b>ComMUserPerChannel</b> <span class="m">0..255</span> <span class="d">ComMUserChannel → ComMUser</span></li>
+</ul></li>
+<li class="c"><b>ComMPnc</b> <span class="m">0..504</span> <span class="d">ComMPncId, ComMChannelPerPnc, ComMUserPerPnc</span></li>
+</ul></li>
+</ul></li>
+</ul>
+<p>Some rules in the definitions are worth knowing. <code>ComMNmVariant</code> must be <code>NONE</code> on a channel whose <code>ComMBusType</code> is <code>COMM_BUS_TYPE_INTERNAL</code>, <code>LIGHT</code> on a managed channel and <code>FULL</code> on a managing channel (<code>ECUC_ComM_00568</code>). A <code>ComMPncId</code> lies between 8 and 511 (<code>ECUC_ComM_00874</code>); together with the bit vector offset it decides in which byte and bit of the NM PDU a <span class="term">PNC</span> is carried (lesson 57).</p>
+<p>New in R25-11: <code>ComMPncEnabled</code> is a parameter of each <code>ComMChannel</code> (<code>ECUC_ComM_00901</code>). Partial networking is now switched on per channel, not once for the whole configuration set.</p>
+
+<h2>NmIf</h2>
+<p>The configuration of NmIf is called <code>Nm</code>. Its <code>NmGlobalConfig</code> has three containers: <code>NmGlobalConstants</code> (the number of channels), <code>NmGlobalProperties</code> (main function period and the partial networking values that are the same for every channel) and <code>NmGlobalFeatures</code> (pre-compile switches: <span class="term">NM coordinator</span>, <span class="term">Remote Sleep Indication</span>, <span class="term">user data</span>, <span class="term">car wakeup</span>, partial networking). Each <code class="term">NmChannelConfig</code> belongs to one ComM channel and says which bus NM serves it, through the choice container <code>NmBusType</code>.</p>
+<ul class="tree">
+<li class="c"><b>Nm</b>
+<ul>
+<li class="c"><b>NmGlobalConfig</b> <span class="m">1</span>
+<ul><li class="c"><b>NmGlobalConstants</b> <span class="m">1</span></li><li class="c hl"><b>NmGlobalProperties</b> <span class="m">1</span> <span class="d">NmPncBitVectorOffset, NmPnResetTime, NmPnEiraCalcEnabled</span></li><li class="c"><b>NmGlobalFeatures</b> <span class="m">1</span></li></ul></li>
+<li class="c hl"><b>NmChannelConfig</b> <span class="m">1..*</span> <span class="d">NmComMChannelRef, NmPnEnabled, NmPncBitVectorLength, NmPnEraCalcEnabled</span>
+<ul><li class="c"><b>NmBusType</b> <span class="m">1 (choice)</span> <span class="d">NmStandardBusNmConfig or NmGenericBusNmConfig</span></li><li class="c"><b>NmPnFilterMaskByte</b> <span class="m">0..63</span></li></ul></li>
+</ul></li>
+</ul>
+<p>Where the <span class="term">PNC bit vector</span> sits in the <span class="term">NM PDU</span> is configured here, not in the bus NMs: <code>NmPncBitVectorOffset</code> once for all channels, <code>NmPncBitVectorLength</code> per channel. The definition requires that the offset equals the number of system bytes, or that offset plus length equals the length of the NM PDU (<code>ECUC_Nm_00252</code>). The <span class="term">PNC filter mask</span> bytes (<code>NmPnFilterMaskByte</code>) also belong to the NM channel; their index must stay below <code>NmPncBitVectorLength</code> (<code>ECUC_Nm_00255</code>).</p>
+<p><code>NmStandardBusType</code> names the bus NM: <code>NM_BUSNM_CANNM</code>, <code>NM_BUSNM_UDPNM</code>, <code>NM_BUSNM_FRNM</code>, <code>NM_BUSNM_J1939NM</code> or <code>NM_BUSNM_LOCALNM</code>. The last one is allowed only on a <span class="term">coordinated channel</span>, that is a channel with an <code>NmCoordClusterIndex</code> (<code>ECUC_Nm_00220</code>).</p>
+
+<h2>CanNm and UdpNm</h2>
+<p><code>CanNmGlobalConfig</code> holds the feature switches (<span class="term">passive mode</span>, <span class="term">bus load reduction</span>, <span class="term">communication control</span>, partial networking with <code>CanNmGlobalPnSupport</code>) and the main function period. Each <code>CanNmChannelConfig</code> holds the timers, the node identifier, the positions of the system bytes and the PDUs. The timers of lesson 14 are configuration parameters one to one:</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Timing parameter</th><th>CanNm parameter</th><th>Requirement</th></tr></thead>
+<tbody>
+<tr><td><span class="term">NM-Timeout Time</span></td><td><code>CanNmTimeoutTime</code></td><td>SWS_CanNm_00246</td></tr>
+<tr><td><span class="term">Repeat Message Time</span></td><td><code>CanNmRepeatMessageTime</code></td><td>SWS_CanNm_00247</td></tr>
+<tr><td><span class="term">Wait Bus-Sleep Time</span></td><td><code>CanNmWaitBusSleepTime</code></td><td>SWS_CanNm_00248</td></tr>
+<tr><td><span class="term">Remote Sleep Indication Time</span></td><td><code>CanNmRemoteSleepIndTime</code></td><td>SWS_CanNm_00249</td></tr>
+<tr><td><span class="term">Message Cycle Time</span></td><td><code>CanNmMsgCycleTime</code></td><td>ECUC_CanNm_00028</td></tr>
+</tbody>
+</table>
+</div>
+<p>The positions of the <span class="term">Source Node Identifier</span> and the <span class="term">Control Bit Vector</span> are enumerations: <code>CanNmPduNidPosition</code> and <code>CanNmPduCbvPosition</code> each take <code>CANNM_PDU_BYTE_0</code>, <code>CANNM_PDU_BYTE_1</code> or <code>CANNM_PDU_OFF</code>. They may not use the same byte, and with <span class="term">node detection</span> switched on the Control Bit Vector may not be off (<code>ECUC_CanNm_00026</code>). Lesson 57 shows the bytes and bits.</p>
+<p><span class="term">UdpNm</span> is configured the same way, with <code>UdpNm</code> in place of <code>CanNm</code>. The differences are small: UdpNm has no bus load reduction parameters, its main function period is set per channel (<code>UdpNmMainFunctionPeriod</code> in <code>UdpNmChannelConfig</code>), its node identifier is optional (<code>UdpNmNodeId</code>, multiplicity <code>0..1</code>), its <code>UdpNmRemoteSleepIndTime</code> is mandatory, and <code>UdpNmGlobalConfig</code> holds the number of channels (<code>UdpNmNumberOfChannels</code>).</p>
+
+<h2>The example ECU in configuration</h2>
+<p>The body gateway of lesson 3 needs, among others, these values. Only settings the course has fixed are shown.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Container</th><th>Parameter</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td><code>ComMChannel</code> BodyCan</td><td><code>ComMChannelId</code> · <code>ComMBusType</code> · <code>ComMPncEnabled</code></td><td><code>0</code> · <code>COMM_BUS_TYPE_CAN</code> · <code>true</code></td></tr>
+<tr><td><code>ComMChannel</code> ChassisCan</td><td><code>ComMChannelId</code> · <code>ComMBusType</code></td><td><code>1</code> · <code>COMM_BUS_TYPE_CAN</code></td></tr>
+<tr><td><code>ComMChannel</code> Eth</td><td><code>ComMChannelId</code> · <code>ComMBusType</code> · <code>ComMPncEnabled</code></td><td><code>2</code> · <code>COMM_BUS_TYPE_ETH</code> · <code>true</code></td></tr>
+<tr><td><code>ComMNetworkManagement</code> of each channel</td><td><code>ComMNmVariant</code></td><td><code>FULL</code></td></tr>
+<tr><td><code>ComMUserPerChannel</code> in ChassisCan</td><td><code>ComMUserChannel</code></td><td>→ <code>UserChassis</code></td></tr>
+<tr><td><code>ComMPnc</code> Comfort · Lighting</td><td><code>ComMPncId</code> · <code>ComMUserPerPnc</code></td><td><code>16</code> → <code>UserComfort</code> · <code>17</code> → <code>UserLighting</code></td></tr>
+<tr><td><code>ComMPnc</code> Comfort · Lighting</td><td><code>ComMChannelPerPnc</code></td><td>→ <code>BodyCan</code>, <code>Eth</code> · → <code>BodyCan</code></td></tr>
+<tr><td><code>ComMGeneral</code></td><td><code>ComMPncSupport</code> · <code>ComMPncGatewayEnabled</code></td><td><code>true</code> · <code>true</code></td></tr>
+<tr><td><code>ComMChannel</code> BodyCan, Eth</td><td><code>ComMPncGatewayType</code></td><td><code>COMM_GATEWAY_TYPE_ACTIVE</code></td></tr>
+<tr><td><code>NmGlobalProperties</code></td><td><code>NmPncBitVectorOffset</code></td><td><code>2</code></td></tr>
+<tr><td><code>NmChannelConfig</code> BodyCan</td><td><code>NmPnEnabled</code> · <code>NmPncBitVectorLength</code> · <code>NmStandardBusType</code></td><td><code>true</code> · <code>1</code> · <code>NM_BUSNM_CANNM</code></td></tr>
+<tr><td><code>NmChannelConfig</code> Eth</td><td><code>NmPnEnabled</code> · <code>NmPncBitVectorLength</code> · <code>NmStandardBusType</code></td><td><code>true</code> · <code>1</code> · <code>NM_BUSNM_UDPNM</code></td></tr>
+<tr><td><code>CanNmChannelConfig</code> BodyCan</td><td><code>CanNmNodeId</code> · <code>CanNmPduNidPosition</code> · <code>CanNmPduCbvPosition</code></td><td><code>0x10</code> · <code>CANNM_PDU_BYTE_0</code> · <code>CANNM_PDU_BYTE_1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The offset of 2 equals the two system bytes (node identifier and Control Bit Vector), which satisfies the rule of <code>ECUC_Nm_00252</code>. With it, Comfort (16) is bit 0 and Lighting (17) bit 1 of the first PNC bit vector byte, byte 2 of the NM PDU.</p>
+
+<h2>Try it</h2>
+<p>Explore the containers and parameters. Filter by module or type part of a name (for example <code>Pnc</code>, <code>Time</code> or <code>Position</code>); each row links to the lesson that explains the feature. Settings that only switch a development aid on or off (error detection, version information) are left out.</p>
+<div class="panel no-print" id="cfg">
+<div class="cfg-controls">
+<div class="mods" role="group" aria-label="Module">
+<button type="button" data-mod="all" aria-pressed="true">All</button>
+<button type="button" data-mod="ComM" aria-pressed="false">ComM</button>
+<button type="button" data-mod="Nm" aria-pressed="false">Nm</button>
+<button type="button" data-mod="CanNm" aria-pressed="false">CanNm</button>
+<button type="button" data-mod="UdpNm" aria-pressed="false">UdpNm</button>
+</div>
+<label>Name contains<input type="text" class="search" id="cfgq" placeholder="e.g. Pnc"></label>
+</div>
+<div class="table-wrap">
+<table class="data cfg">
+<thead><tr><th>Container / parameter</th><th>Mult.</th><th class="id">ECUC ID</th><th>What it sets</th><th>Lesson</th></tr></thead>
+<tbody id="cfgbody"></tbody>
+</table>
+</div>
+<p class="cfg-count" id="cfgcount" aria-live="polite"></p>
+</div>
+
+<div class="older">
+<p>In R24-11 and earlier, <code>ComMPncEnabled</code> (then <code>ECUC_ComM_00878</code>) was a parameter of <code>ComMConfigSet</code>: one switch for all channels. R25-11 moves it into <code>ComMChannel</code> as <code>ECUC_ComM_00901</code>.</p>
+<p>In 4.4.0 and R20-11 the PNC bit vector was configured in the bus NM: <code>CanNmPnInfo</code> in <code>CanNmGlobalConfig</code> with <code>CanNmPnInfoOffset</code>, <code>CanNmPnInfoLength</code> and <code>CanNmPnFilterMaskByte</code>, plus <code>CanNmPnResetTime</code>, <code>CanNmPnEiraCalcEnabled</code> and <code>CanNmPnEraCalcEnabled</code> (the same with <code>UdpNm</code> names). R21-11 added <code>NmPncBitVectorOffset</code>, <code>NmPncBitVectorLength</code>, <code>NmPnResetTime</code>, <code>NmPnEnabled</code> and <code>NmPnFilterMaskByte</code> to NmIf as draft and marked the CanNm and UdpNm parameters obsolete; R22-11 removed them from CanNm and UdpNm.</p>
+<p>Up to R21-11, <code>ComMPnc</code> had <code>ComMPncComSignal</code> containers that referenced the COM signals carrying EIRA and ERA (lesson 53); R22-11 removed them. In 4.4.0 <code>CanNmWaitBusSleepTime</code> and <code>UdpNmNodeId</code> were mandatory (multiplicity <code>1</code>), and <code>ComMManageReference</code> could exist only once per channel (<code>0..1</code>; <code>0..*</code> since R21-11).</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The ComM channel is the anchor: NmIf, CanNm and UdpNm channels all reference it. The layout of the PNC bit vector is an NmIf setting; the offset is one value for all channels, the length is per channel. Most timers of NM are per channel; most feature switches are global and fixed at pre-compile time.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">configuration container</span></td><td>A named group of configuration settings in a module's configuration; it can hold parameters and further containers</td></tr>
+<tr><td><span class="term">configuration parameter</span></td><td>One setting in a container, with a type and a range: a Boolean, a number, an enumeration or a reference</td></tr>
+<tr><td><span class="term">multiplicity</span></td><td>How many times a container or parameter may exist below its parent, for example 1, 0..1 or 1..*</td></tr>
+<tr><td><code class="term">ComMChannel</code></td><td>The ComM container for one channel: bus type, channel ID, NM variant, users and PNC settings of that channel</td></tr>
+<tr><td><code class="term">ComMUser</code></td><td>The ComM container for one ComM user, with its identifier</td></tr>
+<tr><td><code class="term">ComMPnc</code></td><td>The ComM container for one PNC: its PNC ID, its channels and its users</td></tr>
+<tr><td><code class="term">NmChannelConfig</code></td><td>The NmIf container for one NM channel: the ComM channel, the bus NM, PN and coordination settings</td></tr>
+<tr><td><code class="term">CanNmChannelConfig</code></td><td>The CanNm container for one CAN channel: timers, node identifier, positions of the system bytes and the NM PDUs</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.5 and 10; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_UDPNetworkManagement.pdf">Specification of UDP Network Management, R25-11</a>, chapter 10; the same documents of R20-11, R21-11, R22-11 and R24-11 for the older releases.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // [module, depth, name, multiplicity, ECUC number, meaning, lesson]; a name starting with "+" is a container.
+  const D = [
+    ['ComM', 0, '+ComMGeneral', '1', 'ComM_00554', 'Settings for the whole module', 5],
+    ['ComM', 1, 'ComMPncSupport', '1', 'ComM_00839', 'Partial networking on or off', 41],
+    ['ComM', 1, 'ComMPncGatewayEnabled', '0..1', 'ComM_00887', 'PNC gateway on or off', 44],
+    ['ComM', 1, 'ComM0PncVectorAvoidance', '0..1', 'ComM_00892', 'Gateway sends no PNC bit vector that is all 0', 44],
+    ['ComM', 1, 'ComMPncPrepareSleepTimer', '0..1', 'ComM_00841', 'Seconds a PNC stays in COMM_PNC_PREPARE_SLEEP (0 to 63)', 41],
+    ['ComM', 1, 'ComMSynchronizedPncShutdownEnabled', '0..1', 'ComM_00897', 'Synchronized PNC shutdown (top-level PNC coordinator only)', 45],
+    ['ComM', 1, 'ComMDynamicPncToChannelMappingSupport', '1', 'ComM_00895', 'Dynamic PNC-to-channel mapping compiled in', 46],
+    ['ComM', 1, 'ComMDirectUserMapping', '0..1', 'ComM_00840', 'Tool creates one user per PNC and per channel, for BswM only', 5],
+    ['ComM', 1, 'ComMSynchronousWakeUp', '1', 'ComM_00695', 'A wakeup of one channel wakes all channels (default true)', 34],
+    ['ComM', 1, 'ComMTMinFullComModeDuration', '1', 'ComM_00557', 'Minimum time in COMM_FULL_COM_NETWORK_REQUESTED for LIGHT and NONE (default 5 s)', 7],
+    ['ComM', 1, 'ComMModeLimitationEnabled', '1', 'ComM_00560', 'Limit to COMM_NO_COMMUNICATION available', 11],
+    ['ComM', 1, 'ComMWakeupInhibitionEnabled', '1', 'ComM_00559', 'Wake up inhibition available', 11],
+    ['ComM', 1, 'ComMEcuGroupClassification', '1', 'ComM_00563', 'Which inhibitions affect this ECU (default 3)', 11],
+    ['ComM', 1, 'ComMResetAfterForcingNoComm', '1', 'ComM_00558', 'Reset the ECU after a forced COMM_NO_COMMUNICATION', 11],
+    ['ComM', 1, 'ComMGlobalNvMBlockDescriptor', '0..1', 'ComM_00783', 'NvM block for the stored inhibition state', 11],
+    ['ComM', 0, '+ComMConfigSet', '1', 'ComM_00879', 'The users, channels and PNCs', 5],
+    ['ComM', 1, 'ComMEcuGroupClassificationNvMStorage', '1', 'ComM_00902', 'Store the ECU group classification in NvM', 11],
+    ['ComM', 1, '+ComMUser', '0..65535', 'ComM_00653', 'One ComM user', 5],
+    ['ComM', 2, 'ComMUserIdentifier', '1', 'ComM_00654', 'Handle of the user in ComM_RequestComMode', 5],
+    ['ComM', 2, 'ComMUserEcucPartitionRef', '0..1', 'ComM_00786', 'Partition of the user; its request ends when the partition stops', 32],
+    ['ComM', 1, '+ComMChannel', '1..256', 'ComM_00565', 'One channel', 5],
+    ['ComM', 2, 'ComMChannelId', '1', 'ComM_00635', 'Channel number (the network handle)', 5],
+    ['ComM', 2, 'ComMBusType', '1', 'ComM_00567', 'CAN, CDD, ETH, FR, INTERNAL or LIN', 5],
+    ['ComM', 2, 'ComMMainFunctionPeriod', '1', 'ComM_00556', 'Period of the channel main function (default 0.02 s)', 6],
+    ['ComM', 2, 'ComMPncEnabled', '0..1', 'ComM_00901', 'Partial networking on this channel (R25-11: per channel)', 41],
+    ['ComM', 2, 'ComMPncGatewayType', '0..1', 'ComM_00842', 'COMM_GATEWAY_TYPE_ACTIVE (default) or _PASSIVE', 44],
+    ['ComM', 2, 'ComMNoCom', '1', 'ComM_00571', 'Channel may never leave COMM_NO_COMMUNICATION', 11],
+    ['ComM', 2, 'ComMNoWakeup', '1', 'ComM_00569', 'Initial value of wake up inhibition for this channel', 11],
+    ['ComM', 2, 'ComMNoWakeUpInhibitionNvmStorage', '1', 'ComM_00789', 'Store the wake up inhibition of this channel in NvM', 11],
+    ['ComM', 2, 'ComMFullCommRequestNotificationEnabled', '1', 'ComM_00787', 'Port ComM_CurrentChannelRequest: which users request this channel', 5],
+    ['ComM', 2, 'ComMWakeupSleepRequestEnabled', '0..1', 'ComM_00898', 'Hardware with wakeup or sleep request on the network (e.g. Ethernet)', 23],
+    ['ComM', 2, 'ComMDynamicPncToChannelMappingEnabled', '0..1', 'ComM_00896', 'Dynamic PNC-to-channel mapping on this channel', 46],
+    ['ComM', 2, 'ComMManageReference', '0..*', 'ComM_00893', 'This managing channel references a managed channel', 44],
+    ['ComM', 2, 'ComMChannelPartitionRef', '0..1', 'ComM_00894', 'Partition the channel is assigned to', 32],
+    ['ComM', 2, '+ComMNetworkManagement', '1', 'ComM_00607', 'How the channel shuts down', 8],
+    ['ComM', 3, 'ComMNmVariant', '1', 'ComM_00568', 'FULL, LIGHT, NONE, PASSIVE, SLAVE_ACTIVE or SLAVE_PASSIVE', 8],
+    ['ComM', 3, 'ComMNmLightTimeout', '0..1', 'ComM_00606', 'Seconds in COMM_FULL_COM_READY_SLEEP before NO_COM with LIGHT (default 10)', 8],
+    ['ComM', 3, 'ComMPncNmRequest', '1', 'ComM_00886', 'Call Nm_NetworkRequest again when a PNC is requested', 41],
+    ['ComM', 2, '+ComMUserPerChannel', '0..255', 'ComM_00657', 'One user of this channel', 5],
+    ['ComM', 3, 'ComMUserChannel', '1', 'ComM_00658', 'Reference to the ComMUser', 5],
+    ['ComM', 1, '+ComMPnc', '0..504', 'ComM_00843', 'One PNC', 41],
+    ['ComM', 2, 'ComMPncId', '1', 'ComM_00874', 'PNC ID, 8 to 511', 40],
+    ['ComM', 2, 'ComMChannelPerPnc', '0..255', 'ComM_00880', 'Channels the PNC needs', 41],
+    ['ComM', 2, 'ComMChannelPerTxOnlyPnc', '0..255', 'ComM_00900', 'Channels on which the PNC is only transmitted', 44],
+    ['ComM', 2, 'ComMUserPerPnc', '0..255', 'ComM_00876', 'Users mapped to the PNC', 41],
+    ['ComM', 2, 'ComMPncWakeupSleepRequestEnabled', '0..1', 'ComM_00899', 'Report an active PNC request to BswM for wakeup-capable hardware', 46],
+    ['ComM', 2, 'ComMPncEthIfSwitchPortGroupRef', '0..1', 'ComM_00891', 'Ethernet switch port group of the PNC (documentation only)', 44],
+
+    ['Nm', 0, '+NmGlobalConfig', '1', 'Nm_00196', 'Settings for all NM channels', 19],
+    ['Nm', 1, '+NmGlobalConstants', '1', 'Nm_00198', 'Constants', 19],
+    ['Nm', 2, 'NmNumberOfChannels', '1', 'Nm_00201', 'Number of NM channels, 1 to 255', 19],
+    ['Nm', 1, '+NmGlobalProperties', '1', 'Nm_00199', 'Values for all channels', 19],
+    ['Nm', 2, 'NmCycletimeMainFunction', '0..1', 'Nm_00205', 'Period of the NmIf main function', 19],
+    ['Nm', 2, 'NmPncBitVectorOffset', '0..1', 'Nm_00252', 'Byte offset of the PNC bit vector in the NM PDU, 0 to 63', 57],
+    ['Nm', 2, 'NmPnEiraCalcEnabled', '0..1', 'Nm_00251', 'NmIf computes the EIRA', 42],
+    ['Nm', 2, 'NmPnResetTime', '0..1', 'Nm_00250', 'PNC reset timer for EIRA and ERA, in seconds', 42],
+    ['Nm', 2, 'NmPnShutdownMessageRetransmissionDuration', '0..1', 'Nm_00260', 'How long a PN shutdown message is retransmitted', 45],
+    ['Nm', 1, '+NmGlobalFeatures', '1', 'Nm_00200', 'Pre-compile feature switches', 19],
+    ['Nm', 2, 'NmCoordinatorSupportEnabled', '1', 'Nm_00206', 'NM coordinator on or off', 37],
+    ['Nm', 2, 'NmGlobalCoordinatorTime', '0..1', 'Nm_00237', 'Maximum shutdown time of a coordinated cluster', 38],
+    ['Nm', 2, 'NmCoordinatorSyncSupport', '1', 'Nm_00240', 'Coordinator synchronisation (sleep ready bit)', 39],
+    ['Nm', 2, 'NmBusSynchronizationEnabled', '1', 'Nm_00208', 'Bus synchronization in the bus NMs (coordinators only)', 38],
+    ['Nm', 2, 'NmRemoteSleepIndEnabled', '1', 'Nm_00207', 'Remote Sleep Indication on or off', 18],
+    ['Nm', 2, 'NmStateChangeIndEnabled', '1', 'Nm_00215', 'State change notification on or off', 18],
+    ['Nm', 2, 'NmUserDataEnabled', '1', 'Nm_00211', 'User data API on or off', 18],
+    ['Nm', 2, 'NmPduRxIndicationEnabled', '1', 'Nm_00214', 'Indication of every received NM PDU', 19],
+    ['Nm', 2, 'NmComControlEnabled', '1', 'Nm_00210', 'Communication control on or off', 17],
+    ['Nm', 2, 'NmCarWakeUpRxEnabled', '1', 'Nm_00235', 'Car wakeup detection on or off', 18],
+    ['Nm', 2, 'NmCarWakeUpCallout', '0..1', 'Nm_00234', 'Callout for a car wakeup (else BswM_Nm_CarWakeUpIndication)', 18],
+    ['Nm', 2, 'NmPartialNetworkSupportEnabled', '0..1', 'Nm_00253', 'Partial networking in NmIf on or off', 42],
+    ['Nm', 2, 'NmSynchronizedPncShutdownEnabled', '0..1', 'Nm_00249', 'Synchronized PNC shutdown on or off', 45],
+    ['Nm', 2, 'NmDynamicPncToChannelMappingSupport', '1', 'Nm_00246', 'Dynamic PNC-to-channel mapping compiled in', 46],
+    ['Nm', 0, '+NmChannelConfig', '1..*', 'Nm_00197', 'One NM channel', 19],
+    ['Nm', 1, 'NmComMChannelRef', '1', 'Nm_00217', 'The ComM channel of this NM channel', 19],
+    ['Nm', 1, 'NmPassiveModeEnabled', '1', 'Nm_00242', 'Channel is passive: cannot keep the bus awake', 17],
+    ['Nm', 1, 'NmCoordClusterIndex', '0..1', 'Nm_00221', 'Coordination cluster of the channel (absent: not coordinated)', 37],
+    ['Nm', 1, 'NmActiveCoordinator', '0..1', 'Nm_00236', 'Channel coordinated actively or passively', 39],
+    ['Nm', 1, 'NmChannelSleepMaster', '1', 'Nm_00227', 'This node alone decides when the bus sleeps', 37],
+    ['Nm', 1, 'NmSynchronizingNetwork', '1', 'Nm_00223', 'Network calls Nm_SynchronizationPoint for the cluster', 39],
+    ['Nm', 1, 'NmStateReportEnabled', '1', 'Nm_00231', 'Report the NM state as a COM signal', 19],
+    ['Nm', 1, 'NmStateReportSignalRef', '0..1', 'Nm_00232', 'COM signal for the NM state', 19],
+    ['Nm', 1, 'NmComUserDataSupport', '0..1', 'Nm_00241', 'User data through COM signals instead of the API', 18],
+    ['Nm', 1, 'NmPnEnabled', '0..1', 'Nm_00254', 'Partial networking on this NM channel', 42],
+    ['Nm', 1, 'NmPncBitVectorLength', '1', 'Nm_00258', 'Length of the PNC bit vector in bytes, 0 to 63', 57],
+    ['Nm', 1, 'NmPnEraCalcEnabled', '0..1', 'Nm_00259', 'NmIf computes the ERA of this channel', 42],
+    ['Nm', 1, 'NmDynamicPncToChannelMappingEnabled', '0..1', 'Nm_00248', 'Dynamic PNC-to-channel mapping on this channel', 46],
+    ['Nm', 1, '+NmPnFilterMaskByte', '0..63', 'Nm_00255', 'One byte of the PNC filter mask', 42],
+    ['Nm', 2, 'NmPnFilterMaskByteIndex', '1', 'Nm_00256', 'Index of the byte in the PNC bit vector', 42],
+    ['Nm', 2, 'NmPnFilterMaskByteValue', '1', 'Nm_00257', 'Mask value; a 1 bit lets the PNC through', 42],
+    ['Nm', 1, '+NmBusType', '1', 'Nm_00218', 'Choice: standard or generic bus NM', 19],
+    ['Nm', 2, '+NmStandardBusNmConfig', '0..1', 'Nm_00226', 'An AUTOSAR bus NM', 19],
+    ['Nm', 3, 'NmStandardBusType', '1', 'Nm_00220', 'NM_BUSNM_CANNM, _UDPNM, _FRNM, _J1939NM or _LOCALNM', 19],
+    ['Nm', 2, '+NmGenericBusNmConfig', '0..1', 'Nm_00225', 'Another bus NM, called by prefix', 19],
+    ['Nm', 3, 'NmGenericBusNmPrefix', '1', 'Nm_00219', 'API prefix of that bus NM', 19],
+    ['Nm', 3, 'NmGenericBusNmShutdownTime', '1', 'Nm_00239', 'Its shutdown time, for the shutdown delay', 38],
+
+    ['CanNm', 0, '+CanNmGlobalConfig', '1', 'CanNm_00001', 'Settings for all CanNm channels', 13],
+    ['CanNm', 1, 'CanNmMainFunctionPeriod', '1', 'CanNm_00032', 'Call cycle of CanNm_MainFunction', 14],
+    ['CanNm', 1, 'CanNmPassiveModeEnabled', '1', 'CanNm_00010', 'Passive mode', 17],
+    ['CanNm', 1, 'CanNmBusLoadReductionEnabled', '1', 'CanNm_00040', 'Bus load reduction available', 17],
+    ['CanNm', 1, 'CanNmComControlEnabled', '1', 'CanNm_00013', 'Communication control', 17],
+    ['CanNm', 1, 'CanNmRemoteSleepIndEnabled', '1', 'CanNm_00055', 'Remote Sleep Indication', 18],
+    ['CanNm', 1, 'CanNmUserDataEnabled', '1', 'CanNm_00004', 'User data', 18],
+    ['CanNm', 1, 'CanNmComUserDataSupport', '1', 'CanNm_00044', 'User data written by COM (SWC)', 18],
+    ['CanNm', 1, 'CanNmStateChangeIndEnabled', '1', 'CanNm_00012', 'State change notification', 18],
+    ['CanNm', 1, 'CanNmPduRxIndicationEnabled', '1', 'CanNm_00011', 'Indication of every received NM PDU', 19],
+    ['CanNm', 1, 'CanNmBusSynchronizationEnabled', '1', 'CanNm_00006', 'Bus synchronization (gateways)', 38],
+    ['CanNm', 1, 'CanNmCoordinatorSyncSupport', '1', 'CanNm_00080', 'Coordinator synchronisation', 39],
+    ['CanNm', 1, 'CanNmImmediateRestartEnabled', '1', 'CanNm_00009', 'Send an NM PDU at once on a request in Prepare Bus-Sleep Mode', 13],
+    ['CanNm', 1, 'CanNmImmediateTxconfEnabled', '1', 'CanNm_00041', 'Confirm transmission at once, without the lower layer', 14],
+    ['CanNm', 1, 'CanNmGlobalPnSupport', '1', 'CanNm_00086', 'Partial networking in CanNm', 42],
+    ['CanNm', 1, 'CanNmDynamicPncToChannelMappingSupport', '1', 'CanNm_00094', 'Dynamic PNC-to-channel mapping compiled in', 46],
+    ['CanNm', 1, '+CanNmChannelConfig', '1..*', 'CanNm_00017', 'One CanNm channel', 13],
+    ['CanNm', 2, 'CanNmComMNetworkHandleRef', '1', 'CanNm_00018', 'The ComM channel of this CanNm channel', 19],
+    ['CanNm', 2, 'CanNmTimeoutTime', '1', 'CanNm_00020', 'NM-Timeout Time', 14],
+    ['CanNm', 2, 'CanNmRepeatMessageTime', '1', 'CanNm_00022', 'Repeat Message Time', 14],
+    ['CanNm', 2, 'CanNmWaitBusSleepTime', '0..1', 'CanNm_00021', 'Wait Bus-Sleep Time', 14],
+    ['CanNm', 2, 'CanNmMsgCycleTime', '1', 'CanNm_00028', 'Message Cycle Time', 14],
+    ['CanNm', 2, 'CanNmMsgCycleOffset', '1', 'CanNm_00029', 'Delay of the first NM PDU in Repeat Message State', 17],
+    ['CanNm', 2, 'CanNmMsgReducedTime', '1', 'CanNm_00043', 'Cycle time with bus load reduction', 17],
+    ['CanNm', 2, 'CanNmBusLoadReductionActive', '1', 'CanNm_00042', 'Bus load reduction active on this channel', 17],
+    ['CanNm', 2, 'CanNmImmediateNmTransmissions', '1', 'CanNm_00056', 'Number of immediate NM PDUs', 14],
+    ['CanNm', 2, 'CanNmImmediateNmCycleTime', '0..1', 'CanNm_00057', 'Cycle time of the immediate NM PDUs', 14],
+    ['CanNm', 2, 'CanNmRemoteSleepIndTime', '0..1', 'CanNm_00023', 'Remote Sleep Indication Time', 18],
+    ['CanNm', 2, 'CanNmNodeId', '1', 'CanNm_00031', 'Source Node Identifier of this node', 16],
+    ['CanNm', 2, 'CanNmNodeIdEnabled', '1', 'CanNm_00090', 'Source Node Identifier in use', 16],
+    ['CanNm', 2, 'CanNmNodeDetectionEnabled', '1', 'CanNm_00088', 'Node detection', 16],
+    ['CanNm', 2, 'CanNmRepeatMsgIndEnabled', '1', 'CanNm_00089', 'Report a received Repeat Message Request', 16],
+    ['CanNm', 2, 'CanNmPduNidPosition', '1', 'CanNm_00025', 'Byte of the Source Node Identifier: BYTE_0, BYTE_1 or OFF', 57],
+    ['CanNm', 2, 'CanNmPduCbvPosition', '1', 'CanNm_00026', 'Byte of the Control Bit Vector: BYTE_0, BYTE_1 or OFF', 57],
+    ['CanNm', 2, 'CanNmActiveWakeupBitEnabled', '0..1', 'CanNm_00084', 'Set the Active Wakeup Bit on an active wakeup', 36],
+    ['CanNm', 2, 'CanNmCarWakeUpRxEnabled', '1', 'CanNm_00074', 'Evaluate the car wakeup bit in received NM PDUs', 18],
+    ['CanNm', 2, 'CanNmCarWakeUpBytePosition', '0..1', 'CanNm_00076', 'Byte of the car wakeup bit, 0 to 7', 18],
+    ['CanNm', 2, 'CanNmCarWakeUpBitPosition', '0..1', 'CanNm_00075', 'Bit of the car wakeup bit, 0 to 7', 18],
+    ['CanNm', 2, 'CanNmCarWakeUpFilterEnabled', '0..1', 'CanNm_00077', 'Accept car wakeup only from one node', 18],
+    ['CanNm', 2, 'CanNmCarWakeUpFilterNodeId', '0..1', 'CanNm_00078', 'That node identifier', 18],
+    ['CanNm', 2, 'CanNmStayInPbsEnabled', '1', 'CanNm_00092', 'Stay in Prepare Bus-Sleep Mode until power off or restart', 13],
+    ['CanNm', 2, 'CanNmPnEnabled', '0..1', 'CanNm_00066', 'Partial networking on this channel', 42],
+    ['CanNm', 2, 'CanNmAllNmMessagesKeepAwake', '0..1', 'CanNm_00068', 'Every NM PDU keeps the ECU awake, even without a relevant PNC', 42],
+    ['CanNm', 2, 'CanNmPnHandleMultipleNetworkRequests', '0..1', 'CanNm_00073', 'A new network request returns to Repeat Message State', 41],
+    ['CanNm', 2, 'CanNmMsgTimeoutTime', '0..1', 'CanNm_00030', 'Transmission timeout of an NM PDU (with partial networking)', 42],
+    ['CanNm', 2, 'CanNmSynchronizedPncShutdownEnabled', '0..1', 'CanNm_00097', 'Handle PN shutdown messages', 45],
+    ['CanNm', 2, 'CanNmDynamicPncToChannelMappingEnabled', '0..1', 'CanNm_00093', 'Dynamic PNC-to-channel mapping on this channel', 46],
+    ['CanNm', 2, '+CanNmRxPdu', '1..*', 'CanNm_00038', 'One received NM PDU', 15],
+    ['CanNm', 3, 'CanNmRxPduRef', '1', 'CanNm_00039', 'The global PDU', 15],
+    ['CanNm', 2, '+CanNmTxPdu', '0..1', 'CanNm_00036', 'The transmitted NM PDU (absent: passive node)', 15],
+    ['CanNm', 3, 'CanNmTxPduRef', '1', 'CanNm_00037', 'The global PDU', 15],
+    ['CanNm', 2, '+CanNmUserDataTxPdu', '0..1', 'CanNm_00045', 'The I-PDU that carries user data from COM', 18],
+    ['CanNm', 3, 'CanNmTxUserDataPduRef', '1', 'CanNm_00046', 'The user data I-PDU', 18],
+
+    ['UdpNm', 0, '+UdpNmGlobalConfig', '1', 'UdpNm_00001', 'Settings for all UdpNm channels', 20],
+    ['UdpNm', 1, 'UdpNmNumberOfChannels', '1', 'UdpNm_00014', 'Number of UdpNm channels', 20],
+    ['UdpNm', 1, 'UdpNmPassiveModeEnabled', '1', 'UdpNm_00010', 'Passive mode', 17],
+    ['UdpNm', 1, 'UdpNmRemoteSleepIndEnabled', '1', 'UdpNm_00005', 'Remote Sleep Indication', 18],
+    ['UdpNm', 1, 'UdpNmUserDataEnabled', '1', 'UdpNm_00004', 'User data', 18],
+    ['UdpNm', 1, 'UdpNmComControlEnabled', '1', 'UdpNm_00013', 'Communication control', 17],
+    ['UdpNm', 1, 'UdpNmBusSynchronizationEnabled', '1', 'UdpNm_00006', 'Bus synchronization', 38],
+    ['UdpNm', 1, 'UdpNmImmediateRestartEnabled', '1', 'UdpNm_00009', 'Send at once on a request in Prepare Bus-Sleep Mode', 20],
+    ['UdpNm', 1, '+UdpNmChannelConfig', '1..*', 'UdpNm_00017', 'One UdpNm channel', 20],
+    ['UdpNm', 2, 'UdpNmComMNetworkHandleRef', '1', 'UdpNm_00018', 'The ComM channel of this UdpNm channel', 20],
+    ['UdpNm', 2, 'UdpNmMainFunctionPeriod', '1', 'UdpNm_00032', 'Main function period (per channel in UdpNm)', 20],
+    ['UdpNm', 2, 'UdpNmTimeoutTime', '1', 'UdpNm_00020', 'NM-Timeout Time', 20],
+    ['UdpNm', 2, 'UdpNmRepeatMessageTime', '1', 'UdpNm_00022', 'Repeat Message Time', 20],
+    ['UdpNm', 2, 'UdpNmWaitBusSleepTime', '0..1', 'UdpNm_00021', 'Wait Bus-Sleep Time', 20],
+    ['UdpNm', 2, 'UdpNmMsgCycleTime', '1', 'UdpNm_00028', 'Message Cycle Time', 20],
+    ['UdpNm', 2, 'UdpNmMsgCycleOffset', '1', 'UdpNm_00029', 'Delay of the first NM PDU', 20],
+    ['UdpNm', 2, 'UdpNmImmediateNmTransmissions', '1', 'UdpNm_00075', 'Number of immediate NM PDUs', 20],
+    ['UdpNm', 2, 'UdpNmImmediateNmCycleTime', '0..1', 'UdpNm_00079', 'Cycle time of the immediate NM PDUs', 20],
+    ['UdpNm', 2, 'UdpNmRemoteSleepIndTime', '1', 'UdpNm_00023', 'Remote Sleep Indication Time (mandatory in UdpNm)', 18],
+    ['UdpNm', 2, 'UdpNmRetryFirstMessageRequest', '0..1', 'UdpNm_00085', 'Repeat the first transmission request until SoAd accepts it', 20],
+    ['UdpNm', 2, 'UdpNmNodeId', '0..1', 'UdpNm_00031', 'Source Node Identifier (optional in UdpNm)', 16],
+    ['UdpNm', 2, 'UdpNmNodeIdEnabled', '1', 'UdpNm_00091', 'Source Node Identifier in use', 16],
+    ['UdpNm', 2, 'UdpNmNodeDetectionEnabled', '1', 'UdpNm_00090', 'Node detection', 16],
+    ['UdpNm', 2, 'UdpNmPduNidPosition', '1', 'UdpNm_00025', 'Byte of the Source Node Identifier: BYTE_0, BYTE_1 or OFF', 57],
+    ['UdpNm', 2, 'UdpNmPduCbvPosition', '1', 'UdpNm_00026', 'Byte of the Control Bit Vector: BYTE_0, BYTE_1 or OFF', 57],
+    ['UdpNm', 2, 'UdpNmActiveWakeupBitEnabled', '0..1', 'UdpNm_00074', 'Set the Active Wakeup Bit on an active wakeup', 36],
+    ['UdpNm', 2, 'UdpNmCarWakeUpRxEnabled', '1', 'UdpNm_00076', 'Evaluate the car wakeup bit', 18],
+    ['UdpNm', 2, 'UdpNmPnEnabled', '0..1', 'UdpNm_00061', 'Partial networking on this channel', 42],
+    ['UdpNm', 2, 'UdpNmAllNmMessagesKeepAwake', '0..1', 'UdpNm_00089', 'Every NM PDU keeps the ECU awake', 42],
+    ['UdpNm', 2, 'UdpNmPnHandleMultipleNetworkRequests', '0..1', 'UdpNm_00063', 'A new network request returns to Repeat Message State', 41],
+    ['UdpNm', 2, 'UdpNmStayInPbsEnabled', '1', 'UdpNm_00093', 'Stay in Prepare Bus-Sleep Mode', 13],
+    ['UdpNm', 2, 'UdpNmSynchronizedPncShutdownEnabled', '0..1', 'UdpNm_00097', 'Handle PN shutdown messages', 45],
+    ['UdpNm', 2, '+UdpNmRxPdu', '1..*', 'UdpNm_00038', 'One received NM PDU', 20],
+    ['UdpNm', 2, '+UdpNmTxPdu', '0..1', 'UdpNm_00036', 'The transmitted NM PDU', 20],
+    ['UdpNm', 2, '+UdpNmUserDataTxPdu', '0..1', 'UdpNm_00056', 'The I-PDU that carries user data from COM', 18]
+  ];
+  const files = {};
+  (window.Course ? window.Course.LESSONS : []).forEach((l, i) => { files[i + 1] = l; });
+  const body = document.getElementById('cfgbody');
+  const q = document.getElementById('cfgq');
+  const count = document.getElementById('cfgcount');
+  const btns = Array.from(document.querySelectorAll('#cfg [data-mod]'));
+  let mod = 'all';
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function render() {
+    const term = q.value.trim().toLowerCase();
+    let html = '', last = null, n = 0;
+    D.forEach((r) => {
+      const name = r[2].replace('+', '');
+      if (mod !== 'all' && r[0] !== mod) return;
+      const hit = term && name.toLowerCase().includes(term);
+      if (term && !hit) return;
+      if (r[0] !== last) { html += '<tr class="mod"><td colspan="5">' + r[0] + '</td></tr>'; last = r[0]; }
+      const l = files[r[6]];
+      const link = l ? '<a href="' + l.file + '" title="' + esc(l.title) + '">' + r[6] + '</a>' : String(r[6]);
+      html += '<tr' + (hit ? ' class="hit"' : '') + '><td class="n' + (r[2][0] === '+' ? ' c' : '') + '" style="padding-left:' + (0.5 + 0.9 * r[1]) + 'rem">' + name + '</td><td class="mu">' + r[3] + '</td><td class="id">ECUC_' + r[4] + '</td><td>' + esc(r[5]) + '</td><td>' + link + '</td></tr>';
+      n++;
+    });
+    body.innerHTML = html || '<tr><td colspan="5">No container or parameter matches.</td></tr>';
+    count.textContent = n + ' of ' + D.length + ' entries shown.';
+  }
+  btns.forEach((b) => b.addEventListener('click', () => {
+    mod = b.dataset.mod;
+    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    render();
+  }));
+  q.addEventListener('input', render);
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Where is the offset of the PNC bit vector configured in R25-11?',
+    options: ['NmPncBitVectorOffset in NmGlobalProperties', 'CanNmPnInfoOffset in CanNmPnInfo', 'ComMPncId in each ComMPnc container'],
+    answer: 0,
+    why: 'Since R22-11 the PNC bit vector layout is an NmIf setting: the offset once in NmGlobalProperties, the length per NmChannelConfig.'
+  },
+  {
+    prompt: 'Where is ComMPncEnabled in R25-11?',
+    options: ['In each ComMChannel, per channel', 'In ComMConfigSet, once for all', 'In ComMGeneral, at pre-compile time'],
+    answer: 0,
+    why: 'R25-11 moved ComMPncEnabled from ComMConfigSet into ComMChannel (ECUC_ComM_00901).'
+  },
+  {
+    prompt: 'Which value of ComMNmVariant does a channel with COMM_BUS_TYPE_INTERNAL need?',
+    options: ['NONE, as no bus and no NM exist', 'FULL, as every channel needs NM', 'LIGHT, to time out after a delay'],
+    answer: 0,
+    why: 'The definition of ComMNmVariant says it shall be NONE if ComMBusType is COMM_BUS_TYPE_INTERNAL.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

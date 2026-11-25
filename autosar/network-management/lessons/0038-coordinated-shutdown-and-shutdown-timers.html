@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coordinated shutdown and the shutdown timers · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.tset { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .tset { grid-template-columns: 1fr; } }
+.tset fieldset { border: 1px solid var(--rule); background: var(--paper); margin: 0; padding: 0.4rem 0.6rem 0.6rem; }
+.tset legend { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; padding: 0 0.3rem; }
+.tset label { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-family: var(--sans); font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; }
+.tset input[type="number"] { width: 4.6rem; }
+.gset { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; font-family: var(--sans); font-size: 0.8rem; margin: 0 0 0.6rem; }
+.gset input[type="number"] { width: 4.6rem; }
+table.calc td, table.calc th { white-space: nowrap; }
+table.calc td.warn { color: var(--bad); white-space: normal; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Coordinated shutdown and the shutdown timers</h1>
+<p class="lede">When nobody needs any bus of the cluster any more, the <span class="term">NM coordinator</span> does not release all of them at once. It holds each bus a little longer, so that the slow buses and the fast buses all reach <span class="term">Bus-Sleep Mode</span> at the same moment.</p>
+
+<p>Lesson 37 showed how the coordinator keeps the buses of an <span class="term">NM coordination cluster</span> awake. This lesson shows the other half: how it lets them go, and how the delays per bus are calculated.</p>
+
+<h2>When the shutdown starts</h2>
+<p>The coordinator checks all the time whether every bus of the cluster is either ready to sleep or already in <span class="term">Bus-Sleep Mode</span>. "Ready to sleep" means two things for a bus: <span class="term">ComM</span> has released it with <code class="term">Nm_NetworkRelease</code>, and its bus NM has reported a <span class="term">Remote Sleep Indication</span> (no other ECU on that bus still requests it). As soon as this is true for the whole cluster, the coordinator starts the <span class="term">coordinated shutdown</span> (releasing the awake buses of the cluster one by one, with a calculated delay each, so that they reach Bus-Sleep Mode at the same time) on all buses that are still awake.</p>
+<p>Buses that are already asleep take no part; they are only watched. If the cluster has a synchronizing network, the coordinator waits for a suitable moment on it first; lesson 39 explains that case. The example gateway has none, so its shutdown starts at once.</p>
+
+<h2>Why the buses need different delays</h2>
+<p>A released bus does not fall asleep at once. With CanNm or UdpNm it first stays in <span class="term">Ready Sleep State</span> until the <span class="term">NM-Timeout Time</span> has run out, then in <span class="term">Prepare Bus-Sleep Mode</span> for the <span class="term">Wait Bus-Sleep Time</span>. The specification calls the sum, the time from the release to Bus-Sleep Mode, the shutdown time of the channel, <code class="term">TSHUTDOWN_CHANNEL</code> (the time a bus needs from its release until it is in bus sleep; for CanNm and UdpNm the time in Ready Sleep State plus the time in Prepare Bus-Sleep Mode).</p>
+<p>The three buses of the gateway have different timers, so their shutdown times differ. If the coordinator released all three at the same moment, the fastest bus would sleep first and the slowest last. To make them sleep together, it starts a <span class="term">shutdown timer</span> (one timer per bus: the delay before the coordinator releases that bus) for every awake bus and releases the bus only when its timer expires.</p>
+
+<h2>The calculation</h2>
+<p>All timers are derived from one value for the whole coordination, the <span class="term">global coordinator time</span> (the total time the coordinated shutdown may take, from its start until all buses sleep; it is configured in NmIf, see lesson 55). For each bus:</p>
+<div class="note">
+<p><strong>shutdown timer of a bus = global coordinator time − <code class="term">TSHUTDOWN_CHANNEL</code> of that bus</strong></p>
+<p>The bus with the longest shutdown time gets the shortest timer, the fastest bus the longest one. Released this way, every bus reaches Bus-Sleep Mode when the global coordinator time is over. That only works if the global coordinator time is at least the longest shutdown time of all coordinated buses; the specification requires that. A global coordinator time of 0 makes every timer 0: all buses are released at once and fall asleep one after the other.</p>
+</div>
+<p>When a timer expires, NmIf first asks that bus NM for a bus synchronization and then releases the network on it. From then on the bus NM runs its normal way to sleep. NmIf keeps track of every bus it has released until the bus reports Bus-Sleep Mode; when all are released and all sleep, the coordinated shutdown is complete.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 190" role="img" aria-labelledby="f1t">
+<title id="f1t">Timing of the coordinated shutdown with a global coordinator time of 4 seconds. BodyCan needs 3.5 seconds to sleep, so it waits 0.5 seconds. ChassisCan needs 2.5 seconds and waits 1.5 seconds. Eth needs 4 seconds and is released at once. All three reach bus sleep at 4 seconds.</title>
+<line x1="120" y1="150" x2="470" y2="150" class="d-axis"/>
+<line x1="120" y1="146" x2="120" y2="154" class="d-tick"/><text x="120" y="166" class="d-s d-c">0 s</text>
+<line x1="190" y1="146" x2="190" y2="154" class="d-tick"/><text x="190" y="166" class="d-s d-c">1 s</text>
+<line x1="260" y1="146" x2="260" y2="154" class="d-tick"/><text x="260" y="166" class="d-s d-c">2 s</text>
+<line x1="330" y1="146" x2="330" y2="154" class="d-tick"/><text x="330" y="166" class="d-s d-c">3 s</text>
+<line x1="400" y1="146" x2="400" y2="154" class="d-tick"/><text x="400" y="166" class="d-s d-c">4 s</text>
+<text x="120" y="182" class="d-s">shutdown starts</text>
+<text x="10" y="44" class="d-t">BodyCan</text>
+<text x="10" y="84" class="d-t">ChassisCan</text>
+<text x="10" y="124" class="d-t">Eth</text>
+<rect x="120" y="32" width="35" height="18" class="d-box"/>
+<rect x="155" y="32" width="140" height="18" class="m-nm"/>
+<rect x="295" y="32" width="105" height="18" class="d-note"/>
+<rect x="120" y="72" width="105" height="18" class="d-box"/>
+<rect x="225" y="72" width="105" height="18" class="m-nm"/>
+<rect x="330" y="72" width="70" height="18" class="d-note"/>
+<rect x="120" y="112" width="210" height="18" class="m-nm"/>
+<rect x="330" y="112" width="70" height="18" class="d-note"/>
+<rect x="400" y="32" width="70" height="18" class="m-drv"/>
+<rect x="400" y="72" width="70" height="18" class="m-drv"/>
+<rect x="400" y="112" width="70" height="18" class="m-drv"/>
+<line x1="400" y1="14" x2="400" y2="140" class="d-ln dash"/>
+<text x="400" y="10" class="d-s d-c">all asleep</text>
+<text x="482" y="45" class="d-s">timer 4 − 3.5 = 0.5 s</text>
+<text x="482" y="85" class="d-s">timer 4 − 2.5 = 1.5 s</text>
+<text x="482" y="125" class="d-s">timer 4 − 4 = 0 s</text>
+</svg>
+</div>
+<div class="legend"><span><span class="box"></span>shutdown timer running, still requested</span><span><span class="box m-nm"></span>released: Ready Sleep State</span><span><span class="box" style="background:var(--warn-soft);border-color:var(--warn)"></span>Prepare Bus-Sleep Mode</span><span><span class="box m-drv"></span>Bus-Sleep Mode</span></div>
+<figcaption><b>Figure 1.</b> The example gateway with a global coordinator time of 4 s. Read each row from the right: every bus must be in bus sleep at 4 s, so it is released exactly its own shutdown time earlier.</figcaption>
+</figure>
+
+<h2>Try it</h2>
+<p>Set the NM timers of the three buses and the global coordinator time. The table computes the shutdown timers; Run plays the shutdown. Times are in scaled seconds; real NM timers are of the same order.</p>
+<div class="panel no-print" id="sim">
+<div class="tset">
+<fieldset><legend>BodyCan (CanNm)</legend>
+<label>NM-Timeout Time <input type="number" min="0.5" max="4" step="0.5" value="2" data-ch="0" data-k="to" aria-label="BodyCan NM-Timeout Time"></label>
+<label>Wait Bus-Sleep Time <input type="number" min="0.5" max="3" step="0.5" value="1.5" data-ch="0" data-k="wbs" aria-label="BodyCan Wait Bus-Sleep Time"></label>
+</fieldset>
+<fieldset><legend>ChassisCan (CanNm)</legend>
+<label>NM-Timeout Time <input type="number" min="0.5" max="4" step="0.5" value="1.5" data-ch="1" data-k="to" aria-label="ChassisCan NM-Timeout Time"></label>
+<label>Wait Bus-Sleep Time <input type="number" min="0.5" max="3" step="0.5" value="1" data-ch="1" data-k="wbs" aria-label="ChassisCan Wait Bus-Sleep Time"></label>
+</fieldset>
+<fieldset><legend>Eth (UdpNm)</legend>
+<label>NM-Timeout Time <input type="number" min="0.5" max="4" step="0.5" value="3" data-ch="2" data-k="to" aria-label="Eth NM-Timeout Time"></label>
+<label>Wait Bus-Sleep Time <input type="number" min="0.5" max="3" step="0.5" value="1" data-ch="2" data-k="wbs" aria-label="Eth Wait Bus-Sleep Time"></label>
+</fieldset>
+</div>
+<div class="gset"><label for="gct">Global coordinator time (s)</label> <input type="number" id="gct" min="0" max="7" step="0.5" value="4"> <button type="button" id="fit">Set to the longest shutdown time</button></div>
+<div class="table-wrap">
+<table class="data calc">
+<thead><tr><th>Channel</th><th>TSHUTDOWN_CHANNEL</th><th>Shutdown timer</th><th>Bus-Sleep at</th></tr></thead>
+<tbody id="calc"></tbody>
+</table>
+</div>
+<div id="tl"></div>
+<p class="readout" id="out"></p>
+</div>
+
+<h2>Exact, but not perfect</h2>
+<p>The specification says plainly that absolute synchronization cannot be reached. The coordinator and the bus NMs run in <span class="term">main function</span> cycles, timers have a resolution, and on a bus that is not cyclic such as CAN or Ethernet, the moment of the last <span class="term">NM PDU</span> before the release varies by up to one message cycle. Correctly configured, the buses fall asleep as close together as these limits allow. Making the global coordinator time longer than needed is allowed: all buses then simply stay awake longer before they sleep together.</p>
+
+<h2>Gateways below other gateways</h2>
+<p>A gateway can itself sit on a bus that another coordinator watches, for example a sub-gateway below the central gateway. Then the lower gateway must not start its shutdown on its own: it waits until the coordinator above tells it to. That signal is the <span class="term">NM Coordinator Sleep Ready Bit</span> (a bit in the NM PDU with which a coordinator tells the coordinators below it to start their coordinated shutdown). Lesson 39 shows how it travels down the chain, and what happens when somebody needs a bus again in the middle of a shutdown.</p>
+
+<div class="older">
+<p>Up to R24-11 (also in 4.4.0 and R20-11) a shutdown timer is started for every awake channel of the cluster. Since R25-11 the specification says: for every awake, actively coordinated channel. The difference only matters for a gateway with passively coordinated channels, which lesson 39 introduces. The formula is the same in all three releases.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The coordinator does not make the buses faster or slower; it only chooses <em>when</em> to release each one. The longest shutdown time decides the global coordinator time; every other bus waits the difference. The bus NMs do not know they are coordinated: each one gets a normal release, just later.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">coordinated shutdown</span></td><td>The NM coordinator releases the awake buses of a cluster one by one, with a calculated delay each, so that they reach Bus-Sleep Mode at the same time</td></tr>
+<tr><td><code class="term">TSHUTDOWN_CHANNEL</code></td><td>The time a bus needs from its release until bus sleep; for CanNm and UdpNm the time in Ready Sleep State plus the time in Prepare Bus-Sleep Mode</td></tr>
+<tr><td><span class="term">shutdown timer</span></td><td>One timer per bus: the delay before the coordinator releases that bus; global coordinator time minus the bus's shutdown time</td></tr>
+<tr><td><span class="term">global coordinator time</span></td><td>The total time the coordinated shutdown may take, from its start until all buses sleep; at least the longest shutdown time of the coordinated buses</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.2.3, 7.2.4 (shutdown timers of nested coordinators), 7.2.5 and 7.2.8.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/timeline.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const ch = [
+    { id: 'BodyCan', to: 2, wbs: 1.5 },
+    { id: 'ChassisCan', to: 1.5, wbs: 1 },
+    { id: 'Eth', to: 3, wbs: 1 }
+  ];
+  const gIn = document.getElementById('gct');
+  const calc = document.getElementById('calc');
+  const out = document.getElementById('out');
+  const inputs = Array.from(document.querySelectorAll('#sim [data-ch]'));
+  const fmt = (v) => (Math.round(v * 100) / 100).toString().replace(/\.0+$/, '');
+  let plan = [];
+  let g = 4;
+  let fired = [];
+
+  const tl = Timeline.create(document.getElementById('tl'), {
+    lanes: ch.map((c) => ({ id: c.id, label: c.id })),
+    duration: 8,
+    axis: 1,
+    onTick: tick,
+    onReset: () => { fired = plan.map(() => [false, false, false]); out.textContent = 'Press Run: the coordinated shutdown starts at 0 s.'; }
+  });
+
+  function read(el, lo, hi) {
+    const v = Number(el.value);
+    return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo;
+  }
+  function compute() {
+    inputs.forEach((el) => {
+      const c = ch[Number(el.dataset.ch)];
+      c[el.dataset.k] = el.dataset.k === 'to' ? read(el, 0.5, 4) : read(el, 0.5, 3);
+    });
+    g = read(gIn, 0, 7);
+    plan = ch.map((c) => {
+      const tsd = c.to + c.wbs;
+      const timer = Math.max(0, g - tsd);
+      return { c, tsd, timer, rel: timer, pbs: timer + c.to, sleep: timer + tsd };
+    });
+    const late = plan.filter((p) => p.tsd > g);
+    calc.innerHTML = plan.map((p) =>
+      '<tr><td><code>' + p.c.id + '</code></td><td>' + fmt(p.c.to) + ' + ' + fmt(p.c.wbs) + ' = ' + fmt(p.tsd) + ' s</td><td>' +
+      (p.tsd > g ? '0 s (negative, so none)' : fmt(g) + ' − ' + fmt(p.tsd) + ' = ' + fmt(p.timer) + ' s') + '</td><td>' + fmt(p.sleep) + ' s</td></tr>').join('') +
+      (late.length ? '<tr><td colspan="4" class="warn">The global coordinator time is shorter than the shutdown time of ' + late.map((p) => p.c.id).join(' and ') + '. That bus cannot make it and sleeps late; the specification requires the global coordinator time to be at least the longest shutdown time.</td></tr>' : '');
+    tl.reset();
+  }
+  function tick(prev, now) {
+    plan.forEach((p, i) => {
+      const f = fired[i];
+      if (!f[0] && now >= p.rel) {
+        f[0] = true;
+        if (p.timer > 0) tl.span(p.c.id, 0, p.rel, 'f-req', 'timer ' + fmt(p.timer) + ' s');
+        tl.span(p.c.id, p.rel, p.pbs, 'f-ev', 'Ready Sleep');
+        tl.markAt(p.c.id, p.rel, 'release', 'tick');
+        out.textContent = 'At ' + fmt(p.rel) + ' s the shutdown timer of ' + p.c.id + ' expires: NmIf releases the network.';
+      }
+      if (!f[1] && now >= p.pbs) {
+        f[1] = true;
+        tl.span(p.c.id, p.pbs, p.sleep, 'f-mute', 'Prepare Bus-Sleep');
+        out.textContent = p.c.id + ': NM-Timeout Time over, Prepare Bus-Sleep Mode.';
+      }
+      if (!f[2] && now >= p.sleep) {
+        f[2] = true;
+        tl.markAt(p.c.id, p.sleep, 'Bus-Sleep', 'bus');
+        const asleep = fired.filter((x) => x[2]).length;
+        const times = plan.map((q) => q.sleep);
+        const same = Math.max(...times) - Math.min(...times) < 1e-9;
+        if (asleep === plan.length) {
+          out.textContent = same ? 'All three buses reached Bus-Sleep Mode together at ' + fmt(p.sleep) + ' s.' : 'All buses sleep now, but not together: the global coordinator time does not fit every bus.';
+        } else {
+          out.textContent = p.c.id + ' is in Bus-Sleep Mode.';
+        }
+      }
+    });
+  }
+  tl.buttons.append(Timeline.button('Run', () => { if (tl.finished()) compute(); tl.start(); }, true));
+  inputs.forEach((el) => el.addEventListener('change', compute));
+  gIn.addEventListener('change', compute);
+  document.getElementById('fit').addEventListener('click', () => {
+    inputs.forEach((el) => { const c = ch[Number(el.dataset.ch)]; c[el.dataset.k] = Number(el.value); });
+    gIn.value = String(Math.min(7, Math.max(...ch.map((c) => c.to + c.wbs))));
+    compute();
+  });
+  compute();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The global coordinator time is 5 s. A bus needs 3 s from release to bus sleep. When is it released?',
+    options: ['2 s after the shutdown starts', '3 s after the shutdown starts', '5 s after the shutdown starts'],
+    answer: 0,
+    why: 'Shutdown timer = global coordinator time − TSHUTDOWN_CHANNEL = 5 − 3 = 2 s. Released then, it sleeps at 5 s like the others.'
+  },
+  {
+    prompt: 'Which bus of a cluster gets the longest shutdown timer?',
+    options: ['The bus with the shortest shutdown time', 'The bus with the longest shutdown time', 'The bus that ComM released last'],
+    answer: 0,
+    why: 'The fastest bus has to wait the longest, so that it does not fall asleep before the slow ones.'
+  },
+  {
+    prompt: 'The global coordinator time is set to 0. What happens?',
+    options: ['All buses are released at once', 'No bus is ever released at all', 'Every bus sleeps at the same time'],
+    answer: 0,
+    why: 'All timers become 0: every bus is released at the start and falls asleep after its own shutdown time, so at different moments.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

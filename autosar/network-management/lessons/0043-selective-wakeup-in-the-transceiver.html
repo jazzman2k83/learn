@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selective wakeup in the transceiver · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.frames { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 0 0 0.8rem; }
+@media (max-width: 34rem) { .frames { grid-template-columns: 1fr; } }
+.frames button { width: 100%; text-align: left; padding: 0.5rem 0.7rem; line-height: 1.35; }
+.frames button small { display: block; font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }
+table.modes td:first-child code { white-space: nowrap; overflow-wrap: normal; }
+.trcv { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; font-family: var(--sans); font-size: 0.8rem; margin: 0.2rem 0 0.4rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Selective wakeup in the transceiver</h1>
+<p class="lede">An ECU can only keep sleeping while others talk if its CAN transceiver ignores their traffic. A transceiver with selective wakeup wakes the ECU only for a frame that requests one of its own <span class="term">PNC</span>s.</p>
+
+<p>Lesson 42 showed how an awake ECU ignores NM PDUs for other PNCs. A sleeping ECU has no software running to do that, so the decision moves into the transceiver chip. This lesson shows what <span class="term">CanTrcv</span> configures there, how the software learns that partial networking works, and what CanSM does differently on such a network.</p>
+
+<h2>Wake-up pattern or wake-up frame</h2>
+<p><span class="term">CanTrcv</span> knows three operation modes:</p>
+<div class="table-wrap">
+<table class="data modes">
+<thead><tr><th>Mode</th><th>Communication</th><th>Wakeup</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CANTRCV_TRCVMODE_NORMAL</code></td><td>full bus communication</td><td>no further wakeup detection</td></tr>
+<tr><td><code class="term">CANTRCV_TRCVMODE_STANDBY</code></td><td>none; the ECU stays powered if the transceiver controls its supply</td><td>by the bus or a local event</td></tr>
+<tr><td><code class="term">CANTRCV_TRCVMODE_SLEEP</code></td><td>none; the ECU may be unpowered; reachable only from standby</td><td>by the bus or a local event</td></tr>
+</tbody>
+</table>
+</div>
+<p>A plain transceiver in standby wakes on a <span class="term">wake-up pattern</span> (WUP: bus activity of a defined shape that any CAN traffic produces). On a bus with <span class="term">partial networking</span> that is useless: every <span class="term">NM PDU</span> for any PNC would wake every ECU. A transceiver with <span class="term">selective wakeup</span> (it wakes the ECU only on a frame that requests one of its PNCs) is woken by a <span class="term">wakeup frame</span> (WUF: a CAN frame, normally an NM PDU, that matches the pattern configured in the transceiver) instead.</p>
+<p>The pattern is configured in the transceiver: a CAN identifier with an identifier mask (so that a group of frames, such as all NM PDUs, qualifies), the data length, and a data mask over the payload. For AUTOSAR partial networking the data mask is mandatory: it is how the transceiver looks at the <span class="term">PNC bit vector</span>. In this lesson the Light ECU, which belongs to Lighting only, has such a transceiver; its data mask selects bit 1 of NM PDU byte 2, the Lighting bit.</p>
+<p>The transceiver detects wakeup frames already in normal mode and keeps a <span class="term">WUF flag</span> (a flag in the transceiver that records a detected wakeup frame). So a frame that arrives while the ECU is just switching to standby is not lost.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 210" role="img" aria-labelledby="f1t">
+<title id="f1t">Three NM PDUs on body CAN, from the Door ECU and the gateway, pass the sleeping Light ECU. Its transceiver compares each with its wakeup frame pattern. The NM PDU with only the Comfort bit does not match; the NM PDUs with the Lighting bit match and wake the ECU.</title>
+<defs><marker id="ah43" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<line x1="10" y1="40" x2="630" y2="40" class="d-axis"/>
+<text x="10" y="28" class="d-tb">body CAN</text>
+<rect x="110" y="20" width="150" height="40" class="m-drv"/><text x="185" y="36" class="d-t d-c">NM PDU, Door ECU</text><text x="185" y="52" class="d-m d-c">byte 2 = 0x01</text>
+<rect x="290" y="20" width="150" height="40" class="m-drv"/><text x="365" y="36" class="d-t d-c">NM PDU, Door ECU</text><text x="365" y="52" class="d-m d-c">byte 2 = 0x03</text>
+<rect x="470" y="20" width="150" height="40" class="m-drv"/><text x="545" y="36" class="d-t d-c">NM PDU, gateway</text><text x="545" y="52" class="d-m d-c">byte 2 = 0x02</text>
+<line x1="185" y1="60" x2="185" y2="98" class="d-ln dash" marker-end="url(#ah43)"/>
+<line x1="365" y1="60" x2="365" y2="98" class="d-ln" marker-end="url(#ah43)"/>
+<line x1="545" y1="60" x2="545" y2="98" class="d-ln" marker-end="url(#ah43)"/>
+<rect x="110" y="100" width="510" height="46" class="m-drv"/>
+<text x="365" y="119" class="d-tb d-c">Light ECU transceiver, CANTRCV_TRCVMODE_STANDBY</text>
+<text x="365" y="136" class="d-s d-c">wakeup frame pattern: NM PDU identifiers, data mask on byte 2 = 0x02</text>
+<rect x="110" y="160" width="150" height="34" class="d-box"/><text x="185" y="181" class="d-s d-c">no match: keeps sleeping</text>
+<rect x="290" y="160" width="150" height="34" class="d-ok"/><text x="365" y="181" class="d-s d-c">Lighting bit set: wakes</text>
+<rect x="470" y="160" width="150" height="34" class="d-ok"/><text x="545" y="181" class="d-s d-c">Lighting bit set: wakes</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The same bus traffic, seen by a sleeping Light ECU. An NM PDU that requests only Comfort leaves it asleep; one that requests Lighting wakes it. The exact matching rule is that of the transceiver hardware.</figcaption>
+</figure>
+
+<h2>Try it</h2>
+<p>The Light ECU's transceiver is in standby. Send frames on body CAN and see which ones wake it. Then let the software start it and see when partial networking is confirmed.</p>
+<div class="panel no-print" id="sim">
+<div class="frames" id="frames"></div>
+<div class="buttons-row">
+<button type="button" id="bSys" aria-pressed="false">SYSERR: configuration error in the transceiver</button>
+<button type="button" id="bNormal">Software sets the transceiver to normal</button>
+<button type="button" id="bSleep">Back to standby</button>
+</div>
+<div class="trcv"><span>Transceiver: <span class="state-pill" id="mode">STANDBY</span></span><span>WUF flag: <span class="state-pill off" id="wuf">0</span></span><span>Selective wakeup: <span class="state-pill on" id="pn">active</span></span><span>CanNm PN filter: <span class="state-pill off" id="filt">off</span></span></div>
+<p class="readout" id="why">The ECU sleeps. Send a frame.</p>
+<ul class="log" id="log" aria-live="polite"></ul>
+</div>
+
+<h2>Is partial networking available?</h2>
+<p>CanNm filters NM PDUs (lesson 42) only once it knows that the transceiver really does selective wakeup. An ECU whose transceiver does not, wakes on all traffic anyway; it should then also stay awake with the whole network and shut down together with it. So a confirmation travels upwards each time the transceiver is switched to normal mode:</p>
+<ol>
+<li><span class="term">CanTrcv</span> checks the status flags of the transceiver when it is initialized and on every mode change. The <span class="term">POR flag</span> (power-on reset: the transceiver lost its supply and its configuration) makes CanTrcv run the configuration sequence again. The <span class="term">SYSERR flag</span> (a hardware error, for example a configuration error, that made the transceiver disable selective wakeup) means partial networking does not work. At initialization both flags are also reported to EcuM as wakeups, each with its own configured <span class="term">wakeup source</span>.</li>
+<li>If the requested mode is normal and SYSERR is not set, CanTrcv calls <code class="term">CanIf_ConfirmPnAvailability</code> (partial networking of a transceiver is confirmed to work; passed on through CanSM to CanNm).</li>
+<li>CanIf calls <code>CanSM_ConfirmPnAvailability</code>, and CanSM calls <code>CanNm_ConfirmPnAvailability</code> for the CAN network.</li>
+<li>Only now <span class="term">CanNm</span> drops <span class="term">NM PDU</span>s without a relevant PNC request. Before, every NM PDU counts as relevant and restarts the <span class="term">NM-Timeout Timer</span>, so that an ECU with a faulty partial networking transceiver shuts down together with the rest of the network.</li>
+</ol>
+<p>With SYSERR set the transceiver falls back: it wakes on the next wake-up pattern like a plain transceiver. On other hardware errors (for example a frame detection error) it wakes when its internal error counter overflows. Either way the ECU comes up rather than sleeping through a request.</p>
+
+<h2>What CanSM does on a partial network</h2>
+<p><span class="term">CanSM</span> decides per network whether partial networking is supported: it is, when a transceiver is configured for the network and selective wakeup is enabled for it. Then the way to <span class="term">COMM_NO_COMMUNICATION</span> is longer, because no wakeup frame may get lost while the controller and transceiver go down. Step through it:</p>
+<div class="panel" id="seq"></div>
+<p>Two more pieces belong to partial networking on CAN:</p>
+<div class="cards">
+  <div class="card m-if"><p class="tag">CanIf</p><h3>The first frame is the wakeup frame</h3><p>With partial networking, CanIf keeps a <span class="term">PnTxFilter</span> (per CAN controller: while it is on, CanIf accepts only the configured PN filter PDUs, typically the NM PDU, for transmission) per controller. It is on after initialization, after the controller went to sleep, and when the PDU mode goes offline. It turns off with the first transmit confirmation or the first received frame. So the frame that wakes a sleeping bus is the NM PDU with the PNC bits, the frame the other transceivers look for.</p></div>
+  <div class="card m-sm"><p class="tag">CanNm and CanSM</p><h3>No one acknowledges</h3><p>If every other ECU on the bus sleeps behind a selective wakeup transceiver that the frame does not wake, nobody may acknowledge the first NM PDU. With partial networking CanNm watches its NM PDU transmissions with a timeout; when it expires, it calls <code class="term">CanSM_TxTimeoutException</code> (CanNm reports that an NM PDU was not confirmed in time on a partial network). CanSM then stops and restarts the CAN controllers of the network.</p></div>
+</div>
+
+<div class="older">
+<p>Selective wakeup works the same way in <strong>4.4.0</strong> and <strong>R20-11</strong>: the transceiver has the same wakeup frame settings (identifier, identifier mask, data length and the mandatory data mask), the WUF, POR and SYSERR flags, and the confirmation with <code>CanIf_ConfirmPnAvailability</code>, <code>CanSM_ConfirmPnAvailability</code> and <code>CanNm_ConfirmPnAvailability</code>. CanIf's PnTxFilter and <code>CanSM_TxTimeoutException</code> exist in both releases as well.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> The wakeup decision of a sleeping ECU is made in the transceiver hardware, by a pattern the software configured: identifier, identifier mask and data mask. The software trusts that pattern only after <code>CanIf_ConfirmPnAvailability</code>; until then every NM PDU counts. When anything goes wrong in the transceiver, the ECU wakes up rather than staying asleep.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CANTRCV_TRCVMODE_NORMAL</code></td><td>Transceiver mode: full bus communication</td></tr>
+<tr><td><code class="term">CANTRCV_TRCVMODE_STANDBY</code></td><td>Transceiver mode: no communication; a wakeup by the bus or a local event is possible</td></tr>
+<tr><td><code class="term">CANTRCV_TRCVMODE_SLEEP</code></td><td>Transceiver mode: no communication, the ECU may be unpowered; entered from standby only</td></tr>
+<tr><td><span class="term">wake-up pattern</span></td><td>WUP: bus activity that wakes a plain transceiver; any CAN traffic produces it</td></tr>
+<tr><td><span class="term">selective wakeup</span></td><td>A transceiver feature: it wakes the ECU only on a wakeup frame that matches its configured pattern</td></tr>
+<tr><td><span class="term">wakeup frame</span></td><td>WUF: a CAN frame, normally an NM PDU, that matches the identifier, identifier mask and data mask configured in the transceiver</td></tr>
+<tr><td><span class="term">WUF flag</span></td><td>Transceiver flag that records a detected wakeup frame, so none is lost on the way to standby</td></tr>
+<tr><td><span class="term">POR flag</span></td><td>Transceiver flag: power-on reset; the selective wakeup configuration must be written again</td></tr>
+<tr><td><span class="term">SYSERR flag</span></td><td>Transceiver flag: a hardware error disabled selective wakeup; the transceiver wakes on any wake-up pattern</td></tr>
+<tr><td><code class="term">CanIf_ConfirmPnAvailability</code></td><td>Called by CanTrcv when partial networking works; passed on through CanSM to CanNm, which then enables its PN filter</td></tr>
+<tr><td><span class="term">PnTxFilter</span></td><td>CanIf filter per CAN controller that lets only the configured PN filter PDUs be sent until the first frame is confirmed or received</td></tr>
+<tr><td><code class="term">CanSM_TxTimeoutException</code></td><td>Called by CanNm when an NM PDU on a partial network was not confirmed in time; CanSM restarts the controllers</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANTransceiverDriver.pdf">Specification of CAN Transceiver Driver, R25-11</a>, sections 7.1, 7.10, 8.3.1, 8.3.2 and 8.3.8; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, sections 7.1, 7.2.20 and 7.2.23.16; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANInterface.pdf">Specification of CAN Interface, R25-11</a>, sections 7.25 and 8.4.7; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, sections 7.11.1 and 7.12.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const MASK = 0x02;   // Light ECU: data mask on NM PDU byte 2, the Lighting bit
+  const FRAMES = [
+    { label: 'NM PDU, Door ECU', data: 'byte 2 = 0x01 (Comfort)', nm: true, b2: 0x01 },
+    { label: 'NM PDU, Door ECU', data: 'byte 2 = 0x03 (Comfort, Lighting)', nm: true, b2: 0x03 },
+    { label: 'NM PDU, gateway', data: 'byte 2 = 0x01 (Comfort, for the Head unit)', nm: true, b2: 0x01 },
+    { label: 'Application frame', data: 'not an NM PDU identifier', nm: false, b2: 0xff }
+  ];
+  let mode = 'STANDBY', wuf = 0, syserr = false, filt = false;
+  const el = (id) => document.getElementById(id);
+  const logEl = el('log');
+  function log(t) { const li = document.createElement('li'); li.textContent = t; logEl.prepend(li); while (logEl.children.length > 30) logEl.removeChild(logEl.lastChild); }
+  function render(msg) {
+    el('mode').textContent = mode;
+    el('mode').className = 'state-pill' + (mode === 'NORMAL' ? ' on' : '');
+    el('wuf').textContent = String(wuf); el('wuf').className = 'state-pill' + (wuf ? ' on' : ' off');
+    el('pn').textContent = syserr ? 'disabled (SYSERR)' : 'active';
+    el('pn').className = 'state-pill' + (syserr ? ' bad' : ' on');
+    el('filt').textContent = filt ? 'on (PN availability confirmed)' : 'off: every NM PDU counts';
+    el('filt').className = 'state-pill' + (filt ? ' on' : ' off');
+    el('bSys').setAttribute('aria-pressed', String(syserr));
+    if (msg) el('why').textContent = msg;
+  }
+  const box = el('frames');
+  FRAMES.forEach((f) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = f.label + '<small>' + f.data + '</small>';
+    b.addEventListener('click', () => {
+      if (mode === 'NORMAL') {
+        log(f.label + ': received normally (the ECU is awake)');
+        render(filt && f.nm && !(f.b2 & MASK) ? 'Awake: CanNm finds no relevant PNC bit for this ECU and drops the NM PDU.' : 'Awake: the frame is received like any other.');
+        return;
+      }
+      let wake;
+      if (syserr) wake = true;
+      else wake = f.nm && (f.b2 & MASK) !== 0;
+      if (wake) {
+        wuf = syserr ? 0 : 1;
+        log(f.label + ': ' + (syserr ? 'wake-up pattern, selective wakeup disabled' : 'matches the wakeup frame pattern') + ' → ECU wakes, EcuM_SetWakeupEvent (wakeup source of the transceiver)');
+        mode = 'STANDBY';
+        render(syserr ? 'Woken: with SYSERR the transceiver wakes on any bus traffic, like a plain one.' : 'Woken: the Lighting bit is set. EcuM validates the wakeup; the software will switch the transceiver to normal.');
+      } else {
+        log(f.label + ': ' + (f.nm ? 'byte 2 & 0x02 = 0' : 'identifier does not match') + ' → keeps sleeping');
+        render('Still asleep: this frame does not request Lighting.');
+      }
+    });
+    box.appendChild(b);
+  });
+  el('bSys').addEventListener('click', () => {
+    syserr = !syserr;
+    log(syserr ? 'SYSERR flag set: the transceiver disables selective wakeup' : 'SYSERR cleared: configuration rewritten');
+    render(syserr ? 'Selective wakeup is disabled. The next bus traffic wakes the ECU.' : 'Selective wakeup works again.');
+  });
+  el('bNormal').addEventListener('click', () => {
+    if (mode === 'NORMAL') { render('The transceiver is already in normal mode.'); return; }
+    mode = 'NORMAL';
+    log('CanSM → CanIf_SetTrcvMode → CanTrcv_SetOpMode(CANTRCV_TRCVMODE_NORMAL)');
+    if (!syserr) {
+      log('CanIf_ConfirmPnAvailability → CanSM_ConfirmPnAvailability → CanNm_ConfirmPnAvailability');
+      filt = true;
+      render('Normal mode, SYSERR not set: partial networking is confirmed and CanNm starts filtering NM PDUs.');
+    } else {
+      filt = false;
+      render('Normal mode, but SYSERR is set: no confirmation, CanNm treats every NM PDU as relevant.');
+    }
+  });
+  el('bSleep').addEventListener('click', () => {
+    if (mode === 'STANDBY') { render('The transceiver is already in standby.'); return; }
+    log('CanSM: clear WUF flag, stop controller, transceiver normal, standby, controller sleep, check wake flag');
+    mode = 'STANDBY'; wuf = 0; filt = false;
+    render('Back in standby, WUF flag cleared. The confirmation has to come again after the next start.');
+  });
+  render();
+})();
+
+(function () {
+  const nb = (n) => ' '.repeat(Math.max(0, Math.round(n)));
+  const pad = (steps) => steps.map((s) => s.note ? Object.assign({}, s, { note: s.note + nb(s.note.length * 0.08) })
+    : Object.assign({}, s, { call: s.call + nb(s.call.length * 0.06) }));
+  Sequence.create(document.getElementById('seq'), {
+    lanes: ['ComM', 'CanSM', 'CanIf', 'CanTrcv', 'Can driver'],
+    focus: ['CanSM'],
+    steps: pad([
+      { ctx: 'ComM_MainFunction_BodyCan', from: 'ComM', to: 'CanSM', call: 'CanSM_RequestComMode(BodyCan, COMM_NO_COMMUNICATION)',
+        text: 'ComM requests no communication for body CAN. CanSM enters CANSM_BSM_S_PRE_NOCOM and checks: a transceiver is configured and has selective wakeup enabled, so partial networking is supported.' },
+      { ctx: 'CanSM_MainFunction', from: 'CanSM', to: 'CanIf', call: 'CanIf_ClearTrcvWufFlag(Trcv)',
+        text: 'First the WUF flag is cleared, so that a wakeup frame seen from now on is a new one.' },
+      { from: 'CanIf', to: 'CanTrcv', call: 'CanTrcv_ClearTrcvWufFlag(Trcv)',
+        text: 'CanIf passes the request to the transceiver driver.' },
+      { from: 'CanTrcv', to: 'CanIf', call: 'CanIf_ClearTrcvWufFlagIndication(Trcv)',
+        text: 'The driver confirms that the flag is cleared.' },
+      { from: 'CanIf', to: 'CanSM', call: 'CanSM_ClearTrcvWufFlagIndication(Trcv)',
+        text: 'CanIf passes the confirmation on; CanSM goes on. Each step is repeated if it fails, and reported as a runtime error after too many tries.' },
+      { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetControllerMode(Ctrl, CAN_CS_STOPPED)',
+        text: 'The CAN controller is stopped. Here and below, CanSM waits for the mode indication of the controller or transceiver before the next step.' },
+      { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetTrcvMode(Trcv, CANTRCV_TRCVMODE_NORMAL)',
+        text: 'The transceiver is set to normal first: standby may only be entered from normal.' },
+      { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetTrcvMode(Trcv, CANTRCV_TRCVMODE_STANDBY)',
+        text: 'Now the transceiver goes to standby. From here, only a matching wakeup frame (or a local event) wakes it.' },
+      { from: 'CanSM', to: 'CanIf', call: 'CanIf_SetControllerMode(Ctrl, CAN_CS_SLEEP)',
+        text: 'The controller goes to sleep. CanIf switches its PnTxFilter on again for this controller.' },
+      { from: 'CanSM', to: 'CanIf', call: 'CanIf_CheckTrcvWakeFlag(Trcv)',
+        text: 'Last, CanSM asks the transceiver to check its wake flag. A wakeup frame that came in during the shutdown is reported now instead of being lost.' },
+      { from: 'CanIf', to: 'CanSM', call: 'CanSM_CheckTransceiverWakeFlagIndication(Trcv)',
+        text: 'The check is confirmed. CanSM reports COMM_NO_COMMUNICATION to ComM with ComM_CanSM_ModeIndication. Without partial networking the path is shorter: no WUF flag, no wake flag check.' }
+    ])
+  });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'The Light ECU (Lighting only) sleeps with selective wakeup. The Door ECU sends NM PDUs that request only Comfort. What happens?',
+    options: ['The Light ECU keeps sleeping', 'The Light ECU wakes and then sleeps', 'The Light ECU wakes and stays awake'],
+    answer: 0,
+    why: 'The NM PDU does not match the data mask of its wakeup frame pattern, so the transceiver does not wake the ECU at all.'
+  },
+  {
+    prompt: 'When does CanNm start to drop NM PDUs that carry no relevant PNC request?',
+    options: ['After CanNm_ConfirmPnAvailability is called', 'As soon as CanNm is initialized at startup', 'After the first NM PDU has been received'],
+    answer: 0,
+    why: 'The confirmation comes from CanTrcv (normal mode, no SYSERR) through CanIf and CanSM. Before it, every NM PDU counts.'
+  },
+  {
+    prompt: 'The transceiver reports SYSERR. How does the ECU behave on the bus?',
+    options: ['It wakes on any bus traffic again', 'It never wakes from the bus again', 'It wakes only on its own NM PDUs'],
+    answer: 0,
+    why: 'With SYSERR the transceiver disables selective wakeup and wakes on the next wake-up pattern; no PN availability is confirmed.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

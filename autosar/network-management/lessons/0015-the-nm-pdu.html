@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The NM PDU · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+table.bytes td.m-nm   { background: var(--m-nm-soft);   border-color: var(--m-nm); }
+table.bytes td.m-comm { background: var(--m-comm-soft); border-color: var(--m-comm); }
+.pdu-controls { display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: center; margin-bottom: 0.8rem; font-family: var(--sans); font-size: 0.85rem; }
+.pdu-controls label { display: flex; align-items: center; gap: 0.4rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The NM PDU</h1>
+<p class="lede">Every <span class="term">NM PDU</span> says three things: who sent it, a few control flags, and, on a bus with <span class="term">partial networking</span>, which <span class="term">PNC</span>s the sender requests. The rest of its bytes are free for the application.</p>
+
+<p>Lessons 13 and 14 used the <span class="term">NM PDU</span> only as a signal: it arrives, and the <span class="term">NM-Timeout Time</span> starts again. This lesson opens it. It shows the four parts of the PDU in a simple view; the meaning of each single control bit follows in lesson 57.</p>
+
+<h2>Four parts in one PDU</h2>
+<p>The <span class="term">CanNm</span> specification shows an NM PDU of 8 bytes, the length of a classic CAN frame. Its bytes fall into four parts. The first two are the system bytes, which CanNm fills itself:</p>
+<div class="cards">
+  <div class="card m-nm"><p class="tag">system byte</p><h3>Source Node Identifier</h3><p>The <span class="term">Source Node Identifier</span> (the node identifier of the sending ECU, one byte, unique in the bus) tells every receiver who sent the PDU. CanNm writes the configured identifier of its own node into it.</p></div>
+  <div class="card m-nm"><p class="tag">system byte</p><h3>Control Bit Vector</h3><p>The <span class="term">Control Bit Vector</span> (one byte of control bits that switch NM features on the receivers) carries flags such as "please repeat your NM PDUs" or "I woke the bus". CanNm sets it to 0x00 at initialization and changes single bits when a feature needs them.</p></div>
+  <div class="card m-comm"><p class="tag">partial networking</p><h3>PNC bit vector</h3><p>The <span class="term">PNC bit vector</span> (one bit per PNC; a bit at 1 means the sender requests that PNC) is only present when partial networking is used on the bus. The bits come from ComM's PNC requests through <span class="term">NmIf</span>.</p></div>
+  <div class="card m-com"><p class="tag">free bytes</p><h3>User data</h3><p><span class="term">User data</span> (bytes of the NM PDU that the application fills; NM itself does not interpret them) takes every byte that is neither a system byte nor part of the PNC bit vector. At initialization each user data byte is 0xFF.</p></div>
+</div>
+<p>Neither system byte has to be there. Each one can sit in byte 0 or byte 1, or be left out; a byte left out becomes another byte for user data or the PNC bit vector. Partial networking needs the Control Bit Vector, because one of its bits tells the receivers that a PNC bit vector is present.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 200" role="img" aria-labelledby="f1t">
+<title id="f1t">The 8 bytes of the gateway's NM PDU on body CAN in a row. Byte 0 Source Node Identifier and byte 1 Control Bit Vector are filled by CanNm; byte 2, the PNC bit vector, comes from ComM through NmIf; bytes 3 to 7, user data, come from the application through COM.</title>
+<defs><marker id="f1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<text x="20" y="22" class="d-s">byte</text>
+<text x="80" y="22" class="d-s d-c">0</text><text x="150" y="22" class="d-s d-c">1</text><text x="220" y="22" class="d-s d-c">2</text>
+<text x="290" y="22" class="d-s d-c">3</text><text x="360" y="22" class="d-s d-c">4</text><text x="430" y="22" class="d-s d-c">5</text><text x="500" y="22" class="d-s d-c">6</text><text x="570" y="22" class="d-s d-c">7</text>
+<rect x="45" y="30" width="70" height="44" class="m-nm"/><text x="80" y="49" class="d-t d-c">Source</text><text x="80" y="65" class="d-t d-c">Node Id</text>
+<rect x="115" y="30" width="70" height="44" class="m-nm"/><text x="150" y="49" class="d-t d-c">Control</text><text x="150" y="65" class="d-t d-c">Bit Vector</text>
+<rect x="185" y="30" width="70" height="44" class="m-comm"/><text x="220" y="49" class="d-t d-c">PNC bit</text><text x="220" y="65" class="d-t d-c">vector</text>
+<rect x="255" y="30" width="350" height="44" class="m-com"/><text x="430" y="57" class="d-t d-c">user data (5 bytes)</text>
+<line x1="80" y1="78" x2="80" y2="118" class="d-ln"/><line x1="150" y1="78" x2="150" y2="118" class="d-ln"/><line x1="80" y1="118" x2="150" y2="118" class="d-ln"/>
+<line x1="115" y1="150" x2="115" y2="121" class="d-ln" marker-end="url(#f1a)"/>
+<rect x="65" y="150" width="100" height="30" class="m-nm"/><text x="115" y="170" class="d-t d-c">CanNm</text>
+<line x1="220" y1="150" x2="220" y2="79" class="d-ln" marker-end="url(#f1a)"/>
+<rect x="175" y="150" width="90" height="30" class="m-comm"/><text x="220" y="165" class="d-t d-c">ComM</text><text x="220" y="177" class="d-s d-c">through NmIf</text>
+<line x1="430" y1="150" x2="430" y2="79" class="d-ln" marker-end="url(#f1a)"/>
+<rect x="355" y="150" width="150" height="30" class="m-com"/><text x="430" y="165" class="d-t d-c">COM</text><text x="430" y="177" class="d-s d-c">for the application</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The gateway's NM PDU on body CAN, coloured by the module that fills each byte. CanNm combines all parts into one PDU before every transmission.</figcaption>
+</figure>
+
+<h2>The example ECU's NM PDU</h2>
+<p>On body CAN the gateway puts the Source Node Identifier in byte 0 and the Control Bit Vector in byte 1. The UdpNm specification marks this layout as the default; the CanNm specification has no default, and the example table of the NM protocol specification shows the two bytes the other way round. The PNC bit vector starts right after the system bytes, at an offset of 2 bytes. In this course the PNC bit vector of body CAN is one byte long, so bytes 3 to 7 are user data.</p>
+<p>The offset decides which PNC owns which bit. The byte of a PNC inside the PNC bit vector is its number divided by 8, minus the offset; the bit is the remainder. Comfort (PNC 16) is therefore bit 0 and Lighting (PNC 17) bit 1 of the first byte of the PNC bit vector, which is byte 2 of the PDU. With an offset of 2 there is no bit for PNCs 0 to 15, and a one-byte vector covers PNCs 16 to 23.</p>
+<p>The Door ECU (Source Node Identifier 0x21) and the Light ECU (0x22) send the same layout. The nodes of one bus need the same layout, because each of them reads the NM PDUs of all the others.</p>
+
+<h2>Try it</h2>
+<p>Pick a sender, switch its PNC requests and its active wakeup on and off, and click a byte to see what it holds. The Control Bit Vector is shown as one hex value here; lesson 57 takes it apart bit by bit.</p>
+<div class="panel no-print" id="pdu">
+<div class="pdu-controls">
+<label>Sender <select id="sender"><option value="0">Gateway</option><option value="1">Door ECU</option><option value="2">Light ECU</option></select></label>
+<label><input type="checkbox" id="pncComfort" checked> requests PNC Comfort</label>
+<label><input type="checkbox" id="pncLighting"> requests PNC Lighting</label>
+<label><input type="checkbox" id="awake"> woke the bus with a network request</label>
+</div>
+<div id="bytes"></div>
+</div>
+
+<h2>The control bits in short</h2>
+<p>Most bits of the Control Bit Vector belong to features that later lessons explain: the <span class="term">Repeat Message Request</span> (asks all nodes to send their NM PDUs again; lesson 16), the <span class="term">NM Coordinator Sleep Ready Bit</span> (a gateway announces a coordinated shutdown; lesson 39), the <span class="term">PN Shutdown Request Bit</span> (announces that PNCs are released together; lesson 45) and the <span class="term">Partial Network Learning Bit</span> (starts the learning of PNCs; lesson 46). Two of them matter already now:</p>
+<ul>
+<li>The <span class="term">Partial Network Information Bit</span> (the control bit that says the NM PDU carries a PNC bit vector) is always 1 in the NM PDUs a node sends when partial networking is enabled for it, and 0 otherwise. That is why the gateway's Control Bit Vector reads 0x40 in the panel.</li>
+<li>The <span class="term">Active Wakeup Bit</span> (a control bit set while the sender is in Network Mode because it requested the network itself) is set when CanNm enters <span class="term">Network Mode</span> from <span class="term">Bus-Sleep Mode</span> or <span class="term">Prepare Bus-Sleep Mode</span> because of a network request, and cleared when CanNm leaves Network Mode again. It is optional and must be enabled in the configuration.</li>
+</ul>
+
+<div class="older"><p>In 4.4.0 the Control Bit Vector had no Partial Network Learning Bit and no PN Shutdown Request Bit; those bit positions were reserved. In 4.4.0 and R20-11 the place of the PNC bit vector (called the PN Info Range there) was configured in CanNm and UdpNm, not in NmIf. The R20-11 Control Bit Vector already has both newer bits, the PN Shutdown Request Bit as a draft.</p></div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> CanNm fills only the two system bytes; the PNC bit vector comes from ComM through NmIf, and the user data from the application. The layout is configured, so all nodes of one bus must use the same one. With partial networking the PNC numbers and the PNC bit vector offset must match: PNC 16 is bit 0 of the first vector byte only because the offset is 2.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">Source Node Identifier</span></td><td>NM PDU byte with the node identifier of the sending ECU</td></tr>
+<tr><td><span class="term">Control Bit Vector</span></td><td>NM PDU byte of control bits that switch NM features on the receivers</td></tr>
+<tr><td><span class="term">PNC bit vector</span></td><td>NM PDU bytes with one bit per PNC; 1 means the sender requests that PNC</td></tr>
+<tr><td><span class="term">user data</span></td><td>The remaining NM PDU bytes, filled by the application; NM does not interpret them</td></tr>
+<tr><td><span class="term">Active Wakeup Bit</span></td><td>Control bit set while the sender is in Network Mode because it requested the network itself</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, chapters 7.4, 7.6, 7.9.2 and 7.11; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapter 7 (PNC bit position); <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, chapter 10 (PNC bit vector offset).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // Byte rows with click-to-explain (adapted from the byte view of the SOME/IP course).
+  const hex = (arr) => arr.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+  const host = document.getElementById('bytes');
+  const wrap = document.createElement('div');
+  wrap.className = 'bytes-wrap';
+  const info = document.createElement('p');
+  info.className = 'field-info';
+  info.setAttribute('aria-live', 'polite');
+  host.append(wrap, info);
+  let fields = [];
+  let picked = 0;
+  let cells = [];
+
+  function render() {
+    const table = document.createElement('table');
+    table.className = 'bytes';
+    const head = document.createElement('tr');
+    head.appendChild(document.createElement('th'));
+    for (let c = 0; c < 4; c++) { const th = document.createElement('th'); th.textContent = '+' + c; head.appendChild(th); }
+    table.appendChild(head);
+    cells = [];
+    let offset = 0;
+    let row = null;
+    fields.forEach((f, fi) => {
+      f.bytes.forEach((b) => {
+        if (offset % 4 === 0) {
+          row = document.createElement('tr');
+          const lab = document.createElement('td');
+          lab.className = 'lab';
+          lab.textContent = 'byte ' + offset;
+          row.appendChild(lab);
+          table.appendChild(row);
+        }
+        const td = document.createElement('td');
+        td.textContent = b.toString(16).toUpperCase().padStart(2, '0');
+        td.className = f.cls;
+        td.dataset.field = String(fi);
+        td.tabIndex = 0;
+        td.title = f.name;
+        td.addEventListener('click', () => pick(fi));
+        td.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(fi); } });
+        row.appendChild(td);
+        cells.push(td);
+        offset++;
+      });
+    });
+    wrap.replaceChildren(table);
+    mark();
+  }
+  function mark() {
+    cells.forEach((td) => td.classList.toggle('on', Number(td.dataset.field) === picked));
+    const f = fields[picked];
+    info.innerHTML = '<strong>' + f.name + '</strong> · ' + f.bytes.length + ' byte' + (f.bytes.length === 1 ? '' : 's') +
+      ' · <code>' + hex(f.bytes) + '</code><br>' + f.info;
+  }
+  function pick(i) { picked = i; mark(); }
+
+  const SENDERS = [{ name: 'Gateway', id: 0x10 }, { name: 'Door ECU', id: 0x21 }, { name: 'Light ECU', id: 0x22 }];
+  const sender = document.getElementById('sender');
+  const comfort = document.getElementById('pncComfort');
+  const lighting = document.getElementById('pncLighting');
+  const awake = document.getElementById('awake');
+
+  function build() {
+    const s = SENDERS[Number(sender.value)];
+    const cbv = 0x40 | (awake.checked ? 0x10 : 0);
+    const pnc = (comfort.checked ? 0x01 : 0) | (lighting.checked ? 0x02 : 0);
+    const req = [comfort.checked ? 'Comfort (PNC 16)' : null, lighting.checked ? 'Lighting (PNC 17)' : null].filter(Boolean);
+    fields = [
+      { name: 'Source Node Identifier', cls: 'm-nm', bytes: [s.id],
+        info: 'The ' + s.name + ' sends ' + '0x' + s.id.toString(16).toUpperCase() + '. Every receiver can tell from this byte who sent the NM PDU.' },
+      { name: 'Control Bit Vector', cls: 'm-nm', bytes: [cbv],
+        info: 'Partial networking is used on body CAN, so the bit that announces a PNC bit vector is set (0x40). ' +
+          (awake.checked ? 'The Active Wakeup Bit adds 0x10: this node entered Network Mode because of its own network request.' : 'The Active Wakeup Bit is 0: this node did not wake the bus with its own request.') },
+      { name: 'PNC bit vector', cls: 'm-comm', bytes: [pnc],
+        info: 'Bit 0 = PNC 16 (Comfort), bit 1 = PNC 17 (Lighting). ' + (req.length ? 'The ' + s.name + ' requests ' + req.join(' and ') + '.' : 'The ' + s.name + ' requests no PNC; its NM PDU still keeps the bus awake.') },
+      { name: 'User data', cls: 'm-com', bytes: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+        info: 'Five bytes for the application. Nothing has been written yet, so they still hold the initial value 0xFF. NM sends them along without looking at them.' }
+    ];
+    render();
+  }
+  [sender, comfort, lighting, awake].forEach((c) => c.addEventListener('change', build));
+  build();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'Which module fills the PNC bit vector of the gateway\'s NM PDU?',
+    options: ['ComM, handed down through NmIf', 'COM, as part of the user data', 'CanNm, from its own settings'],
+    answer: 0,
+    why: 'The PNC bits are ComM\'s PNC requests. NmIf hands them to CanNm, which copies them into the PDU. CanNm fills only the system bytes.'
+  },
+  {
+    prompt: 'The PNC bit vector offset is 2. Where is the bit of PNC 17?',
+    options: ['Bit 1 of byte 2 of the NM PDU', 'Bit 1 of byte 0 of the NM PDU', 'Bit 7 of byte 2 of the NM PDU'],
+    answer: 0,
+    why: '17 div 8 = 2, minus the offset 2 = byte 0 of the vector, which is byte 2 of the PDU; 17 mod 8 = 1 gives the bit.'
+  },
+  {
+    prompt: 'What does CanNm do with the user data of a received NM PDU?',
+    options: ['It stores it without interpreting it', 'It decides from it when to sleep', 'It forwards it as a PNC request'],
+    answer: 0,
+    why: 'User data belongs to the application. CanNm keeps the data of the latest received PDU so that it can be read, but its own decisions do not depend on it.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

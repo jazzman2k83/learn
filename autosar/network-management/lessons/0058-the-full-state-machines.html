@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The full ComM and CanSM state machines · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.sm g.st { cursor: pointer; }
+.sm g.st:focus { outline: none; }
+.sm g.st:focus-visible rect { stroke: var(--accent); stroke-width: 3; }
+.sm .num { fill: var(--paper); stroke: var(--d-line); stroke-width: 1; }
+.sm .numt { font-family: var(--sans); font-size: 9.5px; font-weight: 700; fill: var(--ink); text-anchor: middle; }
+.sm .hi .d-ln { stroke: var(--accent); stroke-width: 2.4; }
+.sm .hi .num { stroke: var(--accent); fill: var(--good-soft); }
+table.tr { font-size: 0.8rem; table-layout: fixed; min-width: 36rem; }
+table.tr td { overflow-wrap: break-word; }
+table.tr .g { display: block; color: var(--muted); margin-top: 0.2rem; }
+table.tr td { padding: 0.3rem 0.45rem; }
+table.tr td code { font-size: 0.72rem; }
+table.tr tr.hi td { background: var(--good-soft); }
+table.tr td.req { font-family: var(--mono); font-size: 0.7rem; white-space: nowrap; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The full ComM and CanSM state machines</h1>
+<p class="lede">Lessons 6 and 21 showed the main paths through the <span class="term">ComM</span> channel state machine and the <span class="term">CanSM</span> network state machine. This page lists every transition of both, with its trigger, condition, effect and the requirement that defines it.</p>
+
+<p>Each state machine exists once per <span class="term">channel</span> or CAN network. In the diagrams, every arrow carries a number; the table below the diagram explains it; its last column gives the requirement numbers. Click a state, or tab to it and press Enter, to see only its transitions.</p>
+<svg class="defs" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs></svg>
+
+<h2>The ComM channel state machine</h2>
+<p>Three main states, two of them with two sub-states each (SWS_ComM_00879 to SWS_ComM_00881). After initialization a channel is in <code class="term">COMM_NO_COM_NO_PENDING_REQUEST</code>, without telling the users (SWS_ComM_00485, SWS_ComM_00313). Entering <code class="term">COMM_FULL_COMMUNICATION</code> leads to <code class="term">COMM_FULL_COM_NETWORK_REQUESTED</code> unless a transition names another sub-state (SWS_ComM_00899); entering <code class="term">COMM_NO_COMMUNICATION</code> always leads to <code>COMM_NO_COM_NO_PENDING_REQUEST</code> (SWS_ComM_00898). "Limitation disabled" in the table means that <span class="term">limit to COMM_NO_COMMUNICATION</span> is not active for the channel.</p>
+
+<figure class="fig wide sm" id="smA">
+<div class="scroll">
+<svg viewBox="0 0 700 400" role="group" aria-labelledby="fAt">
+<title id="fAt">The ComM channel state machine with numbered transitions. COMM_FULL_COMMUNICATION at the top with NETWORK_REQUESTED and READY_SLEEP, COMM_SILENT_COMMUNICATION in the middle, COMM_NO_COMMUNICATION at the bottom with REQUEST_PENDING and NO_PENDING_REQUEST.</title>
+<rect x="10" y="10" width="680" height="110" class="d-frame"/>
+<text x="20" y="27" class="d-m">COMM_FULL_COMMUNICATION</text>
+<rect x="10" y="270" width="680" height="110" class="d-frame"/>
+<text x="265" y="290" class="d-m">COMM_NO_COMMUNICATION</text>
+<g class="tr" data-t="9-13"><line x1="250" y1="58" x2="458" y2="58" class="d-ln" marker-end="url(#ah)"/><rect x="337" y="49" width="34" height="18" rx="9" class="num"/><text x="354" y="61" class="numt">9–13</text></g>
+<g class="tr" data-t="14-15"><line x1="458" y1="88" x2="252" y2="88" class="d-ln" marker-end="url(#ah)"/><rect x="337" y="79" width="34" height="18" rx="9" class="num"/><text x="354" y="91" class="numt">14–15</text></g>
+<g class="tr" data-t="2-6"><line x1="458" y1="318" x2="252" y2="318" class="d-ln" marker-end="url(#ah)"/><rect x="337" y="309" width="34" height="18" rx="9" class="num"/><text x="354" y="321" class="numt">2–6</text></g>
+<g class="tr" data-t="7"><line x1="250" y1="350" x2="458" y2="350" class="d-ln" marker-end="url(#ah)"/><circle cx="354" cy="350" r="11" class="num"/><text x="354" y="353" class="numt">7</text></g>
+<g class="tr" data-t="8"><line x1="70" y1="300" x2="70" y2="106" class="d-ln" marker-end="url(#ah)"/><circle cx="70" cy="200" r="11" class="num"/><text x="70" y="203" class="numt">8</text></g>
+<g class="tr" data-t="16-17"><line x1="640" y1="106" x2="640" y2="298" class="d-ln" marker-end="url(#ah)"/><rect x="623" y="191" width="34" height="18" rx="9" class="num"/><text x="640" y="203" class="numt">16–17</text></g>
+<g class="tr" data-t="18"><line x1="330" y1="120" x2="330" y2="178" class="d-ln" marker-end="url(#ah)"/><circle cx="330" cy="150" r="11" class="num"/><text x="330" y="153" class="numt">18</text></g>
+<g class="tr" data-t="19-20"><line x1="580" y1="120" x2="580" y2="268" class="d-ln" marker-end="url(#ah)"/><rect x="563" y="191" width="34" height="18" rx="9" class="num"/><text x="580" y="203" class="numt">19–20</text></g>
+<g class="tr" data-t="21-22"><line x1="245" y1="200" x2="170" y2="108" class="d-ln" marker-end="url(#ah)"/><rect x="190" y="145" width="34" height="18" rx="9" class="num"/><text x="207" y="157" class="numt">21–22</text></g>
+<g class="tr" data-t="23"><line x1="455" y1="200" x2="520" y2="108" class="d-ln" marker-end="url(#ah)"/><circle cx="487" cy="154" r="11" class="num"/><text x="487" y="157" class="numt">23</text></g>
+<g class="tr" data-t="24"><line x1="370" y1="224" x2="370" y2="268" class="d-ln" marker-end="url(#ah)"/><circle cx="370" cy="246" r="11" class="num"/><text x="370" y="249" class="numt">24</text></g>
+<g class="tr" data-t="1"><circle cx="682" cy="380" r="5" class="d-start"/><line x1="680" y1="375" x2="664" y2="364" class="d-ln" marker-end="url(#ah)"/></g>
+<g class="st" data-s="NR" tabindex="0" role="button" aria-label="COMM_FULL_COM_NETWORK_REQUESTED"><rect x="30" y="44" width="220" height="62" class="d-state m-comm"/><text x="140" y="70" class="d-m d-c">COMM_FULL_COM_</text><text x="140" y="86" class="d-m d-c">NETWORK_REQUESTED</text></g>
+<g class="st" data-s="RS" tabindex="0" role="button" aria-label="COMM_FULL_COM_READY_SLEEP"><rect x="460" y="44" width="210" height="62" class="d-state m-comm"/><text x="565" y="70" class="d-m d-c">COMM_FULL_COM_</text><text x="565" y="86" class="d-m d-c">READY_SLEEP</text></g>
+<g class="st" data-s="SI" tabindex="0" role="button" aria-label="COMM_SILENT_COMMUNICATION"><rect x="245" y="180" width="210" height="44" class="d-state m-comm"/><text x="350" y="206" class="d-m d-c">COMM_SILENT_COMMUNICATION</text></g>
+<g class="st" data-s="RP" tabindex="0" role="button" aria-label="COMM_NO_COM_REQUEST_PENDING"><rect x="30" y="300" width="220" height="62" class="d-state m-comm"/><text x="140" y="326" class="d-m d-c">COMM_NO_COM_</text><text x="140" y="342" class="d-m d-c">REQUEST_PENDING</text></g>
+<g class="st" data-s="NP" tabindex="0" role="button" aria-label="COMM_NO_COM_NO_PENDING_REQUEST"><rect x="460" y="300" width="200" height="62" class="d-state m-comm"/><text x="560" y="326" class="d-m d-c">COMM_NO_COM_</text><text x="560" y="342" class="d-m d-c">NO_PENDING_REQUEST</text></g>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The ComM channel state machine (after Figure 7.7 of the ComM specification). Arrows 18 and 19–20 leave from the frame: they apply in both FULL sub-states. Arrows 19–20 and 24 end at the frame of COMM_NO_COMMUNICATION, whose entry sub-state is NO_PENDING_REQUEST.</figcaption>
+</figure>
+<div class="buttons-row no-print"><button type="button" data-all="A">Show all ComM transitions</button></div>
+<p class="readout" id="roA" aria-live="polite"></p>
+<div class="table-wrap">
+<table class="data tr" id="tabA">
+<colgroup><col style="width:5%"><col style="width:24%"><col style="width:31%"><col style="width:27%"><col style="width:13%"></colgroup>
+<thead><tr><th>#</th><th>From → to</th><th>Trigger [guard]</th><th>Effect</th><th>SWS_ComM_</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<p>The effects listed for a target state happen on entry, whichever transition leads there. On entering <code>COMM_FULL_COMMUNICATION</code> ComM requests the mode from the <span class="term">bus state manager</span> (SWS_ComM_00069); on entering <code>COMM_SILENT_COMMUNICATION</code> it requests silent communication (SWS_ComM_00071); on entering <code>COMM_NO_COMMUNICATION</code> it requests no communication and, with <code class="term">FULL</code>, calls <code class="term">Nm_NetworkRelease</code> (SWS_ComM_00073, SWS_ComM_00288).</p>
+
+<h2>The CanSM network state machine</h2>
+<p>CanSM runs one state machine, <code>CANSM_BSM</code>, per CAN network (SWS_CanSM_00266 and Figure 7.1 of the CanSM specification). Its transitions are written as trigger, <span class="term">guarding condition</span> (a condition in square brackets that must hold for the transition to be taken) and effect (an action done on the transition). Triggers are named <code>T_…</code>, guarding conditions <code>G_…</code>, effects <code>E_…</code>. All effects run in the CanSM main function (SWS_CanSM_00428). Requests of ComM become triggers: <code class="term">CanSM_RequestComMode</code> with <code>COMM_FULL_COMMUNICATION</code> is <code>T_FULL_COM_MODE_REQUEST</code>, and so on (SWS_CanSM_00425, SWS_CanSM_00499, SWS_CanSM_00426).</p>
+
+<figure class="fig wide sm" id="smB">
+<div class="scroll">
+<svg viewBox="0 0 700 470" role="group" aria-labelledby="fBt">
+<title id="fBt">The CanSM network state machine with numbered transitions between NOT_INITIALIZED, PRE_NOCOM, NOCOM, WUVALIDATION, PRE_FULLCOM, FULLCOM, CHANGE_BAUDRATE, SILENTCOM and SILENTCOM_BOR.</title>
+<g class="tr" data-t="1"><circle cx="680" cy="432" r="6" class="d-start"/><line x1="674" y1="432" x2="632" y2="432" class="d-ln" marker-end="url(#ah)"/></g>
+<g class="tr" data-t="2"><line x1="540" y1="410" x2="540" y2="386" class="d-ln" marker-end="url(#ah)"/><circle cx="560" cy="398" r="9" class="num"/><text x="560" y="401" class="numt">2</text></g>
+<g class="tr" data-t="3"><polyline points="320,384 320,422 192,422" class="d-ln" marker-end="url(#ah)"/><circle cx="270" cy="422" r="9" class="num"/><text x="270" y="425" class="numt">3</text></g>
+<g class="tr" data-t="4"><line x1="190" y1="446" x2="428" y2="446" class="d-ln" marker-end="url(#ah)"/><circle cx="330" cy="446" r="9" class="num"/><text x="330" y="449" class="numt">4</text></g>
+<g class="tr" data-t="5"><line x1="80" y1="410" x2="80" y2="286" class="d-ln" marker-end="url(#ah)"/><circle cx="80" cy="345" r="9" class="num"/><text x="80" y="348" class="numt">5</text></g>
+<g class="tr" data-t="6"><polyline points="200,362 150,362 150,286" class="d-ln" marker-end="url(#ah)"/><circle cx="150" cy="325" r="9" class="num"/><text x="150" y="328" class="numt">6</text></g>
+<g class="tr" data-t="7"><polyline points="190,262 215,262 215,338" class="d-ln" marker-end="url(#ah)"/><circle cx="215" cy="300" r="9" class="num"/><text x="215" y="303" class="numt">7</text></g>
+<g class="tr" data-t="8"><line x1="105" y1="240" x2="105" y2="176" class="d-ln" marker-end="url(#ah)"/><circle cx="105" cy="208" r="9" class="num"/><text x="105" y="211" class="numt">8</text></g>
+<g class="tr" data-t="9"><polyline points="20,440 8,440 8,152 18,152" class="d-ln" marker-end="url(#ah)"/><circle cx="8" cy="300" r="8" class="num"/><text x="8" y="303" class="numt">9</text></g>
+<g class="tr" data-t="10"><polyline points="105,130 105,45 198,45" class="d-ln" marker-end="url(#ah)"/><circle cx="105" cy="88" r="9" class="num"/><text x="105" y="91" class="numt">10</text></g>
+<g class="tr" data-t="11"><line x1="245" y1="70" x2="245" y2="338" class="d-ln" marker-end="url(#ah)"/><circle cx="245" cy="110" r="9" class="num"/><text x="245" y="113" class="numt">11</text></g>
+<g class="tr" data-t="12"><line x1="330" y1="70" x2="330" y2="128" class="d-ln" marker-end="url(#ah)"/><circle cx="330" cy="99" r="9" class="num"/><text x="330" y="102" class="numt">12</text></g>
+<g class="tr" data-t="13"><line x1="410" y1="130" x2="410" y2="72" class="d-ln" marker-end="url(#ah)"/><circle cx="410" cy="101" r="9" class="num"/><text x="410" y="104" class="numt">13</text></g>
+<g class="tr" data-t="14"><polyline points="460,160 530,160 530,198" class="d-ln" marker-end="url(#ah)"/><circle cx="495" cy="160" r="9" class="num"/><text x="495" y="163" class="numt">14</text></g>
+<g class="tr" data-t="15"><line x1="275" y1="174" x2="275" y2="338" class="d-ln" marker-end="url(#ah)"/><circle cx="275" cy="220" r="9" class="num"/><text x="275" y="223" class="numt">15</text></g>
+<g class="tr" data-t="16"><polyline points="470,70 470,95 580,95 580,198" class="d-ln" marker-end="url(#ah)"/><circle cx="530" cy="95" r="9" class="num"/><text x="530" y="98" class="numt">16</text></g>
+<g class="tr" data-t="17"><polyline points="650,200 650,45 502,45" class="d-ln" marker-end="url(#ah)"/><circle cx="650" cy="120" r="9" class="num"/><text x="650" y="123" class="numt">17</text></g>
+<g class="tr" data-t="18"><line x1="660" y1="244" x2="660" y2="338" class="d-ln" marker-end="url(#ah)"/><circle cx="660" cy="290" r="9" class="num"/><text x="660" y="293" class="numt">18</text></g>
+<g class="tr" data-t="19"><polyline points="540,244 540,272 482,272" class="d-ln" marker-end="url(#ah)"/><circle cx="540" cy="260" r="9" class="num"/><text x="540" y="263" class="numt">19</text></g>
+<g class="tr" data-t="20"><polyline points="480,294 610,294 610,246" class="d-ln" marker-end="url(#ah)"/><circle cx="610" cy="270" r="9" class="num"/><text x="610" y="273" class="numt">20</text></g>
+<g class="tr" data-t="21"><line x1="390" y1="304" x2="390" y2="338" class="d-ln" marker-end="url(#ah)"/><circle cx="405" cy="321" r="9" class="num"/><text x="405" y="324" class="numt">21</text></g>
+<g class="st" data-s="FULL" tabindex="0" role="button" aria-label="CANSM_BSM_S_FULLCOM"><rect x="200" y="20" width="300" height="50" class="d-state m-sm"/><text x="350" y="50" class="d-m d-c">CANSM_BSM_S_FULLCOM</text></g>
+<g class="st" data-s="PREFULL" tabindex="0" role="button" aria-label="CANSM_BSM_S_PRE_FULLCOM"><rect x="20" y="130" width="175" height="44" class="d-state m-sm"/><text x="107" y="156" class="d-m d-c">CANSM_BSM_S_PRE_FULLCOM</text></g>
+<g class="st" data-s="BR" tabindex="0" role="button" aria-label="CANSM_BSM_S_CHANGE_BAUDRATE"><rect x="260" y="130" width="200" height="44" class="d-state m-sm"/><text x="360" y="156" class="d-m d-c">CANSM_BSM_S_CHANGE_BAUDRATE</text></g>
+<g class="st" data-s="SIL" tabindex="0" role="button" aria-label="CANSM_BSM_S_SILENTCOM"><rect x="500" y="200" width="180" height="44" class="d-state m-sm"/><text x="590" y="226" class="d-m d-c">CANSM_BSM_S_SILENTCOM</text></g>
+<g class="st" data-s="WUV" tabindex="0" role="button" aria-label="CANSM_BSM_WUVALIDATION"><rect x="20" y="240" width="170" height="44" class="d-state m-sm"/><text x="105" y="266" class="d-m d-c">CANSM_BSM_WUVALIDATION</text></g>
+<g class="st" data-s="BOR" tabindex="0" role="button" aria-label="CANSM_BSM_S_SILENTCOM_BOR"><rect x="300" y="260" width="180" height="44" class="d-state m-sm"/><text x="390" y="286" class="d-m d-c">CANSM_BSM_S_SILENTCOM_BOR</text></g>
+<g class="st" data-s="PRENO" tabindex="0" role="button" aria-label="CANSM_BSM_S_PRE_NOCOM"><rect x="200" y="340" width="480" height="44" class="d-state m-sm"/><text x="440" y="366" class="d-m d-c">CANSM_BSM_S_PRE_NOCOM</text></g>
+<g class="st" data-s="NOCOM" tabindex="0" role="button" aria-label="CANSM_BSM_S_NOCOM"><rect x="20" y="410" width="170" height="50" class="d-state m-sm"/><text x="105" y="439" class="d-m d-c">CANSM_BSM_S_NOCOM</text></g>
+<g class="st" data-s="NOTINIT" tabindex="0" role="button" aria-label="CANSM_BSM_S_NOT_INITIALIZED"><rect x="430" y="410" width="200" height="50" class="d-state m-sm"/><text x="530" y="439" class="d-m d-c">CANSM_BSM_S_NOT_INITIALIZED</text></g>
+</svg>
+</div>
+<figcaption><b>Figure 2.</b> The CanSM network state machine, drawn after Figure 7.1 of the CanSM specification. Arrow 1 is power on.</figcaption>
+</figure>
+<div class="buttons-row no-print"><button type="button" data-all="B">Show all CanSM transitions</button></div>
+<p class="readout" id="roB" aria-live="polite"></p>
+<div class="table-wrap">
+<table class="data tr" id="tabB">
+<colgroup><col style="width:5%"><col style="width:24%"><col style="width:31%"><col style="width:27%"><col style="width:13%"></colgroup>
+<thead><tr><th>#</th><th>From → to</th><th>Trigger [guard]</th><th>Effect</th><th>SWS_CanSM_</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<h2>The sub state machines of CanSM</h2>
+<p>Six states of <code>CANSM_BSM</code> are themselves state machines. Each step requests a mode from the CanIf, waits for the indication and repeats the request after <code>CanSMModeRequestRepetitionTime</code> if it times out; after <code>CanSMModeRequestRepetitionMax</code> repetitions CanSM reports <code>CANSM_E_MODE_REQUEST_TIMEOUT</code> (SWS_CanSM_00385). Without a configured transceiver the transceiver steps are skipped (SWS_CanSM_00560).</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Sub state machine</th><th>Steps, in order</th><th>Section</th></tr></thead>
+<tbody>
+<tr><td><code class="term">CANSM_BSM_WUVALIDATION</code></td><td>transceiver normal (<code>S_TRCV_NORMAL</code>) → controllers stopped (<code>S_CC_STOPPED</code>) → controllers started (<code>S_CC_STARTED</code>), then wait to be left: the controllers can receive the message that validates the wakeup</td><td>7.2.19</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_NOCOM</code></td><td>guard <code>CANSM_BSM_G_PN_SUPPORTED</code> (transceiver with <code>CanTrcvPnEnabled</code>): clear the wakeup frame flag, controllers stopped, transceiver normal, transceiver standby, controllers sleep, check the wake flag. Otherwise (<code>CANSM_BSM_G_PN_NOT_SUPPORTED</code>): controllers stopped, controllers sleep, transceiver normal, transceiver standby</td><td>7.2.20</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_PRE_FULLCOM</code></td><td>transceiver normal → controllers stopped → controllers started</td><td>7.2.22</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_FULLCOM</code></td><td><code>S_BUS_OFF_CHECK</code> until <code>G_BUS_OFF_PASSIVE</code> (time <code>CanSMBorTimeTxEnsured</code> passed, or transmit confirmations polled) → <code>S_NO_BUS_OFF</code>. On <code>T_BUS_OFF</code>: <code>E_BUS_OFF</code>, restart the controllers (<code>S_RESTART_CC</code>), <code>S_TX_OFF</code> for the recovery time, then <code>E_TX_ON</code> back to <code>S_BUS_OFF_CHECK</code>. <code>T_CHANGE_BR_REQUEST</code> leaves through the exit point <code>CHANGE_BR</code>; a transmit timeout exception has its own sub state machine</td><td>7.2.23</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_SILENTCOM_BOR</code></td><td><code>E_BUS_OFF</code> → restart the controllers (<code>S_RESTART_CC</code>) → <code>E_TX_OFF</code> (does nothing: after a restart the PDU mode is already TX off)</td><td>7.2.21</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_CHANGE_BAUDRATE</code></td><td>controllers stopped → <code>E_CHANGE_BAUDRATE</code> (tell ComM <code>COMM_NO_COMMUNICATION</code>, call <code>CanIf_SetBaudrate</code>) → controllers started, then leave by the requested mode</td><td>7.2.24</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="older">
+<p>R25-11 names the callback that CanSM calls <code class="term">ComM_CanSM_ModeIndication</code> (ComM defines it as <code>ComM_&lt;Bus&gt;SM_ModeIndication</code>); up to R24-11 it was <code>ComM_BusSM_ModeIndication</code>, and the R25-11 CanSM specification text still uses that name in its effects.</p>
+<p>In 4.4.0 and R20-11 the ComM channel state machine has the same states. In 4.4.0 (up to R19-11) the NM variant for a LIN slave is called <code>LINSLAVE</code>: transitions 11 and 20 exist there with the same requirements, written for <code>LINSLAVE</code>. <code>SLAVE_PASSIVE</code> does not exist yet, so transition 12 applies to <code>PASSIVE</code> only and transition 20 to <code>LINSLAVE</code> only. R20-11 replaces <code>LINSLAVE</code> by <code>SLAVE_ACTIVE</code> and adds <code>SLAVE_PASSIVE</code>.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> In ComM, requests and diagnostics move a channel up, NM indications move it down, and the NM variant decides which downward path applies. In CanSM, every way down goes through <code>CANSM_BSM_S_PRE_NOCOM</code>, every way up through <code>CANSM_BSM_S_PRE_FULLCOM</code>, and a bus-off in silent communication is handled in its own state.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">guarding condition</span></td><td>A condition in a state machine (written in square brackets) that must hold for a transition to be taken</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_NOT_INITIALIZED</code></td><td>CanSM state after power on, before CanSM_Init; mode requests are denied</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_SILENTCOM_BOR</code></td><td>CanSM state for a bus-off during silent communication: the controllers are restarted, transmission stays off</td></tr>
+<tr><td><code class="term">CANSM_BSM_S_CHANGE_BAUDRATE</code></td><td>CanSM state in which the controllers are stopped, the baud rate is changed and the controllers are started again</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, chapter 7.2 (Figure 7.7, Table 7.1) and 7.7.1; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANStateManager.pdf">Specification of CAN State Manager, R25-11</a>, chapter 7.2 (Figures 7.1 to 7.8); the same documents of 4.4.0, R20-11 and R24-11 for the older releases.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  // [number, from, to, from→to text, trigger, guard, effect, requirements]
+  const A = [
+    [1, 'init', 'NP', 'start → NO_PENDING_REQUEST', 'ComM initialized', '–', 'no mode indication to users', '00485 00898 00313'],
+    [2, 'NP', 'RP', 'NO_PENDING_REQUEST → REQUEST_PENDING', 'ComM_RequestComMode(user, COMM_FULL_COMMUNICATION)', 'limitation disabled', '–', '00875'],
+    [3, 'NP', 'RP', 'NO_PENDING_REQUEST → REQUEST_PENDING', 'ComM_DCM_ActiveDiagnostic', 'NM variant FULL, LIGHT or NONE', '–', '00876'],
+    [4, 'NP', 'RP', 'NO_PENDING_REQUEST → REQUEST_PENDING', 'ComM_EcuM_WakeUpIndication', 'ComMSynchronousWakeUp: false = this channel (and its managing channel), true = all channels', '–', '00893 00694'],
+    [5, 'NP', 'RP', 'NO_PENDING_REQUEST → REQUEST_PENDING', 'ComM_EcuM_PNCWakeUpIndication(PNC)', 'ComMPncSupport; synchronous wakeup false = channels of the PNC, true = all', '–', '01014 01015'],
+    [6, 'NP', 'RP', 'NO_PENDING_REQUEST → REQUEST_PENDING', 'ComM_Nm_RestartIndication or ComM_Nm_NetworkStartIndication', '–', '–', '00894 00583'],
+    [7, 'RP', 'NP', 'REQUEST_PENDING → NO_PENDING_REQUEST', 'no valid pending request any more', '–', '–', '00897'],
+    [8, 'RP', 'NR', 'REQUEST_PENDING → FULL: NETWORK_REQUESTED', 'CommunicationAllowed evaluated', 'CommunicationAllowed = TRUE', '<Bus>SM_RequestComMode(FULL); FULL: Nm_NetworkRequest (user or Dcm request) or Nm_PassiveStartUp (after a wakeup or restart); LIGHT, NONE: start ComMTMinFullComModeDuration', '00895 00069 00869 00870 00665 00902 00903 00886'],
+    [9, 'NR', 'RS', 'NETWORK_REQUESTED → READY_SLEEP', 'no user request, no active diagnostics', 'NM variant FULL', 'FULL: Nm_NetworkRelease', '00888 00133'],
+    [10, 'NR', 'RS', 'NETWORK_REQUESTED → READY_SLEEP', 'ComMTMinFullComModeDuration expired, no user request, no active diagnostics', 'NM variant LIGHT or NONE', 'LIGHT: start ComMNmLightTimeout', '00889 00891'],
+    [11, 'NR', 'RS', 'NETWORK_REQUESTED → READY_SLEEP', 'no user request', 'NM variant SLAVE_ACTIVE', '–', '01017'],
+    [12, 'NR', 'RS', 'NETWORK_REQUESTED → READY_SLEEP', 'immediately', 'NM variant PASSIVE or SLAVE_PASSIVE', '–', '00915'],
+    [13, 'NR', 'RS', 'NETWORK_REQUESTED → READY_SLEEP', 'communication limitation requested', 'no active diagnostics', 'cancel ComMTMinFullComModeDuration', '00890'],
+    [14, 'RS', 'NR', 'READY_SLEEP → NETWORK_REQUESTED', 'ComM_RequestComMode(user, COMM_FULL_COMMUNICATION)', 'limitation disabled', 'FULL: Nm_NetworkRequest', '00882 00869'],
+    [15, 'RS', 'NR', 'READY_SLEEP → NETWORK_REQUESTED', 'ComM_DCM_ActiveDiagnostic', 'NM variant FULL, LIGHT or NONE', 'FULL: Nm_NetworkRequest', '00883 00870'],
+    [16, 'RS', 'NP', 'READY_SLEEP → NO_COMMUNICATION', 'ComMNmLightTimeout expired', 'NM variant LIGHT; with PNCs: all of them in COMM_PNC_NO_COMMUNICATION', '<Bus>SM_RequestComMode(NO)', '00610 01095 00073'],
+    [17, 'RS', 'NP', 'READY_SLEEP → NO_COMMUNICATION', 'immediately', 'ComMBusType = COMM_BUS_TYPE_INTERNAL', '–', '00671'],
+    [18, 'FULL', 'SI', 'FULL → SILENT_COMMUNICATION', 'ComM_Nm_PrepareBusSleepMode', 'NM variant FULL or PASSIVE', '<Bus>SM_RequestComMode(SILENT)', '00826 00071'],
+    [19, 'FULL', 'NP', 'FULL → NO_COMMUNICATION', 'ComM_Nm_BusSleepMode', '–', '<Bus>SM_RequestComMode(NO); FULL: Nm_NetworkRelease', '00637 00073 00288'],
+    [20, 'FULL', 'NP', 'FULL → NO_COMMUNICATION', 'ComM_<Bus>SM_BusSleepMode', 'NM variant SLAVE_ACTIVE or SLAVE_PASSIVE', '<Bus>SM_RequestComMode(NO)', '01018 00073'],
+    [21, 'SI', 'NR', 'SILENT → NETWORK_REQUESTED', 'ComM_RequestComMode(user, COMM_FULL_COMMUNICATION)', 'limitation disabled', '<Bus>SM_RequestComMode(FULL); FULL: Nm_NetworkRequest', '00877 00069'],
+    [22, 'SI', 'NR', 'SILENT → NETWORK_REQUESTED', 'ComM_DCM_ActiveDiagnostic', 'NM variant FULL, LIGHT or NONE', '<Bus>SM_RequestComMode(FULL); FULL: Nm_NetworkRequest', '00878 00069'],
+    [23, 'SI', 'RS', 'SILENT → READY_SLEEP', 'ComM_Nm_NetworkMode', '–', '<Bus>SM_RequestComMode(FULL)', '00296 00069'],
+    [24, 'SI', 'NP', 'SILENT → NO_COMMUNICATION', 'ComM_Nm_BusSleepMode', '–', '<Bus>SM_RequestComMode(NO); FULL: Nm_NetworkRelease', '00295 00073 00288']
+  ];
+  const B = [
+    [1, 'power', 'NOTINIT', 'power on → NOT_INITIALIZED', 'PowerOn', '–', '–', '00424'],
+    [2, 'NOTINIT', 'PRENO', 'NOT_INITIALIZED → PRE_NOCOM', 'CanSM_Init', '–', '–', '00423'],
+    [3, 'PRENO', 'NOCOM', 'PRE_NOCOM → NOCOM', 'sub state machine finished', '–', 'E_NOCOM: store COMM_NO_COMMUNICATION; ComM_CanSM_ModeIndication(NO) if NO was requested', '00430 00651'],
+    [4, 'NOCOM', 'NOTINIT', 'NOCOM → NOT_INITIALIZED', 'CanSM_DeInit', '–', '–', '00658'],
+    [5, 'NOCOM', 'WUV', 'NOCOM → WUVALIDATION', 'T_START_WAKEUP_SOURCE (CanSM_StartWakeupSource returned E_OK)', '–', '–', '00607'],
+    [6, 'PRENO', 'WUV', 'PRE_NOCOM → WUVALIDATION', 'T_START_WAKEUP_SOURCE', '–', '–', '00607'],
+    [7, 'WUV', 'PRENO', 'WUVALIDATION → PRE_NOCOM', 'T_STOP_WAKEUP_SOURCE (CanSM_StopWakeupSource returned E_OK)', '–', '–', '00608'],
+    [8, 'WUV', 'PREFULL', 'WUVALIDATION → PRE_FULLCOM', 'T_FULL_COM_MODE_REQUEST', '–', '–', '00425'],
+    [9, 'NOCOM', 'PREFULL', 'NOCOM → PRE_FULLCOM', 'T_FULL_COM_MODE_REQUEST', '–', '–', '00425'],
+    [10, 'PREFULL', 'FULL', 'PRE_FULLCOM → FULLCOM', 'sub state machine finished (exit point To FULLCOM)', '–', 'E_FULL_COM: CanIf_SetPduMode(CANIF_ONLINE, or CANIF_TX_OFFLINE_ACTIVE if ECU passive), ComM_CanSM_ModeIndication(FULL), BswM_CanSM_CurrentState(FULL)', '00539 00647 00435 00540'],
+    [11, 'FULL', 'PRENO', 'FULLCOM → PRE_NOCOM', 'T_NO_COM_MODE_REQUEST', '–', 'E_PRE_NOCOM: BswM_CanSM_CurrentState(NO_COMMUNICATION)', '00426 00431'],
+    [12, 'FULL', 'BR', 'FULLCOM → CHANGE_BAUDRATE', 'T_CHANGE_BR_REQUEST (exit point CHANGE_BR)', '–', 'E_CHANGE_BR_BSWM_MODE: BswM_CanSM_CurrentState(CHANGE_BAUDRATE)', '00507 00528'],
+    [13, 'BR', 'FULL', 'CHANGE_BAUDRATE → FULLCOM', 'exit point FULL_OR_SILENT_COM', 'G_FULL_COM_MODE_REQUESTED', 'E_BR_END_FULL_COM (same as E_FULL_COM)', '00427 00432'],
+    [14, 'BR', 'SIL', 'CHANGE_BAUDRATE → SILENTCOM', 'exit point FULL_OR_SILENT_COM', 'G_SILENT_COM_MODE_REQUESTED', 'E_BR_END_SILENT_COM (same as E_FULL_TO_SILENT_COM)', '00429 00433'],
+    [15, 'BR', 'PRENO', 'CHANGE_BAUDRATE → PRE_NOCOM', 'exit point NO_COM', 'G_NO_COM_MODE_REQUESTED', 'E_PRE_NOCOM', '00542 00431'],
+    [16, 'FULL', 'SIL', 'FULLCOM → SILENTCOM', 'T_SILENT_COM_MODE_REQUEST', '–', 'E_FULL_TO_SILENT_COM: BswM_CanSM_CurrentState(SILENT), CanIf_SetPduMode(CANIF_TX_OFFLINE), ComM_CanSM_ModeIndication(SILENT)', '00499 00434 00541 00538'],
+    [17, 'SIL', 'FULL', 'SILENTCOM → FULLCOM', 'T_FULL_COM_MODE_REQUEST', '–', 'E_SILENT_TO_FULL_COM (same as E_FULL_COM)', '00425 00550'],
+    [18, 'SIL', 'PRENO', 'SILENTCOM → PRE_NOCOM', 'T_NO_COM_MODE_REQUEST', '–', 'E_PRE_NOCOM', '00426 00431'],
+    [19, 'SIL', 'BOR', 'SILENTCOM → SILENTCOM_BOR', 'T_BUS_OFF (CanSM_ControllerBusOff)', '–', 'E_BUS_OFF: Dem_SetEventStatus(CANSM_E_BUS_OFF, PRE_FAILED)', '00606 00605'],
+    [20, 'BOR', 'SIL', 'SILENTCOM_BOR → SILENTCOM', 'T_RESTART_CC_INDICATED (all controllers started)', '–', 'E_TX_OFF (nothing to do)', '00600'],
+    [21, 'BOR', 'PRENO', 'SILENTCOM_BOR → PRE_NOCOM', 'T_NO_COM_MODE_REQUEST', '–', 'E_PRE_NOCOM', '00426 00431']
+  ];
+  const NAMES = {
+    NR: 'COMM_FULL_COM_NETWORK_REQUESTED', RS: 'COMM_FULL_COM_READY_SLEEP', SI: 'COMM_SILENT_COMMUNICATION', RP: 'COMM_NO_COM_REQUEST_PENDING', NP: 'COMM_NO_COM_NO_PENDING_REQUEST',
+    FULL: 'CANSM_BSM_S_FULLCOM', PREFULL: 'CANSM_BSM_S_PRE_FULLCOM', BR: 'CANSM_BSM_S_CHANGE_BAUDRATE', SIL: 'CANSM_BSM_S_SILENTCOM', WUV: 'CANSM_BSM_WUVALIDATION', BOR: 'CANSM_BSM_S_SILENTCOM_BOR', PRENO: 'CANSM_BSM_S_PRE_NOCOM', NOCOM: 'CANSM_BSM_S_NOCOM', NOTINIT: 'CANSM_BSM_S_NOT_INITIALIZED'
+  };
+  const FULLSUB = { NR: 1, RS: 1 };
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function setup(key, data, prefix) {
+    const fig = document.getElementById('sm' + key);
+    const tbody = document.querySelector('#tab' + key + ' tbody');
+    const ro = document.getElementById('ro' + key);
+    function touches(r, s) {
+      if (r[1] === s || r[2] === s) return true;
+      if (key === 'A' && r[1] === 'FULL' && FULLSUB[s]) return true;
+      return false;
+    }
+    function inRange(t, n) {
+      const p = t.split('-').map(Number);
+      return n >= p[0] && n <= (p[1] || p[0]);
+    }
+    function render(s) {
+      tbody.innerHTML = data.map((r) => {
+        const on = s && touches(r, s);
+        return '<tr' + (on ? ' class="hi"' : '') + '><td>' + r[0] + '</td><td>' + esc(r[3]) + '</td><td>' + esc(r[4]) + (r[5] !== '–' ? '<span class="g">[' + esc(r[5]) + ']</span>' : '') + '</td><td>' + esc(r[6]) + '</td><td class="req">' + r[7].split(' ').join('<br>') + '</td></tr>';
+      }).join('');
+      fig.querySelectorAll('g.st rect').forEach((rc) => rc.classList.toggle('on', !!s && rc.parentNode.dataset.s === s));
+      const hits = s ? data.filter((r) => touches(r, s)).map((r) => r[0]) : [];
+      fig.querySelectorAll('g.tr').forEach((g) => g.classList.toggle('hi', hits.some((n) => inRange(g.dataset.t, n))));
+      ro.textContent = s ? NAMES[s] + ': transitions ' + hits.join(', ') + ' (highlighted)' : 'All ' + data.length + ' transitions.';
+    }
+    fig.querySelectorAll('g.st').forEach((g) => {
+      const go = () => render(g.dataset.s);
+      g.addEventListener('click', go);
+      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+    document.querySelector('[data-all="' + key + '"]').addEventListener('click', () => render(null));
+    render(null);
+  }
+  setup('A', A, 'ComM');
+  setup('B', B, 'CanSM');
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A ComM channel with NM variant FULL is in READY_SLEEP. What takes it to SILENT_COMMUNICATION?',
+    options: ['ComM_Nm_PrepareBusSleepMode', 'ComMNmLightTimeout expiring', 'ComM_DCM_InactiveDiagnostic'],
+    answer: 0,
+    why: 'SWS_ComM_00826: in COMM_FULL_COMMUNICATION with FULL or PASSIVE, the NM indication of Prepare Bus-Sleep Mode moves the channel to silent communication.'
+  },
+  {
+    prompt: 'From which CanSM state can T_BUS_OFF lead to CANSM_BSM_S_SILENTCOM_BOR?',
+    options: ['CANSM_BSM_S_SILENTCOM', 'CANSM_BSM_S_PRE_NOCOM', 'CANSM_BSM_S_NOCOM'],
+    answer: 0,
+    why: 'Figure 7.1: a bus-off in silent communication goes to SILENTCOM_BOR. A bus-off in full communication is handled inside CANSM_BSM_S_FULLCOM.'
+  },
+  {
+    prompt: 'What does CanSM_Init do to the state machine of each network?',
+    options: ['Moves it to CANSM_BSM_S_PRE_NOCOM', 'Moves it to CANSM_BSM_S_NOCOM', 'Moves it to CANSM_BSM_S_PRE_FULLCOM'],
+    answer: 0,
+    why: 'Figure 7.1: CanSM_Init leads from NOT_INITIALIZED to PRE_NOCOM, which brings controllers and transceiver into a defined sleep state before NOCOM.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

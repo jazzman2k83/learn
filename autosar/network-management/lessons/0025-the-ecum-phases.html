@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The EcuM phases · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>The EcuM phases</h1>
+<p class="lede">From reset to power off, an ECU passes through five phases. <span class="term">EcuM</span> carries out the fixed sequences at the edges; in between, <span class="term">BswM</span> decides what happens and when.</p>
+
+<svg class="defs" aria-hidden="true"><defs><marker id="a25" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" class="ah"/></marker></defs></svg>
+
+<h2>Five phases</h2>
+<p>The EcuM of this course is <span class="term">EcuM Flex</span> (the EcuM of AUTOSAR 4.x and later: EcuM runs the startup, sleep and shutdown sequences, while BswM decides when they happen). It divides the life of the ECU into phases. A phase is not a state that the application asks for; it is a stretch of EcuM's own work, or the long stretch in between where EcuM stays in the background.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 270" role="img" aria-labelledby="f25t">
+<title id="f25t">EcuM phases. Reset leads to STARTUP with the StartPreOS and StartPostOS sequences, then UP. From UP, EcuM_GoDownHaltPoll with shutdown target SLEEP leads to SLEEP (GoSleep, Halt or Poll, WakeupRestart) and back to UP after a wakeup. With target OFF or RESET it leads to SHUTDOWN (OffPreOS, OffPostOS), then OFF, or for RESET back to STARTUP.</title>
+<rect x="20" y="20" width="170" height="70" class="d-state m-ecum"/><text x="105" y="44" class="d-tb d-c">STARTUP</text><text x="105" y="62" class="d-s d-c">StartPreOS</text><text x="105" y="76" class="d-s d-c">StartPostOS</text>
+<rect x="235" y="20" width="170" height="70" class="d-state" style="fill: var(--m-bswm-soft); stroke: var(--m-bswm)"/><text x="320" y="44" class="d-tb d-c">UP</text><text x="320" y="62" class="d-s d-c">BswM in control</text><text x="320" y="76" class="d-s d-c">BSW and SWCs run</text>
+<rect x="450" y="20" width="170" height="70" class="d-state m-ecum"/><text x="535" y="44" class="d-tb d-c">SLEEP</text><text x="535" y="62" class="d-s d-c">GoSleep, Halt or Poll,</text><text x="535" y="76" class="d-s d-c">WakeupRestart</text>
+<rect x="235" y="170" width="170" height="70" class="d-state m-ecum"/><text x="320" y="194" class="d-tb d-c">SHUTDOWN</text><text x="320" y="212" class="d-s d-c">OffPreOS</text><text x="320" y="226" class="d-s d-c">OffPostOS</text>
+<rect x="450" y="170" width="170" height="70" class="d-state"/><text x="535" y="200" class="d-tb d-c">OFF</text><text x="535" y="218" class="d-s d-c">powered down</text>
+<text x="20" y="128" class="d-s">reset</text>
+<line x1="60" y1="124" x2="60" y2="92" class="d-ln" marker-end="url(#a25)"/>
+<line x1="190" y1="55" x2="233" y2="55" class="d-ln" marker-end="url(#a25)"/>
+<line x1="405" y1="45" x2="448" y2="45" class="d-ln" marker-end="url(#a25)"/>
+<line x1="448" y1="68" x2="407" y2="68" class="d-ln dash" marker-end="url(#a25)"/>
+<text x="427" y="104" class="d-s d-c">target SLEEP /</text><text x="427" y="117" class="d-s d-c">wakeup</text>
+<line x1="320" y1="90" x2="320" y2="168" class="d-ln" marker-end="url(#a25)"/>
+<text x="326" y="134" class="d-s">target OFF or RESET</text>
+<line x1="405" y1="205" x2="448" y2="205" class="d-ln" marker-end="url(#a25)"/>
+<text x="427" y="196" class="d-s d-c">OFF</text>
+<path d="M235,215 L105,215 L105,92" class="d-ln dash" marker-end="url(#a25)"/>
+<text x="112" y="208" class="d-s">RESET</text>
+<text x="320" y="262" class="d-s d-c">BswM selects the target and calls EcuM_GoDownHaltPoll</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> Pink phases are EcuM's own sequences; the olive UP phase is where BswM runs the ECU. Every way out of UP starts with the same call from BswM; the selected target decides where it leads.</figcaption>
+</figure>
+<div class="cards">
+  <div class="card m-ecum"><p class="tag">reset to mode management</p><h3>STARTUP</h3><p>The <span class="term">STARTUP phase</span> runs from reset until the OS, the BSW Scheduler and BswM run (lesson 26). It holds only the minimum needed to start mode management.</p></div>
+  <div class="card m-bswm"><p class="tag">the long middle</p><h3>UP</h3><p>The <span class="term">UP phase</span> is the phase in which the ECU runs. BswM's action lists initialize the rest of the BSW, start the RTE and with it the SWCs, and later stop them again. EcuM stays passive but handles wakeup sources and the alarm clock.</p></div>
+  <div class="card m-ecum"><p class="tag">mode management off</p><h3>SHUTDOWN</h3><p>The <span class="term">SHUTDOWN phase</span> is the reverse of STARTUP: it shuts down the remaining BSW and the OS and ends in the selected <span class="term">shutdown target</span> (where the ECU goes when it shuts down: off, reset or sleep), here OFF or RESET.</p></div>
+  <div class="card m-ecum"><p class="tag">saving energy</p><h3>SLEEP</h3><p>In the <span class="term">SLEEP phase</span> the ECU waits for a wakeup with power still on, either halted or polling (lesson 30). A wakeup leads through the WakeupRestart sequence back to UP.</p></div>
+  <div class="card m-drv"><p class="tag">no power</p><h3>OFF</h3><p>In the <span class="term">OFF phase</span> the ECU is powered down. It must be startable again, for example by a reset; it can be woken only by wakeup sources with their own power control.</p></div>
+</div>
+
+<h2>Who decides, who executes</h2>
+<p>EcuM Flex has no state machine of its own for the running ECU. The specification says it plainly: only BswM can decide when a transition to another mode can be made. EcuM supplies the pieces BswM needs and carries out the sequences.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Question</th><th>Decides</th><th>Executes</th></tr></thead>
+<tbody>
+<tr><td>When does the BSW beyond the first drivers start?</td><td>BswM (action lists in UP)</td><td>the modules' init functions, partly through an EcuM init list</td></tr>
+<tr><td>Is anyone still asking to run?</td><td>BswM (from EcuM's report of the RUN requests, lesson 28)</td><td>—</td></tr>
+<tr><td>Off, reset or sleep?</td><td>BswM selects the shutdown target</td><td>EcuM stores it</td></tr>
+<tr><td>Go now</td><td>BswM calls <code class="term">EcuM_GoDownHaltPoll</code> (the EcuM function that carries out the selected shutdown target)</td><td>EcuM runs SHUTDOWN or SLEEP</td></tr>
+<tr><td>Was that wakeup real?</td><td>EcuM validates it (lesson 34)</td><td>EcuM reports the wakeup source state to BswM</td></tr>
+</tbody>
+</table>
+</div>
+<p>On the example ECU this means: whether the body gateway may sleep once <code>BodyCan</code>, <code>ChassisCan</code> and <code>Eth</code> are all in <span class="term">COMM_NO_COMMUNICATION</span> is a rule in BswM, not a decision inside EcuM. EcuM only does what the rule's action list calls.</p>
+<div class="older">
+<p>4.4.0 and R20-11 have the same five phases and the same split between BswM and EcuM. In <span class="term">EcuM Fixed</span> (the older EcuM variant with its own fixed state machine, 4.3.1 and older) EcuM went through its own states such as STARTUP, RUN, SHUTDOWN, SLEEP and WAKEUP; lessons 51 and 52 compare the two.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> STARTUP and SHUTDOWN are short and mirror each other; almost everything an ECU does happens in UP, under BswM. One call, <code>EcuM_GoDownHaltPoll</code>, leaves UP; the shutdown target selected before decides whether that means sleep, reset or off.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">EcuM Flex</span></td><td>The EcuM of AUTOSAR 4.x and later: EcuM runs the startup, sleep and shutdown sequences, BswM decides when</td></tr>
+<tr><td><span class="term">STARTUP phase</span></td><td>From reset until the OS, the BSW Scheduler and BswM run</td></tr>
+<tr><td><span class="term">UP phase</span></td><td>The ECU runs; BswM decides, EcuM handles wakeup sources</td></tr>
+<tr><td><span class="term">SHUTDOWN phase</span></td><td>Shuts down BSW and OS and ends in the shutdown target OFF or RESET</td></tr>
+<tr><td><span class="term">SLEEP phase</span></td><td>The ECU waits for a wakeup with power on, halted or polling</td></tr>
+<tr><td><span class="term">OFF phase</span></td><td>The ECU is powered down</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, sections 7.1 (phases), 7.4, 7.5 and 7.10 (EcuM mode handling).</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'In EcuM Flex, who decides that the ECU goes to sleep?',
+    options: ['BswM, with its rules and action lists', 'EcuM, from its own RUN state machine', 'ComM, once all channels are released'],
+    answer: 0,
+    why: 'EcuM Flex has no state machine for the running ECU. BswM selects the shutdown target and calls EcuM_GoDownHaltPoll; EcuM carries out the sequence.'
+  },
+  {
+    prompt: 'Which phase is the reverse of STARTUP?',
+    options: ['SHUTDOWN, where mode management ends', 'SLEEP, where the ECU waits for wakeup', 'OFF, where the ECU has no power left'],
+    answer: 0,
+    why: 'STARTUP starts the OS, SchM and BswM; SHUTDOWN de-initializes them and ends in OFF or RESET.'
+  },
+  {
+    prompt: 'Where are COM, the RTE and the SWCs started?',
+    options: ['In UP, by BswM action lists', 'In STARTUP, before the OS starts', 'In SLEEP, during WakeupRestart'],
+    answer: 0,
+    why: 'STARTUP holds only the minimum to start mode management. The rest of the BSW, the RTE and the SWCs start in UP under BswM control.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

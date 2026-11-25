@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nested sub-buses and aborting a shutdown · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.events { display: grid; gap: 0.4rem; margin: 0 0 0.8rem; }
+.events button { text-align: left; padding: 0.45rem 0.7rem; line-height: 1.35; }
+.events button[aria-pressed="true"] { background: var(--good-soft); border-color: var(--good); color: var(--ink); }
+.snap { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.8rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Nested sub-buses and aborting a shutdown</h1>
+<p class="lede">Gateways can be chained: a gateway below another one must wait for the signal from above before it starts its <span class="term">coordinated shutdown</span>. And a shutdown that has started can still be called off when somebody needs a bus again.</p>
+
+<p>Lessons 37 and 38 showed one <span class="term">NM coordinator</span> on its own. This lesson adds coordinators in a chain, the three levels of synchronization the specification describes, and what happens when a shutdown is aborted or a bus wakes up.</p>
+
+<h2>A chain of coordinators</h2>
+<p>A bus that is reached through a second gateway is a <span class="term">nested sub-bus</span> (a bus behind a gateway that is itself on a bus coordinated by another gateway). Its gateway runs a coordinator too. If both coordinators decided on their own, they could keep the shared bus awake for each other: each still sends <span class="term">NM PDU</span>s, so each sees the other as "not ready to sleep". The specification solves this with a hierarchy, set up per channel of each coordinator:</p>
+<ul>
+<li>An <span class="term">actively coordinated channel</span> (a channel on which this coordinator leads: it keeps the bus awake and shuts it down with its own timers) is one on which the coordinator behaves as in lessons 37 and 38.</li>
+<li>A <span class="term">passively coordinated channel</span> (a channel on which a coordinator higher up leads, and this coordinator follows) is the one towards the higher coordinator. There, the lower coordinator sends NM PDUs only while it has a network request of its own or while one of its actively coordinated buses is not ready to sleep. So when it is ready, it falls silent, and the higher coordinator can see that.</li>
+</ul>
+<p>The top coordinator of a cluster has only actively coordinated channels. The chain needs coordinator synchronization support to be configured in NmIf and in the bus NMs.</p>
+
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 640 150" role="img" aria-labelledby="f1t">
+<title id="f1t">A chain of three gateways. GW1 is on Network 1 and Network 2, both actively coordinated. GW2 is on Network 2, passively coordinated, and Network 3, actively coordinated. GW3 is on Network 3, passively coordinated, and Network 4, actively coordinated.</title>
+<rect x="120" y="12" width="80" height="34" class="m-nm"/><text x="160" y="27" class="d-tb d-c">GW1</text><text x="160" y="40" class="d-s d-c">top</text>
+<rect x="290" y="12" width="80" height="34" class="m-nm"/><text x="330" y="33" class="d-tb d-c">GW2</text>
+<rect x="460" y="12" width="80" height="34" class="m-nm"/><text x="500" y="33" class="d-tb d-c">GW3</text>
+<rect x="20" y="100" width="110" height="26" class="m-drv"/><text x="75" y="117" class="d-t d-c">Network 1</text>
+<rect x="190" y="100" width="110" height="26" class="m-drv"/><text x="245" y="117" class="d-t d-c">Network 2</text>
+<rect x="360" y="100" width="110" height="26" class="m-drv"/><text x="415" y="117" class="d-t d-c">Network 3</text>
+<rect x="530" y="100" width="100" height="26" class="m-drv"/><text x="580" y="117" class="d-t d-c">Network 4</text>
+<line x1="140" y1="46" x2="85" y2="100" class="d-ln"/><text x="92" y="70" class="d-s d-r">active</text>
+<line x1="180" y1="46" x2="230" y2="100" class="d-ln"/><text x="196" y="58" class="d-s">active</text>
+<line x1="310" y1="46" x2="265" y2="100" class="d-ln dash"/><text x="266" y="94" class="d-s d-r">passive</text>
+<line x1="350" y1="46" x2="400" y2="100" class="d-ln"/><text x="366" y="58" class="d-s">active</text>
+<line x1="480" y1="46" x2="440" y2="100" class="d-ln dash"/><text x="440" y="94" class="d-s d-r">passive</text>
+<line x1="520" y1="46" x2="570" y2="100" class="d-ln"/><text x="536" y="58" class="d-s">active</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> The nested gateways of the specification. Each gateway is passive towards the gateway above it and active towards the buses below it; GW1, at the top, is active everywhere. Solid line: actively coordinated channel; dashed: passively coordinated channel.</figcaption>
+</figure>
+
+<h2>The Sleep Ready bit travels down</h2>
+<p>A lower coordinator does not start its shutdown by itself. It waits for the <span class="term">NM Coordinator Sleep Ready Bit</span> (a bit in the NM PDU: set to 1, it tells the coordinators below to start their coordinated shutdown; set back to 0, it calls the shutdown off) on its passively coordinated channel:</p>
+<ol>
+<li>The top coordinator finds all its buses ready to sleep and starts its coordinated shutdown. On its actively coordinated channels it sets the Sleep Ready bit to 1; the bus NM sends one NM PDU with the bit at once.</li>
+<li>The bus NM of the next gateway receives the bit on its passively coordinated channel and reports it to NmIf. That coordinator sets the bit on its own actively coordinated channels and starts its coordinated shutdown.</li>
+<li>So the bit travels down the chain, one gateway at a time. If the top coordinator clears the bit again, each gateway clears it on its active channels too.</li>
+</ol>
+<p>Because the lower gateways start a little later, the <span class="term">global coordinator time</span> of the top coordinator must cover the whole chain, nested buses included.</p>
+
+<h2>Try it: the bit through the chain</h2>
+<p>Step through the shutdown of the chain in Figure 1.</p>
+<div class="panel no-print" id="chain"></div>
+
+<h2>Three levels of synchronization</h2>
+<p>How closely the buses are synchronized depends on the configuration. The specification describes three use cases; they differ in two settings: whether one bus is the <span class="term">synchronizing network</span> (a bus whose NM tells the coordinator suitable moments to start the shutdown, typically a cyclic bus such as FlexRay), and how long the global coordinator time is.</p>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>Use case</th><th>Synchronizing network</th><th>Global coordinator time</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>1. Synchronous command</td><td>none</td><td>0</td><td>All buses are released at the same moment; they reach bus sleep one after the other. The fastest total shutdown.</td></tr>
+<tr><td>2. Synchronous initiation</td><td>one</td><td>0</td><td>Like 1, but the release waits for a suitable moment on the synchronizing network.</td></tr>
+<tr><td>3. Synchronous network sleep</td><td>one</td><td>the longest shutdown time, rounded up in cycles of the synchronizing network</td><td>The buses are released with delays and reach bus sleep together.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The example gateway has only CAN and Ethernet. CanNm gives no synchronization points, because a CAN bus can be released at any moment, and the gateway has no synchronizing network. Without one, the coordinator starts its timers as soon as the shutdown conditions are met. With a global coordinator time as in lesson 38, the gateway gets the result of use case 3: all buses sleep together.</p>
+
+<h2>Aborting a coordinated shutdown</h2>
+<p>Between the start of the shutdown and the last bus falling asleep, a few seconds pass. If somebody needs a bus again during that time, the coordinator aborts the shutdown. Four events do that, on any bus of the cluster:</p>
+<ol>
+<li>An ECU on a bus that is not released yet starts requesting it again: the bus NM reports a remote sleep cancellation.</li>
+<li>An ECU on a bus that was released and is in <span class="term">Prepare Bus-Sleep Mode</span> sends an NM PDU: the bus NM goes back to <span class="term">Network Mode</span> and reports it.</li>
+<li><span class="term">ComM</span> requests one of the buses, with <code class="term">Nm_NetworkRequest</code> or <code class="term">Nm_PassiveStartUp</code>.</li>
+<li>On a passively coordinated channel, the coordinator above clears the Sleep Ready bit.</li>
+</ol>
+<p>Then the coordinator requests the network again on every bus that has not reported Bus-Sleep Mode, released or not, and clears the Sleep Ready bit on its active channels. It does <em>not</em> wake a bus that already sleeps: for those it sends ComM a restart indication, and ComM decides, as in any wakeup. After that the coordinator checks the shutdown conditions again, and a new coordinated shutdown starts as soon as they are met. If a bus NM refuses a release, the coordinator also aborts and requests all awake buses again.</p>
+
+<h2>Try it: what aborts the shutdown</h2>
+<p>A moment during the shutdown of the example gateway: <code>BodyCan</code> has been released and is in Prepare Bus-Sleep Mode, the shutdown timer of <code>ChassisCan</code> still runs, and <code>Eth</code> was already asleep when the shutdown started. Pick an event.</p>
+<div class="panel no-print" id="abort">
+<div class="snap"><span class="state-pill">BodyCan: released, Prepare Bus-Sleep Mode</span><span class="state-pill">ChassisCan: shutdown timer running</span><span class="state-pill off">Eth: Bus-Sleep Mode</span></div>
+<div class="events">
+<button type="button" aria-pressed="false" data-ev="0">The Brake ECU starts requesting chassis CAN again</button>
+<button type="button" aria-pressed="false" data-ev="1">The Door ECU sends an NM PDU on body CAN</button>
+<button type="button" aria-pressed="false" data-ev="2">UserChassis requests ChassisCan in the gateway</button>
+<button type="button" aria-pressed="false" data-ev="3">The head unit wakes Ethernet</button>
+</div>
+<p class="readout" id="res">Pick an event.</p>
+</div>
+
+<h2>Wakeup and the coordinator</h2>
+<p>NmIf does not wake buses; ComM does. When another ECU wakes a coordinated bus, the bus NM reports the network start to NmIf, NmIf passes it to ComM, and ComM calls <code class="term">Nm_PassiveStartUp</code>. For a bus in a coordination cluster the coordinator treats that call like <code class="term">Nm_NetworkRequest</code>: it requests the network on that bus, so the bus counts as requested by the coordinator. The network start report alone does not abort a coordinated shutdown; the following call from ComM does.</p>
+<p>Whether the other buses of the cluster come up as well is a ComM configuration: ComM can start every bus of the cluster when one of them reports a network start. The specification recommends that for coordinated buses, but it is not required.</p>
+
+<div class="older">
+<p>In 4.4.0 and R20-11 the chain of coordinators, the Sleep Ready bit, the three use cases and the abort rules are the same as in R25-11. The only change is the one noted in lesson 38: until R24-11 the shutdown timers are started for every awake channel of the cluster, since R25-11 for every awake, actively coordinated channel.</p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> A lower gateway stays silent on the bus towards the gateway above as soon as it is ready, so that the gateway above can detect that all are ready; then it waits for the Sleep Ready bit. An abort never wakes a sleeping bus by itself; ComM decides that. The NM coordinator and ComM share the work: NmIf keeps awake and shuts down, ComM wakes up.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">nested sub-bus</span></td><td>A bus behind a gateway that is itself on a bus coordinated by another gateway</td></tr>
+<tr><td><span class="term">actively coordinated channel</span></td><td>A channel on which this coordinator leads: it keeps the bus awake and shuts it down with its own timers</td></tr>
+<tr><td><span class="term">passively coordinated channel</span></td><td>A channel towards a higher coordinator: this coordinator follows and waits for the Sleep Ready bit</td></tr>
+<tr><td><span class="term">NM Coordinator Sleep Ready Bit</span></td><td>Bit in the NM PDU: 1 tells the coordinators below to start their coordinated shutdown, 0 calls it off</td></tr>
+<tr><td><span class="term">synchronizing network</span></td><td>A bus whose NM tells the coordinator suitable moments to start the shutdown, typically a cyclic bus such as FlexRay</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_NetworkManagementInterface.pdf">Specification of Network Management Interface, R25-11</a>, sections 7.2.4, 7.2.6 to 7.2.8, 7.3 and 7.5.2; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_CANNetworkManagement.pdf">Specification of CAN Network Management, R25-11</a>, sections 7.9.7 and 7.16.2.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/seq.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+Seq.create(document.getElementById('chain'), {
+  actors: [
+    { id: 'g1', label: 'GW1', sub: 'top coordinator' },
+    { id: 'g2', label: 'GW2', sub: 'passive on Network 2' },
+    { id: 'g3', label: 'GW3', sub: 'passive on Network 3' }
+  ],
+  steps: [
+    { text: 'All networks of GW1 are ready to sleep. GW1 starts its coordinated shutdown and its shutdown timers for Network 1 and Network 2. GW2 and GW3 are silent on their passive channels: they are ready, too.',
+      rows: [{ at: 'g1', note: 'starts shutdown' }] },
+    { text: 'GW1 sets the Sleep Ready bit to 1 on its actively coordinated channels. The NM PDU on Network 2 carries it to GW2.',
+      rows: [{ from: 'g1', to: 'g2', label: 'Network 2 · Sleep Ready = 1', kind: 'ev' }] },
+    { text: 'The bus NM of GW2 reports the bit on its passively coordinated channel. GW2 sets the bit on Network 3 and starts its own coordinated shutdown with its timers.',
+      rows: [{ at: 'g2', note: 'starts shutdown' }, { from: 'g2', to: 'g3', label: 'Network 3 · Sleep Ready = 1', kind: 'ev' }] },
+    { text: 'GW3 gets the bit on Network 3, sets it on Network 4 and starts its coordinated shutdown.',
+      rows: [{ at: 'g3', note: 'starts shutdown' }] },
+    { text: 'Each gateway releases its actively coordinated buses when their shutdown timers expire. Because the global coordinator time of GW1 covers the whole chain, all four networks reach bus sleep at about the same time.',
+      rows: [{ span: ['g1', 'g3'], note: 'Networks 1 to 4 reach Bus-Sleep Mode' }] }
+  ]
+});
+
+(function () {
+  const results = [
+    'Abort. CanNm on chassis CAN reports a remote sleep cancellation. ChassisCan is not released yet and stays requested; NmIf requests BodyCan again, which goes back to Network Mode. Eth stays asleep: ComM gets a restart indication and decides. Then the coordinator waits until all buses are ready again.',
+    'Abort. CanNm on body CAN leaves Prepare Bus-Sleep Mode for Network Mode and reports it. NmIf requests BodyCan again; ChassisCan stays requested. Eth stays asleep: ComM gets a restart indication and decides.',
+    'Abort. ComM calls Nm_NetworkRequest for ChassisCan. The coordinator requests every bus that has not reported Bus-Sleep Mode again: BodyCan and ChassisCan. Eth stays asleep: ComM gets a restart indication and decides.',
+    'Not by itself. The network start report on Ethernet is passed to ComM and does not abort the shutdown. But ComM then calls Nm_PassiveStartUp for Eth, which the coordinator treats as a network request: that call aborts the shutdown, and BodyCan and ChassisCan are requested again.'
+  ];
+  const btns = Array.from(document.querySelectorAll('#abort [data-ev]'));
+  const res = document.getElementById('res');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    res.textContent = results[Number(b.dataset.ev)];
+  }));
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'When does a coordinator with a passively coordinated channel start its coordinated shutdown?',
+    options: ['When the Sleep Ready bit is set to 1', 'When its own buses are ready to sleep', 'When its shutdown timers have run out'],
+    answer: 0,
+    why: 'A lower coordinator waits for the Sleep Ready bit on its passive channel; then it sets the bit on its active channels and starts its shutdown.'
+  },
+  {
+    prompt: 'A coordinated shutdown is aborted. One bus of the cluster is already in Bus-Sleep Mode. What happens to it?',
+    options: ['ComM is told and decides about it', 'NmIf requests it again right away', 'It is removed from the cluster now'],
+    answer: 0,
+    why: 'The coordinator never wakes a sleeping bus. It sends ComM a restart indication, and ComM decides, as in any wakeup.'
+  },
+  {
+    prompt: 'Which use case releases all buses at the same moment without waiting for any bus?',
+    options: ['Use case 1, synchronous command', 'Use case 2, synchronous initiation', 'Use case 3, synchronous network sleep'],
+    answer: 0,
+    why: 'Use case 1 has no synchronizing network and a global coordinator time of 0: all buses are released at once and fall asleep one after the other.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

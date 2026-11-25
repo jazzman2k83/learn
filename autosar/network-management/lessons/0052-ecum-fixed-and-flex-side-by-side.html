@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EcuM Fixed and EcuM Flex side by side · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.side { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+@media (max-width: 34rem) { .side { grid-template-columns: 1fr; } }
+.side .card { margin: 0; }
+.chooser { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.6rem; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>EcuM Fixed and EcuM Flex side by side</h1>
+<p class="lede">The same ECU can be built with <span class="term">EcuM Fixed</span> or with <span class="term">EcuM Flex</span> and <span class="term">BswM</span>. The RUN requests look alike in both; who acts on them does not.</p>
+
+<div class="warn"><p><strong>Releases on this page.</strong> The EcuM Fixed column describes AUTOSAR 4.0.3 to 4.3.1. The EcuM Flex column describes R25-11; where Flex differed in 4.3.1 or older, the text says so. In 4.3.1 both variants are specified, so a 4.3.1 project may use either one.</p></div>
+
+<p>This lesson compares the two variants point by point, lists the APIs that exist in only one of them, maps each Fixed concept to its Flex and BswM counterpart, and shows how to read and migrate an EcuM Fixed project.</p>
+
+<h2>Who owns the state machine</h2>
+<div class="side">
+  <div class="card m-ecum"><p class="tag">EcuM Fixed</p><h3>EcuM owns it</h3><p>The states and their order are part of the standard: STARTUP, RUN with APP_RUN and APP_POST_RUN, SHUTDOWN, SLEEP, WAKEUP, OFF (lesson 51). EcuM runs them in <code>EcuM_MainFunction</code> and tells BswM the current state through <code class="term">BswM_EcuM_CurrentState</code>; BswM only follows.</p></div>
+  <div class="card m-bswm"><p class="tag">EcuM Flex + BswM</p><h3>BswM decides, EcuM executes</h3><p>EcuM keeps only the <span class="term">STARTUP phase</span>, the <span class="term">SHUTDOWN phase</span>, the <span class="term">SLEEP phase</span> and the wakeup handling. In the <span class="term">UP phase</span> the ECU's modes are whatever the integrator configures as BswM rules and <span class="term">action list</span>s (lessons 25 and 27). With <span class="term">ECU Mode Handling</span>, BswM sets the EcuM state with <code class="term">EcuM_SetState</code>.</p></div>
+</div>
+
+<h2>How shutdown is decided</h2>
+<div class="side">
+  <div class="card m-ecum"><p class="tag">EcuM Fixed</p><h3>A fixed condition</h3><p>EcuM leaves RUN when no <span class="term">RUN request</span> is placed, <code>EcuMRunMinimumDuration</code> is over and <code class="term">ComM_GetState</code> reports every channel idle. It shuts down when the last <span class="term">POST_RUN request</span> is released. The <span class="term">shutdown target</span> comes from <code class="term">EcuM_SelectShutdownTarget</code> or the configured default.</p></div>
+  <div class="card m-bswm"><p class="tag">EcuM Flex + BswM</p><h3>A configured rule</h3><p>EcuM only reports the RUN request protocol to BswM with <code class="term">BswM_EcuM_RequestedState</code>. A BswM rule combines this with whatever else matters (ComM modes, NvM, application modes); its action list selects the target and calls <code class="term">EcuM_GoDownHaltPoll</code>. Nothing shuts the ECU down unless such a rule exists (lessons 28 and 29).</p></div>
+</div>
+<div class="older"><p>In 4.3.1 and older, EcuM Flex has three calls instead of one: <code class="term">EcuM_GoDown</code>, <code>EcuM_GoHalt</code> and <code>EcuM_GoPoll</code>. 4.4.0 replaced them with <code class="term">EcuM_GoDownHaltPoll</code>, which acts on the selected shutdown target.</p></div>
+
+<h2>RUN requests in both</h2>
+<p>The four calls <code class="term">EcuM_RequestRUN</code>, <code class="term">EcuM_ReleaseRUN</code>, <code class="term">EcuM_RequestPOST_RUN</code> and <code class="term">EcuM_ReleasePOST_RUN</code> have the same names, service IDs and parameter (the <span class="term">EcuM user</span>) in both variants, and SWCs reach them through the same <code>EcuM_StateRequest</code> port interface. That is why an SWC usually needs no change. The difference lies behind the call: in EcuM Fixed a placed RUN request holds the ECU in RUN by itself; in EcuM Flex it is only an input to a BswM rule.</p>
+
+<h2>Try it</h2>
+<p>The same event in both variants: the last SWC releases RUN while <code>ChassisCan</code> is already in no communication. Step through it call by call, then switch the variant. The EcuM Flex story shows one possible BswM configuration; the actions are whatever the integrator configures.</p>
+<div class="panel no-print">
+<div class="chooser" role="group" aria-label="Variant">
+<button type="button" id="vFixed" aria-pressed="true">EcuM Fixed (4.3.1)</button>
+<button type="button" id="vFlex" aria-pressed="false">EcuM Flex + BswM (R25-11)</button>
+</div>
+<div id="seq"></div>
+</div>
+
+<h2>What changes for ComM</h2>
+<div class="table-wrap">
+<table class="data compare">
+<thead><tr><th></th><th>EcuM Fixed (4.3.1 and older)</th><th>EcuM Flex + BswM (R25-11)</th></tr></thead>
+<tbody>
+<tr><td>Communication allowed</td><td>EcuM calls <code class="term">ComM_CommunicationAllowed</code> for the channels of <code>EcuMComMCommunicationAllowedList</code>: TRUE after entering RUN, FALSE before leaving it</td><td>A BswM action list calls it (action <code>BswMComMAllowCom</code>) when a rule says so</td></tr>
+<tr><td>Keeping the ECU awake</td><td>ComM is a <span class="term">resource manager</span>: any channel out of no communication keeps the ECU in RUN, without a RUN request</td><td>Only if a BswM rule looks at the ComM mode (<code class="term">mode indication</code> through <code>BswM_ComM_CurrentMode</code>)</td></tr>
+<tr><td>Reading the channel state</td><td>EcuM polls <code class="term">ComM_GetState</code>: <code class="term">COMM_NO_COM_NO_PENDING_REQUEST</code> to leave RUN, <code class="term">COMM_NO_COM_REQUEST_PENDING</code> to return from POST_RUN</td><td>ComM reports its mode changes to BswM; <code>ComM_GetState</code> no longer exists (removed in 4.4.0)</td></tr>
+<tr><td>Wakeup</td><td colspan="2">The same in both: after validation EcuM calls <code class="term">ComM_EcuM_WakeUpIndication</code> for the channel configured in the wakeup source</td></tr>
+<tr><td>Initialization</td><td>EcuM Fixed initializes ComM and de-initializes it in GO_OFF_ONE</td><td>BswM action lists or the driver init lists of EcuM, as the integrator configures (lesson 26)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>APIs that exist in only one variant</h2>
+<p>Comparing the API chapters of the two 4.3.1 specifications gives these lists. Everything else (initialization, wakeup source handling, shutdown target, boot target, <code>EcuM_OnGoOffOne</code> and <code>EcuM_OnGoOffTwo</code>) exists in both.</p>
+<div class="side">
+  <div class="card m-ecum"><p class="tag">only EcuM Fixed</p><h3>State, kill and callouts</h3><p><code>EcuM_GetState</code>, <code>EcuM_KillAllRUNRequests</code>, <code>EcuM_KillAllPostRUNRequests</code>, <code>EcuM_GetStatusOfWakeupSource</code>, <code>EcuM_CB_NfyNvMJobEnd</code>; callouts <code>EcuM_AL_DriverInitTwo</code>, <code>EcuM_AL_DriverInitThree</code>, <code>EcuM_OnRTEStartup</code>, <code>EcuM_OnEnterRun</code>, <code>EcuM_OnExitRun</code>, <code>EcuM_OnExitPostRun</code>, <code>EcuM_OnPrepShutdown</code>, <code>EcuM_OnGoSleep</code>, <code>EcuM_OnWakeupReaction</code>.</p></div>
+  <div class="card m-bswm"><p class="tag">only EcuM Flex</p><h3>BswM interface, causes and alarms</h3><p><code class="term">EcuM_SetState</code>; <code>EcuM_GoDown</code>, <code>EcuM_GoHalt</code>, <code>EcuM_GoPoll</code> (since 4.4.0 <code class="term">EcuM_GoDownHaltPoll</code>); <code>EcuM_SelectShutdownCause</code>, <code>EcuM_GetShutdownCause</code>; the <span class="term">alarm clock</span>: <code>EcuM_SetRelWakeupAlarm</code>, <code>EcuM_SetAbsWakeupAlarm</code>, <code>EcuM_AbortWakeupAlarm</code>, <code>EcuM_GetCurrentTime</code>, <code>EcuM_GetWakeupTime</code>, <code>EcuM_SetClock</code>; callouts <code>EcuM_AL_DriverInitBswM_&lt;x&gt;</code>, <code>EcuM_AL_Reset</code>, <code>EcuM_AL_SetProgrammableInterrupts</code>. (<code>EcuM_LoopDetection</code> is defined only in the EcuM Flex specification, but the EcuM Fixed specification also draws it in its multi-core startup.)</p></div>
+</div>
+
+<h2>Fixed concept → Flex + BswM equivalent</h2>
+<div class="table-wrap">
+<table class="data">
+<thead><tr><th>EcuM Fixed</th><th>EcuM Flex + BswM</th></tr></thead>
+<tbody>
+<tr><td>Sub-states <code>ECUM_STATE_APP_RUN</code>, <code>ECUM_STATE_APP_POST_RUN</code></td><td>ECU Mode Handling: BswM switches the EcuM state with <code class="term">EcuM_SetState</code> (action <code>BswMEcuMStateSwitch</code>) to <code>ECUM_STATE_RUN</code> or <code>ECUM_STATE_POST_RUN</code></td></tr>
+<tr><td>Leaving RUN when the last RUN request is gone</td><td><code class="term">BswM_EcuM_RequestedState</code>(<code>ECUM_STATE_RUN</code>, <code>ECUM_RUNSTATUS_RELEASED</code>) as mode request <code>BswMEcuMRUNRequestIndication</code>, evaluated in a rule</td></tr>
+<tr><td><code>EcuMRunMinimumDuration</code></td><td>No EcuM parameter; a BswM timer (<code>BswMTimer</code>) in the rule can play the same role</td></tr>
+<tr><td><code>EcuMComMCommunicationAllowedList</code></td><td>Action <code>BswMComMAllowCom</code> per channel in an action list</td></tr>
+<tr><td>Polling <code>ComM_GetState</code></td><td>Mode request <code>BswMComMIndication</code> per channel, fed by <code>BswM_ComM_CurrentMode</code></td></tr>
+<tr><td>RUN state left, SHUTDOWN entered automatically</td><td>Actions <code>BswMEcuMSelectShutdownTarget</code> and <code>BswMEcuMGoDownHaltPoll</code></td></tr>
+<tr><td>Callouts <code>EcuM_OnEnterRun</code>, <code>EcuM_OnExitRun</code>, <code>EcuM_OnExitPostRun</code>, <code>EcuM_OnPrepShutdown</code>, <code>EcuM_OnGoSleep</code></td><td>A <code>BswMUserCallout</code> in the action list of the matching rule</td></tr>
+<tr><td><code>EcuM_AL_DriverInitTwo</code>, <code>EcuM_AL_DriverInitThree</code></td><td><code>EcuMDriverInitListBswM</code> (callout <code>EcuM_AL_DriverInitBswM_&lt;x&gt;</code>) and BswM action lists</td></tr>
+<tr><td>WAKEUP_REACTION, <code>EcuM_OnWakeupReaction</code></td><td>BswM rules on the wakeup source states (<code class="term">BswM_EcuM_CurrentWakeup</code>, mode request <code>BswMEcuMWakeupSource</code>)</td></tr>
+<tr><td><code>EcuM_KillAllRUNRequests</code></td><td>No equivalent API; a rule can start the shutdown directly with <code class="term">EcuM_GoDownHaltPoll</code></td></tr>
+<tr><td>TTII</td><td>No equivalent feature; the <span class="term">alarm clock</span> (lesson 31) and BswM rules that select the <span class="term">sleep mode</span> can build similar behaviour</td></tr>
+<tr><td><code>EcuMFixedUserConfig</code> / <code>EcuMFixedUser</code></td><td><code>EcuMFlexUserConfig</code> / <code>EcuMFlexUser</code></td></tr>
+<tr><td><code>EcuM_GetState</code></td><td>The SWCs use the mode port of EcuM; BSW modules use BswM modes</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Reading and migrating an EcuM Fixed project</h2>
+<ol>
+<li><strong>Recognise it.</strong> The EcuM configuration contains <code>EcuMFixedGeneral</code> and <code>EcuMConfiguration/EcuMFixedConfiguration</code>; the code calls <code>EcuM_OnEnterRun</code> and its siblings, or <code>ComM_GetState</code>.</li>
+<li><strong>List the RUN users.</strong> Every <code>EcuMFixedUser</code> becomes an <code>EcuMFlexUser</code>. The SWC calls stay as they are.</li>
+<li><strong>Write the RUN rule.</strong> Make the implicit conditions explicit: RUN request status, the ComM modes of the channels that used to keep the ECU alive, the minimum duration (a BswM timer). Each condition that EcuM Fixed checked by itself becomes a mode request in BswM.</li>
+<li><strong>Move the calls.</strong> <code>ComM_CommunicationAllowed</code> for the channels of <code>EcuMComMCommunicationAllowedList</code>, the code of the RUN and shutdown callouts and the shutdown itself move into action lists.</li>
+<li><strong>Replace what has no equivalent.</strong> TTII and <code>EcuM_KillAllRUNRequests</code> need their own design with the alarm clock and BswM rules.</li>
+<li><strong>Check the wakeup side.</strong> Wakeup sources, validation and <code class="term">ComM_EcuM_WakeUpIndication</code> work as before; the wakeup reaction becomes a BswM rule.</li>
+</ol>
+
+<div class="note">
+<p><strong>Things to notice.</strong> An SWC that places RUN requests sees almost no difference between the variants; the difference is that EcuM Fixed obeys the requests, while EcuM Flex only passes them on to BswM. Everything that EcuM Fixed did implicitly (keeping RUN for ComM, allowing communication, the minimum RUN time, shutting down) has to be written down as BswM rules when moving to EcuM Flex.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/classic/4-3-1/AUTOSAR_SWS_ECUStateManagerFixed.pdf">Specification of ECU State Manager with fixed state machine, 4.3.1</a>, chapters 7 and 8; <a href="https://www.autosar.org/fileadmin/standards/classic/4-3-1/AUTOSAR_SWS_ECUStateManager.pdf">Specification of ECU State Manager, 4.3.1</a>, chapter 8; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_ECUStateManager.pdf">Specification of ECU State Manager, R25-11</a>, chapters 1, 7 and 8; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of Basic Software Mode Manager, R25-11</a>, chapter 10; <a href="https://www.autosar.org/fileadmin/standards/classic/4-3-1/AUTOSAR_SWS_COMManager.pdf">Specification of Communication Manager, 4.3.1</a>, chapters 5.3 and 8.3.3.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/sequence.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const lanes = ['SWC', 'EcuM', 'BswM', 'ComM'];
+  const fixed = [
+    { ctx: 'SWC runnable', from: 'SWC', to: 'EcuM', call: 'EcuM_ReleaseRUN(BodyControl)', text: '<code>BodyControl</code> releases its RUN request. Nothing else happens yet.' },
+    { ctx: 'EcuM_MainFunction (BSW task)', from: 'EcuM', note: 'APP_RUN: no RUN request, minimum duration over', text: 'In its next main function cycle EcuM sees no RUN request and the minimum RUN duration over.' },
+    { from: 'EcuM', to: 'ComM', call: 'ComM_GetState(ChassisCan)', text: 'EcuM polls every ComM channel. Only idle channels allow it to leave RUN.' },
+    { from: 'ComM', to: 'EcuM', call: 'COMM_NO_COM_NO_PENDING_REQUEST', ret: true, text: 'The channel is idle. (EcuM asks <code>BodyCan</code> and <code>Eth</code> the same way.)' },
+    { from: 'EcuM', to: 'ComM', call: 'ComM_CommunicationAllowed(ChassisCan, FALSE)', text: 'For every channel of <code>EcuMComMCommunicationAllowedList</code>: communication is no longer allowed.' },
+    { from: 'EcuM', note: 'EcuM_OnExitRun(), enters APP_POST_RUN', text: 'The callout runs and EcuM enters APP_POST_RUN by itself.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_CurrentState(ECUM_STATE_APP_POST_RUN)', text: 'BswM is only told; it does not decide.' },
+    { ctx: 'EcuM_MainFunction (BSW task)', from: 'EcuM', note: 'no POST_RUN request: EcuM_OnExitPostRun()', text: 'No POST_RUN request is placed, so EcuM calls <code>EcuM_OnExitPostRun</code> and enters PREP_SHUTDOWN. The shutdown target was selected earlier or is the configured default.' }
+  ];
+  const flex = [
+    { ctx: 'SWC runnable', from: 'SWC', to: 'EcuM', call: 'EcuM_ReleaseRUN(BodyControl)', text: '<code>BodyControl</code> releases its RUN request, the last one.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_RequestedState(ECUM_STATE_RUN, ECUM_RUNSTATUS_RELEASED)', text: 'EcuM only reports the result of the RUN request protocol to BswM.' },
+    { ctx: 'BswM_MainFunction (BSW task)', from: 'BswM', note: 'rule: RUN released AND ChassisCan in COMM_NO_COMMUNICATION', text: 'BswM evaluates its rules. The ComM mode is known from an earlier <code>BswM_ComM_CurrentMode</code> indication. In this configuration the rule also checks a BswM timer.' },
+    { from: 'BswM', to: 'ComM', call: 'ComM_CommunicationAllowed(ChassisCan, FALSE)', text: 'The action list of the rule takes away communication allowed, channel by channel.' },
+    { from: 'BswM', to: 'EcuM', call: 'EcuM_SetState(ECUM_STATE_POST_RUN)', text: 'With ECU Mode Handling, BswM switches the EcuM state.' },
+    { from: 'EcuM', to: 'BswM', call: 'BswM_EcuM_RequestedState(ECUM_STATE_POST_RUN, ECUM_RUNSTATUS_RELEASED)', text: 'No POST_RUN request is placed; EcuM reports that as well.' },
+    { ctx: 'BswM_MainFunction (BSW task)', from: 'BswM', to: 'EcuM', call: 'EcuM_SelectShutdownTarget(ECUM_STATE_SLEEP, mode)', text: 'A second rule selects the shutdown target …' },
+    { from: 'BswM', to: 'EcuM', call: 'EcuM_GoDownHaltPoll(user)', text: '… and starts the sleep. Without these two actions the ECU would stay up forever.' }
+  ];
+  const seq = Sequence.create(document.getElementById('seq'), { lanes, steps: fixed, focus: ['EcuM'] });
+  const bF = document.getElementById('vFixed'), bX = document.getElementById('vFlex');
+  bF.addEventListener('click', () => { bF.setAttribute('aria-pressed', 'true'); bX.setAttribute('aria-pressed', 'false'); seq.set({ steps: fixed, focus: ['EcuM'] }); });
+  bX.addEventListener('click', () => { bX.setAttribute('aria-pressed', 'true'); bF.setAttribute('aria-pressed', 'false'); seq.set({ steps: flex, focus: ['BswM'] }); });
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'An SWC places EcuM_RequestRUN. In which variant does this alone keep the ECU running?',
+    options: ['EcuM Fixed: the RUN request holds RUN', 'EcuM Flex: EcuM holds the UP phase', 'Both: the API has the same name'],
+    answer: 0,
+    why: 'In EcuM Flex the request only reaches BswM through BswM_EcuM_RequestedState; a BswM rule decides.'
+  },
+  {
+    prompt: 'You migrate to EcuM Flex. What replaces EcuMComMCommunicationAllowedList?',
+    options: ['BswMComMAllowCom actions in an action list', 'A ComM parameter per channel in ComMChannel', 'Nothing: ComM allows communication itself'],
+    answer: 0,
+    why: 'With EcuM Flex, BswM calls ComM_CommunicationAllowed through the action BswMComMAllowCom.'
+  },
+  {
+    prompt: 'Which API exists only in EcuM Fixed?',
+    options: ['EcuM_KillAllRUNRequests', 'EcuM_SelectShutdownTarget', 'EcuM_ValidateWakeupEvent'],
+    answer: 0,
+    why: 'EcuM_KillAllRUNRequests clears every RUN request in EcuM Fixed. The other two exist in both variants.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>

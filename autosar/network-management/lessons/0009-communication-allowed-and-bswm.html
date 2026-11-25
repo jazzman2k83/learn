@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- learn-hub --><script src="../../../assets/hub.js"></script><link rel="stylesheet" href="../../../assets/hub-course.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Communication allowed, and BswM · Network Management</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.toggles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin: 0 0 0.9rem; }
+@media (max-width: 34rem) { .toggles { grid-template-columns: 1fr; } }
+.toggles button { width: 100%; text-align: left; padding: 0.55rem 0.7rem; line-height: 1.35; }
+.toggles button small { display: block; font-size: 0.72rem; color: var(--muted); }
+.toggles button[aria-pressed="true"] small { color: inherit; }
+.status { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.35rem 0.8rem; align-items: center; font-family: var(--sans); font-size: 0.82rem; }
+.status .state-pill { overflow-wrap: anywhere; max-width: 100%; }
+.status code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<nav class="learn-bar" aria-label="Course navigation"><a class="learn-home" href="../../../index.html">&larr; All courses</a><a class="learn-course" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><a class="learn-changes" href="../changes.html">What's new</a><button type="button" class="learn-theme" data-learn-theme>&#9790;</button></nav>
+<header class="topbar"><a class="brand" href="../index.html">Network and Mode Management in AUTOSAR Classic</a><button type="button" class="theme-toggle" data-theme-toggle>☾ Dark</button></header>
+<main>
+
+<p class="kicker" data-kicker>Network Management</p>
+<h1>Communication allowed, and BswM</h1>
+<p class="lede">A request alone does not switch a channel on. <span class="term">ComM</span> also waits until <span class="term">BswM</span> says that communication on the channel is allowed, and once the channel communicates, BswM starts the I-PDUs that belong to it.</p>
+
+<p>This lesson shows the two places where ComM and BswM meet: the flag that lets a channel leave no communication, and the reaction of BswM when a channel reaches full communication.</p>
+
+<h2>A second condition for leaving no communication</h2>
+<p>ComM keeps one <span class="term">communication allowed</span> flag (a flag per channel that BswM sets; ComM leaves no communication only while it is TRUE) for every <span class="term">channel</span>. After ComM is initialized, every flag is FALSE.</p>
+<p>When a <span class="term">ComM user</span> requests full communication on a channel in <code class="term">COMM_NO_COM_NO_PENDING_REQUEST</code>, the channel moves to <code class="term">COMM_NO_COM_REQUEST_PENDING</code>. There it waits for the flag. As soon as the flag is TRUE, the channel switches to <code class="term">COMM_FULL_COMMUNICATION</code>. If the request is withdrawn before that, the channel goes back to <code>COMM_NO_COM_NO_PENDING_REQUEST</code>.</p>
+<p>ComM reads the flag <em>only</em> in <code>COMM_NO_COM_REQUEST_PENDING</code>. Setting it to FALSE while the channel is in full communication has no visible effect: the channel does not drop to no communication. The flag is a gate on the way up, not a switch that turns the channel off.</p>
+
+<h2>BswM sets the flag</h2>
+<p>The flag is set through <code class="term">ComM_CommunicationAllowed</code> (the ComM function that sets communication allowed for one channel to TRUE or FALSE). With the ECU State Manager of R25-11, <span class="term">BswM</span> calls it. BswM does this only because it is configured to: one of its <span class="term">rules</span> (a configured condition on the modes BswM knows, evaluated to true or false) starts an <span class="term">action list</span> (the configured actions BswM executes for a rule result) that contains the action "allow communication for channel X".</p>
+<p>The idea is that communication is allowed once the ECU has started, or has woken up and finished its checks of the <span class="term">wakeup</span>, so that the channel can work reliably. On the body gateway, the action lists of BswM allow <code>BodyCan</code>, <code>ChassisCan</code> and <code>Eth</code> at that point. Lesson 27 shows how such rules are built.</p>
+
+<h2>When the channel reaches full communication</h2>
+<p>ComM does not touch the I-PDUs of <span class="term">COM</span> itself. It reports every change of the main state of a channel to BswM, and the <span class="term">bus state manager</span> reports the mode the bus has actually reached, which ComM passes on to its users and to BswM. A BswM rule on "channel <code>ChassisCan</code> is in <code>COMM_FULL_COMMUNICATION</code>" can then start the <span class="term">I-PDU groups</span> of chassis CAN in COM, and a rule on silent or no communication stops them again.</p>
+<figure class="fig wide">
+<div class="scroll">
+<svg viewBox="0 0 680 200" role="img" aria-labelledby="f9t">
+<title id="f9t">BswM allows communication for ChassisCan; ComM switches the channel to full communication through CanSM; CanSM reports the mode, ComM passes it to BswM; BswM starts the I-PDU groups of chassis CAN in COM.</title>
+<defs><marker id="f9-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect x="20" y="20" width="150" height="44" class="m-bswm"/><text x="95" y="47" class="d-tb d-c">BswM</text>
+<rect x="265" y="20" width="150" height="44" class="m-comm"/><text x="340" y="47" class="d-tb d-c">ComM</text>
+<rect x="265" y="140" width="150" height="44" class="m-sm"/><text x="340" y="167" class="d-tb d-c">CanSM</text>
+<rect x="510" y="20" width="150" height="44" class="m-com"/><text x="585" y="47" class="d-tb d-c">COM</text>
+<line x1="170" y1="32" x2="263" y2="32" class="d-ln" marker-end="url(#f9-ah)"/>
+<text x="216" y="14" class="d-s d-c">1 communication allowed</text>
+<line x1="325" y1="64" x2="325" y2="138" class="d-ln" marker-end="url(#f9-ah)"/>
+<text x="318" y="100" class="d-s d-r">2 request full</text><text x="318" y="113" class="d-s d-r">communication</text>
+<line x1="355" y1="140" x2="355" y2="66" class="d-ln" marker-end="url(#f9-ah)"/>
+<text x="362" y="100" class="d-s">3 bus is in full</text><text x="362" y="113" class="d-s">communication</text>
+<line x1="263" y1="54" x2="172" y2="54" class="d-ln" marker-end="url(#f9-ah)"/>
+<text x="216" y="80" class="d-s d-c">4 channel mode</text>
+<path d="M95,64 L95,120 L585,120 L585,66" class="d-ln" marker-end="url(#f9-ah)"/>
+<text x="505" y="137" class="d-s d-c">5 start the I-PDU groups</text>
+</svg>
+</div>
+<figcaption><b>Figure 1.</b> BswM is on both ends: it lets the channel come up (1), and it reacts when the channel is up (4, 5). Arrows 1 and 5 happen only because BswM is configured that way.</figcaption>
+</figure>
+
+<h2>Try it</h2>
+<p>Switch the request of <code>UserChassis</code> and the flag for <code>ChassisCan</code> on and off, in either order. Going to sleep is shortened here: assume the other ECUs on chassis CAN are already done.</p>
+<div class="panel no-print" id="csim">
+<div class="toggles">
+<button type="button" aria-pressed="false" data-k="req">UserChassis<small>does not request full communication</small></button>
+<button type="button" aria-pressed="false" data-k="allow">BswM: communication allowed for ChassisCan<small>FALSE</small></button>
+</div>
+<div class="status">
+<span>ChassisCan</span><span><span class="state-pill" id="c-state"></span></span>
+<span>I-PDU groups</span><span><span class="state-pill" id="c-pdu"></span></span>
+</div>
+<p class="readout" id="c-why" aria-live="polite"></p>
+</div>
+
+<div class="note">
+<p><strong>Things to notice.</strong> Order does not matter on the way up: request first and the channel waits in <code>COMM_NO_COM_REQUEST_PENDING</code>; allow first and the request goes straight through. Withdrawing the flag later changes nothing. The I-PDU groups follow the channel only because a BswM rule makes them.</p>
+</div>
+
+<h2>Check yourself <span class="opt">optional</span></h2>
+<p>Answer from memory.</p>
+<div id="quiz" class="no-print"></div>
+
+<h2>New terms in this lesson</h2>
+<div class="table-wrap">
+<table class="data words">
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><span class="term">communication allowed</span></td><td>A flag per channel, FALSE after initialization; ComM reads it only in <code>COMM_NO_COM_REQUEST_PENDING</code> and goes to full communication when it is TRUE</td></tr>
+<tr><td><code class="term">ComM_CommunicationAllowed</code></td><td>The ComM function that sets communication allowed for one channel; called by BswM</td></tr>
+</tbody>
+</table>
+</div>
+<p class="source">Source: <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_COMManager.pdf">Specification of Communication Manager, R25-11</a>, sections 7.2.1 and 7.2.2 and the definition of ComM_CommunicationAllowed; <a href="https://www.autosar.org/fileadmin/standards/R25-11/CP/AUTOSAR_CP_SWS_BSWModeManager.pdf">Specification of Basic Software Mode Manager, R25-11</a>, section 5.4 and the actions BswMComMAllowCom and BswMPduGroupSwitch.</p>
+
+<nav class="course" data-nav></nav>
+
+</main>
+<script src="../assets/course.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  const SLEEP = 2500; // ms, scaled: ready sleep until the bus sleeps
+  let req = false, allow = false, st = 'NO_PENDING', timer = 0;
+  const bReq = document.querySelector('#csim [data-k="req"]');
+  const bAllow = document.querySelector('#csim [data-k="allow"]');
+  const pill = document.getElementById('c-state');
+  const pdu = document.getElementById('c-pdu');
+  const why = document.getElementById('c-why');
+  const NAMES = {
+    NO_PENDING: 'COMM_NO_COM_NO_PENDING_REQUEST', PENDING: 'COMM_NO_COM_REQUEST_PENDING',
+    NR: 'COMM_FULL_COM_NETWORK_REQUESTED', RS: 'COMM_FULL_COM_READY_SLEEP'
+  };
+  function render() {
+    bReq.setAttribute('aria-pressed', String(req));
+    bReq.querySelector('small').textContent = req ? 'requests full communication' : 'does not request full communication';
+    bAllow.setAttribute('aria-pressed', String(allow));
+    bAllow.querySelector('small').textContent = allow ? 'TRUE' : 'FALSE';
+    pill.textContent = NAMES[st];
+    const full = st === 'NR' || st === 'RS';
+    pill.className = 'state-pill ' + (full ? 'on' : st === 'PENDING' ? '' : 'off');
+    pdu.textContent = full ? 'started by BswM' : 'stopped';
+    pdu.className = 'state-pill ' + (full ? 'on' : 'off');
+  }
+  function goFull() {
+    st = 'NR';
+    why.textContent = 'Communication is allowed: COMM_FULL_COMMUNICATION. CanSM brings the bus up and reports it; ComM passes the mode to BswM, and a BswM rule starts the I-PDU groups of chassis CAN.';
+  }
+  bReq.addEventListener('click', () => {
+    req = !req;
+    clearTimeout(timer);
+    if (req) {
+      if (st === 'NO_PENDING') {
+        st = 'PENDING';
+        if (allow) goFull();
+        else why.textContent = 'Request received: COMM_NO_COM_REQUEST_PENDING. The channel waits until BswM allows communication.';
+      } else if (st === 'RS') {
+        st = 'NR';
+        why.textContent = 'Requested again while still awake: back to COMM_FULL_COM_NETWORK_REQUESTED. The flag is not looked at here.';
+      }
+    } else {
+      if (st === 'PENDING') {
+        st = 'NO_PENDING';
+        why.textContent = 'The request is withdrawn before communication was allowed: back to COMM_NO_COM_NO_PENDING_REQUEST.';
+      } else if (st === 'NR') {
+        st = 'RS';
+        why.textContent = 'The last request is released: COMM_FULL_COM_READY_SLEEP. The bus goes to sleep shortly (shortened here).';
+        timer = setTimeout(() => {
+          st = 'NO_PENDING';
+          why.textContent = 'The bus is asleep: COMM_NO_COMMUNICATION. ComM reports it, and a BswM rule stops the I-PDU groups. The flag stays as it is.';
+          render();
+        }, SLEEP);
+      }
+    }
+    render();
+  });
+  bAllow.addEventListener('click', () => {
+    allow = !allow;
+    if (allow && st === 'PENDING') goFull();
+    else if (st === 'NR' || st === 'RS') why.textContent = 'Communication allowed is now ' + (allow ? 'TRUE' : 'FALSE') + '. No effect: ComM reads the flag only in COMM_NO_COM_REQUEST_PENDING.';
+    else why.textContent = 'Communication allowed is now ' + (allow ? 'TRUE' : 'FALSE') + '. It matters only when a request is pending.';
+    render();
+  });
+  why.textContent = 'Nothing is requested and communication is not allowed: the defaults after initialization.';
+  render();
+})();
+
+Quiz.mount(document.getElementById('quiz'), [
+  {
+    prompt: 'A channel is in COMM_FULL_COMMUNICATION and BswM sets communication allowed to FALSE. What happens?',
+    options: ['Nothing visible; the channel stays up', 'The channel drops to no communication', 'The channel goes to silent communication'],
+    answer: 0,
+    why: 'ComM reads the flag only in COMM_NO_COM_REQUEST_PENDING. It is a gate on the way up, not a switch-off.'
+  },
+  {
+    prompt: 'Which module calls ComM_CommunicationAllowed in R25-11?',
+    options: ['BswM, through a configured action', 'COM, when an I-PDU group starts', 'CanSM, when the bus has come up'],
+    answer: 0,
+    why: 'BswM calls it when one of its rules runs an action list with the "allow communication" action for that channel.'
+  },
+  {
+    prompt: 'Who starts the I-PDU groups when a channel reaches full communication?',
+    options: ['BswM, if a rule is configured', 'ComM, as part of its state change', 'CanSM, after the controller starts'],
+    answer: 0,
+    why: 'ComM only reports the channel mode. A BswM rule on that mode runs an action that starts the I-PDU groups in COM.'
+  }
+]);
+</script>
+<footer class="learn-notice">Unofficial course, written with AI and not fully reviewed yet: it can contain mistakes. No warranty. <a href="../../../about.html">About</a></footer>
+</body>
+</html>
